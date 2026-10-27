@@ -117,6 +117,9 @@ diagnostic_ids! {
     /// Document 28, added by D-909: an asset's colour space is a word this build does not have.
     /// The word is kept and saved back; the asset draws nothing.
     ColorSpaceUnknown = ("COLOR_SPACE_UNKNOWN", true),
+    /// Document 28, added by D-910: 8 bpc (AE) or 32 bpc (AE) with colour management on, chosen
+    /// in a composition's settings or found in a project file. Refused; nothing changes.
+    ColorDepthRefused = ("COLOR_DEPTH_REFUSED", true),
     /// Document 28, added by D-71: a WAV file's data ends before its header says. What is
     /// there plays.
     MediaAudioCutShort = ("MEDIA_AUDIO_CUT_SHORT", true),
@@ -338,6 +341,19 @@ impl Diagnostic {
     pub fn with_remediation(mut self, remediation: impl Into<String>) -> Self {
         self.remediation = Some(remediation.into());
         self
+    }
+
+    /// D-910: 8 bpc (AE) or 32 bpc (AE) with colour management on, refused at opening and when
+    /// chosen in a composition's settings, with the same words.
+    pub fn color_depth_refused(detail: impl Into<String>) -> Self {
+        Diagnostic::new(
+            DiagnosticId::ColorDepthRefused,
+            Severity::Error,
+            "With colour management on, a composition works in Display or Float: 8 bpc (AE) and \
+             32 bpc (AE) copy After Effects without colour management.",
+            detail,
+        )
+        .with_remediation("Choose Display or Float in the composition's settings.")
     }
 
     /// One diagnostic as the window says it: what happened, then what to do about it.

@@ -24775,6 +24775,14 @@ impl Gpu {
 
     /// Why this plan cannot go to the card, if it cannot.
     fn refuse(&self, plan: &FramePlan) -> Option<Diagnostic> {
+        // D-910: a frame laid in Rec.709 and taken back to ACEScg is the processor's for now.
+        if plan.working.is_some() {
+            return Some(on_cpu(
+                Severity::Info,
+                "The CPU drew this frame: the project works in ACEScg, which the graphics card does not draw yet.".into(),
+                "D-910 (ADR-023 step C4): colour management's working gamut is drawn by the processor until the card learns it.".into(),
+            ));
+        }
         // D-763: 8 bpc (After Effects) lays its layers together in display values. B-688 (D-808):
         // the card does too, and rounds as the CPU does with its double-precision passes. B-749
         // (D-869): so it lays an adjustment layer and a Light Wrap there too.

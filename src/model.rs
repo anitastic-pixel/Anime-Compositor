@@ -1922,6 +1922,13 @@ impl Project {
         read
     }
 
+    /// D-910: the working space's primaries when they are not Rec.709's, the only case where a
+    /// stored colour or a display-value rule is converted.
+    pub fn working(&self) -> Option<crate::color::Gamut> {
+        self.color_management
+            .filter(|g| *g != crate::color::Gamut::Rec709)
+    }
+
     pub fn composition(&self, id: &Id) -> Option<&Composition> {
         self.compositions.iter().find(|c| &c.id == id)
     }

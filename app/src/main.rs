@@ -786,6 +786,7 @@ fn boxes_of(sight: &Sight, frame: i32, cache: &Mutex<CelCache>) -> serde_json::V
         Err(_) => anime_compositor::render::FramePlan {
             float: false,
             display: false,
+            working: None,
             width: 0,
             height: 0,
             layers: Vec::new(),

@@ -2213,7 +2213,7 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
         };
         // D-71, D-182: a sound or a lookup file has no colours to interpret.
         if matches!(slot.kind, AssetKind::Audio | AssetKind::Lut)
-            || *color_space == crate::ColorSpace::Unknown
+            || matches!(color_space, crate::ColorSpace::Unknown(_))
         {
             return Err(reject(
                 &format!("{} has no colour space to choose.", slot.name),
@@ -3032,6 +3032,13 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
                     "32 bpc (After Effects) is a kind of Float: turn Float on with it.",
                     "D-333: `ae_32bpc` is only on with `float_depth`.",
                 ));
+            }
+            if project.color_management.is_some() && (*eight_bpc || *ae_32bpc) {
+                return Err(Diagnostic::color_depth_refused(format!(
+                    "D-910: composition {comp_id} asked for {} with colour management on; \
+                     the project is unchanged.",
+                    if *eight_bpc { "8 bpc (AE)" } else { "32 bpc (AE)" },
+                )));
             }
             if background_color.is_some_and(|c| c.iter().any(|v| !(0.0..=1.0).contains(v))) {
                 return Err(reject(

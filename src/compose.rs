@@ -286,6 +286,10 @@ fn inner_key(
         key.push_str(&format!("{:?}\n", project.composition(id)));
     }
     key.push_str(&format!("{:?}", project.assets));
+    // D-910: the working space, only when it changes the picture, so every other key is as it was.
+    if let Some(g) = project.working() {
+        key.push_str(&format!("\n{g:?}"));
+    }
     Some(key)
 }
 
@@ -350,6 +354,8 @@ fn plan_inside(
         ));
     };
     let float = float_depth(project, above, comp);
+    // D-910: the card does not draw ACEScg yet, so no effect is left for it.
+    let card = card && project.working().is_none();
 
     // Step 1: validate the composition frame. Document 28 names no identifier for a render
     // request outside the composition's own range; D-26 registers that gap and this reuse.
@@ -471,6 +477,7 @@ fn plan_inside(
                             },
                             reference.mode,
                             comp,
+                            project.working(),
                         ))
                     })
                 }
@@ -608,6 +615,7 @@ fn plan_inside(
         height: comp.height as usize,
         float,
         display: bits(project, above, comp) == crate::effects::Bits::Eight,
+        working: project.working(),
         layers: layers.into_iter().map(|(_, draw)| draw).collect(),
     })
 }
@@ -657,6 +665,7 @@ fn matte_coverage(
     matte: render::MatteDraw,
     mode: crate::model::MatteMode,
     comp: &crate::model::Composition,
+    working: Option<crate::color::Gamut>,
 ) -> render::MatteDraw {
     use crate::model::MatteMode as M;
     use rayon::prelude::*;
@@ -665,12 +674,20 @@ fn matte_coverage(
     }
     let (w, h) = (comp.width as usize, comp.height as usize);
     let mut flat = render::average(&matte.source, &[Some(matte.transform)], w, h);
+    // D-910: the luma of the colour as linear Rec.709 numbers: Rec.709's weights taken through
+    // the matrix from the working space, so a pixel is not converted.
+    let [r, g, b] = match working {
+        None => [0.2126, 0.7152, 0.0722],
+        Some(from) => {
+            let m = crate::color::gamut_matrix(from, crate::color::Gamut::Rec709);
+            [0, 1, 2].map(|j| 0.2126 * m[0][j] + 0.7152 * m[1][j] + 0.0722 * m[2][j])
+        }
+    };
     flat.data_mut().par_chunks_exact_mut(4).for_each(|p| {
         let v = match mode {
             // The picture luma of a premultiplied pixel: its colour over black, encoded.
             M::Luma | M::LumaInverted => crate::grade::to_srgb(
-                (0.2126 * p[0] as f64 + 0.7152 * p[1] as f64 + 0.0722 * p[2] as f64)
-                    .clamp(0.0, 1.0),
+                (r * p[0] as f64 + g * p[1] as f64 + b * p[2] as f64).clamp(0.0, 1.0),
             ),
             M::Alpha | M::AlphaInverted => p[3] as f64,
         };
@@ -755,7 +772,7 @@ fn exposed_cel(
     let local = layer.source_time(frame)?.floor() as i32;
     let relative = source_at(layer.exposure_spans.clone(), asset, local, frame).ok()??;
     let read = project.interpretation(asset);
-    (read.color_space != crate::ColorSpace::Unknown).then(|| (root.join(relative), read))
+    (!matches!(read.color_space, crate::ColorSpace::Unknown(_))).then(|| (root.join(relative), read))
 }
 
 /// D-57's `M_world` for a chain of layers, with the two things keeping place needs that the
@@ -3051,6 +3068,18 @@ fn resolve_held(
             (picture, None)
         }
     };
+    // D-910: a solid's colour and a text's or shape's drawing are linear Rec.709 numbers, always;
+    // with colour management working in ACEScg they go into it here, once.
+    let drawn_colour = !layer.is_adjustment()
+        && (layer.solid.is_some()
+            || layer.text.is_some()
+            || layer.kind == crate::model::LayerKind::Shape);
+    let source = match project.working() {
+        Some(g) if drawn_colour => {
+            WorkingBuffer::converted(source, crate::color::Gamut::Rec709, g)
+        }
+        _ => source,
+    };
     // D-99: in a draft preview a drawing with effects is taken down to the draft size first,
     // sampled exactly as the draft frame samples it, and its stack runs on that - a sixteenth of
     // the pixels - as D-67 already does for a composition layer's picture. D-189: a map at a
@@ -3071,6 +3100,7 @@ fn resolve_held(
                 height: source.height(),
                 float: false,
                 display: false,
+                working: None,
                 layers: vec![LayerDraw {
                     id: layer.id.clone(),
                     source,
@@ -3152,7 +3182,7 @@ fn decode_cel(
     let path = root.join(&relative);
     let read = project.interpretation(asset);
     // D-909: a colour-space word this build does not have draws nothing, never a guess.
-    if read.color_space == crate::ColorSpace::Unknown {
+    if matches!(read.color_space, crate::ColorSpace::Unknown(_)) {
         log.record(
             frame,
             layer.name.clone(),
@@ -4805,13 +4835,12 @@ fn resolve_rest(
                     instance.effect.scale_distances(|d| d / pre);
                 }
             }
-            crate::effects::apply_stack_at(
-                std::sync::Arc::make_mut(&mut source),
-                &stack,
-                (0, 0),
-                bits,
-                |_, instance, why| report(instance, why),
-            )
+            // D-910: every effect runs on linear Rec.709 numbers, whatever the working space.
+            std::sync::Arc::make_mut(&mut source).in_rec709(project.working(), |pixels| {
+                crate::effects::apply_stack_at(pixels, &stack, (0, 0), bits, |_, instance, why| {
+                    report(instance, why)
+                })
+            })
         }
         Some((path, interpretation)) => {
             // D-99: a cel taken down to draft size runs its stack with every distance divided
@@ -4841,16 +4870,14 @@ fn resolve_rest(
                     std::sync::Arc::make_mut(&mut source)
                 });
                 let mut bypassed: Vec<(usize, crate::effects::Bypassed)> = Vec::new();
-                let offset = crate::effects::apply_stack_at(
-                    pixels,
-                    &stack,
-                    (0, 0),
-                    bits,
-                    |at, instance, why| {
+                // D-910: on linear Rec.709 numbers, as above. The result kept is in the working
+                // space, under a key whose interpretation names it (D-909).
+                let offset = pixels.in_rec709(project.working(), |pixels| {
+                    crate::effects::apply_stack_at(pixels, &stack, (0, 0), bits, |at, instance, why| {
                         bypassed.push((at, why));
                         report(instance, why);
-                    },
-                );
+                    })
+                });
                 if plain {
                     cache.store_effect(
                         path,
@@ -4874,6 +4901,12 @@ fn resolve_rest(
             source
         } else {
             std::sync::Arc::new(crate::layer_map::cut(&source, offset, step1))
+        };
+        // D-910: a picture another layer's effect reads is read as linear Rec.709, as the
+        // effect itself runs.
+        let source = match project.working() {
+            Some(g) => WorkingBuffer::converted(source, g, crate::color::Gamut::Rec709),
+            None => source,
         };
         return Some(ResolvedLayer {
             source,
@@ -5896,7 +5929,14 @@ fn fill_stats(
                 false,
                 false,
             )
-            .and_then(|r| crate::frame_stats::Stats::of(&r.source))
+            // D-910: read as the effect that uses them runs, on linear Rec.709 numbers.
+            .and_then(|r| {
+                let source = match project.working() {
+                    Some(g) => WorkingBuffer::converted(r.source, g, crate::color::Gamut::Rec709),
+                    None => r.source,
+                };
+                crate::frame_stats::Stats::of(&source)
+            })
         };
         let own = read(frame);
         let mut counted: Vec<crate::frame_stats::Stats> = own.iter().cloned().collect();

@@ -593,7 +593,7 @@ fn widen(
         // Never, for bytes that widened once already; the decode's own steps say why if it were.
         return Ok(retag(media::from_8bit(path, *w, *h, rgba)?, interpretation).into_working());
     }
-    if interpretation.color_space == crate::ColorSpace::Unknown {
+    if matches!(interpretation.color_space, crate::ColorSpace::Unknown(_)) {
         // D-909: as `into_working` makes it, every sample 0.
         return Ok(WorkingBuffer::transparent(*w, *h));
     }
@@ -630,7 +630,7 @@ fn tables(interpretation: Interpretation) -> ([f32; 256], [f32; 256], bool) {
         crate::ColorSpace::LinearLight => c,
         // D-909: one table per curve; the matrix, if any, follows per pixel.
         crate::ColorSpace::Named(s, _) => s.curve.to_linear(c),
-        crate::ColorSpace::Unknown => 0.0,
+        crate::ColorSpace::Unknown(_) => 0.0,
     });
     (alpha, colour, interpretation.alpha == crate::AlphaMode::Straight)
 }
@@ -654,7 +654,8 @@ fn matrix(interpretation: Interpretation) -> Option<[[f64; 3]; 3]> {
 fn narrow(interpretation: Interpretation, floats: &WorkingBuffer) -> Option<Compact> {
     // D-909: after a matrix a sample is no longer one of a byte's 256 values; such a drawing is
     // held as floats. So is one whose space is unknown, which is transparent anyway.
-    if matrix(interpretation).is_some() || interpretation.color_space == crate::ColorSpace::Unknown
+    if matrix(interpretation).is_some()
+        || matches!(interpretation.color_space, crate::ColorSpace::Unknown(_))
     {
         return None;
     }

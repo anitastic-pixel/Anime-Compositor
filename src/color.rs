@@ -226,6 +226,19 @@ pub fn apply_f32(m: &M3, rgb: [f32; 3]) -> [f32; 3] {
     apply(m, rgb.map(f64::from)).map(|c| c as f32)
 }
 
+/// D-910: every pixel of a premultiplied RGBA picture through [`gamut_matrix`]`(from, to)`, alpha
+/// untouched (a matrix commutes with premultiplying). The 25 matrices are worked out once.
+pub fn convert_rgba(data: &mut [f32], from: Gamut, to: Gamut) {
+    use rayon::prelude::*;
+    static ALL: std::sync::OnceLock<[[M3; 5]; 5]> = std::sync::OnceLock::new();
+    let m = &ALL.get_or_init(|| Gamut::ALL.map(|f| Gamut::ALL.map(|t| gamut_matrix(f, t))))
+        [from as usize][to as usize];
+    data.par_chunks_mut(4).for_each(|px| {
+        let c = apply_f32(m, [px[0], px[1], px[2]]);
+        px[..3].copy_from_slice(&c);
+    });
+}
+
 /// A transfer curve: how a stored number relates to linear light.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Curve {

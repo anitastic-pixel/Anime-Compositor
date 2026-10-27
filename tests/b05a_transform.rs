@@ -87,6 +87,7 @@ fn plan(width: usize, height: usize, layers: Vec<LayerDraw>) -> FramePlan {
     FramePlan {
         float: false,
         display: false,
+        working: None,
         width,
         height,
         layers,

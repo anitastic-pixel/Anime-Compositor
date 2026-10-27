@@ -282,6 +282,7 @@ fn b748_card_blend_modes() {
                     height: 512,
                     float: false,
                     display,
+                    working: None,
                     layers: vec![
                         layer("under", backdrop.clone(), Affine::IDENTITY, 1.0, BlendMode::Normal, false),
                         layer("top", top.clone(), Affine::translation(100.0, 100.0), 0.7, mode, preserve),
@@ -312,6 +313,7 @@ fn b748_card_blend_modes() {
             height: 512,
             float: false,
             display: false,
+            working: None,
             layers: vec![
                 layer("under", backdrop.clone(), Affine::IDENTITY, 1.0, BlendMode::Normal, false),
                 layer("top", top.clone(), Affine::scaling(0.0, 0.0), 1.0, mode, false),
@@ -339,6 +341,7 @@ fn b748_card_blend_modes() {
             height: 512,
             float: true,
             display: false,
+            working: None,
             layers: vec![
                 layer("under", backdrop.clone(), Affine::IDENTITY, 1.0, BlendMode::Normal, false),
                 layer("top", top.clone(), Affine::translation(100.0, 100.0), 0.7, mode, false),

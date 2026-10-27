@@ -95,6 +95,7 @@ fn fixture_plan() -> FramePlan {
     FramePlan {
         float: false,
         display: false,
+        working: None,
         width: 4,
         height: 4,
         layers: vec![
@@ -289,6 +290,7 @@ fn b05b_trace_fixtures() {
         &FramePlan {
             float: false,
             display: false,
+            working: None,
             width: 4,
             height: 4,
             layers: vec![LayerDraw {
@@ -333,6 +335,7 @@ fn b05b_trace_fixtures() {
         &FramePlan {
             float: false,
             display: false,
+            working: None,
             width: 4,
             height: 4,
             layers: vec![plan.layers[1].clone()],
@@ -354,6 +357,7 @@ fn b05b_trace_fixtures() {
         &FramePlan {
             float: false,
             display: false,
+            working: None,
             width: 4,
             height: 4,
             layers: vec![plan.layers[0].clone()],
@@ -524,6 +528,7 @@ fn b05b_trace_fixtures() {
     let awkward = FramePlan {
         float: false,
         display: false,
+        working: None,
         width: 2,
         height: 2,
         layers: vec![
@@ -634,6 +639,7 @@ fn b05b_a_unicode_layer_id_survives_the_round_trip() {
     let plan = FramePlan {
         float: false,
         display: false,
+        working: None,
         width: 2,
         height: 2,
         layers: vec![LayerDraw {
@@ -756,6 +762,7 @@ fn reference_plan() -> Option<FramePlan> {
     Some(FramePlan {
         float: false,
         display: false,
+        working: None,
         width: 1920,
         height: 1080,
         layers,

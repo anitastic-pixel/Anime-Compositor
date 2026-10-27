@@ -423,6 +423,7 @@ fn matte(report: &mut Report) {
     let plan = FramePlan {
         float: false,
         display: false,
+        working: None,
         width: 4,
         height: 4,
         layers: vec![LayerDraw {
@@ -459,6 +460,7 @@ fn matte(report: &mut Report) {
     let plan = FramePlan {
         float: false,
         display: false,
+        working: None,
         width: 4,
         height: 4,
         layers: vec![LayerDraw {
@@ -504,6 +506,7 @@ fn matte(report: &mut Report) {
         let plan = FramePlan {
             float: false,
             display: false,
+            working: None,
             width: 4,
             height: 4,
             layers: vec![LayerDraw {
@@ -545,6 +548,7 @@ fn matte(report: &mut Report) {
     let plan = FramePlan {
         float: false,
         display: false,
+        working: None,
         width: 4,
         height: 4,
         layers: vec![LayerDraw {

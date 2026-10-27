@@ -527,8 +527,13 @@ fn interpretation_json(base: Option<&J>, interpretation: Interpretation) -> J {
             AlphaMode::Premultiplied => "premultiplied",
         }),
     )];
-    // D-909: a word this build does not have is not written over; the base keeps it.
-    if let Some(word) = interpretation.color_space.word() {
+    // D-909: a word this build does not have is saved back as it was read (D-910: from the
+    // asset itself, so an asset with no base record keeps it too).
+    let word = match interpretation.color_space {
+        ColorSpace::Unknown(word) => Some(word),
+        known => known.word(),
+    };
+    if let Some(word) = word {
         owned.insert(0, ("color_space", J::from(word)));
     }
     merge(base, owned)
@@ -8618,11 +8623,8 @@ fn four_numbers(v: &J, pointer: &str, names: &str) -> Result<[f64; 4], Diagnosti
 fn parse_interpretation(v: &J, pointer: &str) -> Result<Interpretation, Diagnostic> {
     as_object(v, pointer)?;
     // D-909: a word this build does not have is kept (the base) and reported at load.
-    let color_space = ColorSpace::from_word(as_str(
-        field(v, pointer, "color_space")?,
-        &format!("{pointer}/color_space"),
-    )?)
-    .unwrap_or(ColorSpace::Unknown);
+    let word = as_str(field(v, pointer, "color_space")?, &format!("{pointer}/color_space"))?;
+    let color_space = ColorSpace::from_word(word).unwrap_or_else(|| ColorSpace::unknown(word));
     let alpha = match as_enum(
         field(v, pointer, "alpha")?,
         &format!("{pointer}/alpha"),
@@ -14845,23 +14847,22 @@ pub fn load_str(text: &str) -> Result<Loaded, Diagnostic> {
         .enumerate()
     {
         let asset = parse_asset(raw, &format!("/assets/{i}"))?;
-        if asset.interpretation.color_space == ColorSpace::Unknown {
-            let word = raw["interpretation"]["color_space"].as_str().unwrap_or_default();
+        if let ColorSpace::Unknown(word) = asset.interpretation.color_space {
             warnings.push(
                 Diagnostic::new(
                     DiagnosticId::ColorSpaceUnknown,
                     Severity::Warning,
                     format!(
-                        "{} is stored in the colour space \"{word}\", which this version does                          not know, so it is not drawn.",
+                        "{} is stored in the colour space \"{word}\", which this version does not know, so it is not drawn.",
                         asset.name
                     ),
                     format!(
-                        "Asset {} at /assets/{i}/interpretation/color_space says \"{word}\";                          the word is kept and saved back unchanged, and the asset draws as                          missing rather than as sRGB.",
+                        "Asset {} at /assets/{i}/interpretation/color_space says \"{word}\"; the word is kept and saved back unchanged, and the asset draws as missing rather than as sRGB.",
                         asset.id
                     ),
                 )
                 .with_remediation(
-                    "Choose what the file is in under Interpret as, in the Project panel, or                      open the project in the version that wrote it.",
+                    "Choose what the file is in under Interpret as, in the Project panel, or open the project in the version that wrote it.",
                 ),
             );
         }
@@ -14890,6 +14891,26 @@ pub fn load_str(text: &str) -> Result<Loaded, Diagnostic> {
             ));
         }
         project.compositions.push(composition);
+    }
+
+    // D-910: with colour management on a composition works in Display or Float. No build writes
+    // one in an After Effects depth, and drawing it either way would be a guess.
+    if project.color_management.is_some() {
+        if let Some(i) = project
+            .compositions
+            .iter()
+            .position(|c| c.eight_bpc || c.ae_32bpc)
+        {
+            let c = &project.compositions[i];
+            let depth = if c.eight_bpc { "eight_bpc" } else { "ae_32bpc" };
+            return Err(Diagnostic::color_depth_refused(format!(
+                "Composition {} at /compositions/{i}/{depth} is in {} with \
+                 /color_settings/color_management true. The project was not opened and nothing \
+                 on disk was changed.",
+                c.id,
+                if c.eight_bpc { "8 bpc (AE)" } else { "32 bpc (AE)" },
+            )));
+        }
     }
 
     // Document 19: a layer names an asset by ID. A layer pointing at nothing is a broken

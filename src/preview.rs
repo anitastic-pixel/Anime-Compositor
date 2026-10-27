@@ -136,6 +136,7 @@ pub fn scale_plan(plan: FramePlan, quality: PreviewQuality) -> FramePlan {
     FramePlan {
         float: plan.float,
         display: plan.display,
+        working: plan.working,
         width,
         height,
         layers: plan

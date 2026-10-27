@@ -163,6 +163,7 @@ pub fn render_traced(
         let transform_only = FramePlan {
             float: plan.float,
             display: plan.display,
+            working: plan.working,
             width: plan.width,
             height: plan.height,
             layers: vec![LayerDraw {
@@ -186,6 +187,7 @@ pub fn render_traced(
         let with_opacity = FramePlan {
             float: plan.float,
             display: plan.display,
+            working: plan.working,
             width: plan.width,
             height: plan.height,
             layers: vec![LayerDraw {
@@ -203,6 +205,7 @@ pub fn render_traced(
         let stack = FramePlan {
             float: plan.float,
             display: plan.display,
+            working: plan.working,
             width: plan.width,
             height: plan.height,
             layers: plan.layers[..=index].to_vec(),

@@ -510,6 +510,11 @@ pub struct FramePlan {
     /// taken to display values, blended, and the frame taken back to linear light when drawn.
     /// B-688 (D-808): the card draws such a plan too, rounding as the CPU does.
     pub display: bool,
+    /// D-910: colour management works in this gamut (ACEScg), whose pictures the layers are in.
+    /// The frame is laid in linear Rec.709, as 8 bpc is laid in display values, so a blend mode,
+    /// an adjustment layer and a Light Wrap read the numbers they read without colour management,
+    /// and taken back to the working gamut when drawn. `None` is today's frame, untouched.
+    pub working: Option<crate::color::Gamut>,
     pub layers: Vec<LayerDraw>,
 }
 
@@ -662,6 +667,7 @@ fn render_maybe_culled(
     if plan.display {
         crate::effects::encode(&mut frame, false, 1.0);
     }
+    from_rec709(plan, &mut frame);
     cut_out(frame, cut)
 }
 
@@ -684,6 +690,28 @@ fn canvas(plan: &FramePlan, part: Option<Tile>) -> (WorkingBuffer, (usize, usize
             (0, 0),
             part,
         ),
+    }
+}
+
+/// D-910: the working gamut when the frame is laid in linear Rec.709: only when some layer reads
+/// its numbers (a blend mode but Normal and Stencil Alpha, an adjustment layer, a Light Wrap).
+/// Normal is the same sum in any gamut, so a frame of only those is laid in the working gamut,
+/// and a drawing comes through bit for bit.
+fn in_rec709(plan: &FramePlan) -> Option<crate::color::Gamut> {
+    use crate::model::BlendMode::{Normal, StencilAlpha};
+    plan.working.filter(|_| {
+        plan.layers.iter().any(|l| {
+            !matches!(l.blend, Normal | StencilAlpha)
+                || l.adjust.is_some()
+                || l.wrap.iter().any(|i| i.enabled && i.is_valid())
+        })
+    })
+}
+
+/// D-910: a frame laid in linear Rec.709 taken back to the plan's working gamut.
+fn from_rec709(plan: &FramePlan, frame: &mut WorkingBuffer) {
+    if let Some(working) = in_rec709(plan) {
+        crate::color::convert_rgba(frame.data_mut(), crate::color::Gamut::Rec709, working);
     }
 }
 
@@ -744,6 +772,13 @@ fn draw(
     if plan.display {
         for layer in layers.to_mut().iter_mut() {
             crate::effects::encode(std::sync::Arc::make_mut(&mut layer.source), true, 1.0);
+        }
+    }
+    // D-910: with colour management in ACEScg each picture is laid in linear Rec.709.
+    if let Some(working) = in_rec709(plan) {
+        for layer in layers.to_mut().iter_mut() {
+            let data = std::sync::Arc::make_mut(&mut layer.source).data_mut();
+            crate::color::convert_rgba(data, working, crate::color::Gamut::Rec709);
         }
     }
     let mut kept = None;
@@ -922,7 +957,7 @@ fn draw_card(source: &mut std::sync::Arc<WorkingBuffer>, card: OnCard) {
 pub struct Below {
     /// The layers last drawn, with the frame's width and height, the tile size, the part and
     /// the working depth.
-    last: Option<(Vec<LayerDraw>, (usize, usize, usize, Option<Tile>, (bool, bool)))>,
+    last: Option<(Vec<LayerDraw>, (usize, usize, usize, Option<Tile>, (bool, bool), Option<crate::color::Gamut>))>,
     /// The picture with the last plan's layers `..n` drawn, and `n`.
     kept: Option<(usize, WorkingBuffer)>,
     reused: u64,
@@ -961,7 +996,7 @@ pub fn render_below(
     part: Option<Tile>,
     below: &mut Below,
 ) -> WorkingBuffer {
-    let shape = (plan.width, plan.height, tile_size, part, (plan.float, plan.display));
+    let shape = (plan.width, plan.height, tile_size, part, (plan.float, plan.display), in_rec709(plan));
     let (same, above) = match &below.last {
         Some((last, was)) if *was == shape => {
             let same = last
@@ -1009,6 +1044,7 @@ pub fn render_below(
     if plan.display {
         crate::effects::encode(&mut frame, false, 1.0);
     }
+    from_rec709(plan, &mut frame);
     cut_out(frame, cut)
 }
 

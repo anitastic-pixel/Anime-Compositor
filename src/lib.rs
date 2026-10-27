@@ -114,7 +114,8 @@ pub enum ColorSpace {
     /// pictures and their cache keys are what they were.
     Named(color::Space, color::Gamut),
     /// D-909: a word this build does not have (`COLOR_SPACE_UNKNOWN`). It decodes to transparent.
-    Unknown,
+    /// D-910: the word itself, so the asset saves it back with or without the file it came from.
+    Unknown(&'static str),
 }
 
 impl ColorSpace {
@@ -145,13 +146,30 @@ impl ColorSpace {
         }
     }
 
+    /// D-910: an unknown word, kept for saving. Each distinct word is leaked once and reused.
+    pub fn unknown(word: &str) -> ColorSpace {
+        // ponytail: a global list of every unknown word read this session, never freed; a few
+        // words in practice, an interner if a file ever brings thousands.
+        static SEEN: std::sync::Mutex<Vec<&'static str>> = std::sync::Mutex::new(Vec::new());
+        let mut seen = SEEN.lock().unwrap_or_else(|e| e.into_inner());
+        let kept = match seen.iter().find(|w| **w == word) {
+            Some(w) => *w,
+            None => {
+                let w: &'static str = Box::leak(word.to_owned().into_boxed_str());
+                seen.push(w);
+                w
+            }
+        };
+        ColorSpace::Unknown(kept)
+    }
+
     /// The space the file's numbers are stored in; `None` when unknown.
     pub fn stored(self) -> Option<color::Space> {
         match self {
             ColorSpace::Srgb => Some(color::SRGB_REC709),
             ColorSpace::LinearLight => Some(color::LINEAR_REC709),
             ColorSpace::Named(s, _) => Some(s),
-            ColorSpace::Unknown => None,
+            ColorSpace::Unknown(_) => None,
         }
     }
 
@@ -318,14 +336,14 @@ impl ImageBuffer {
         // D-909: the curve, and the matrix worked out once for the whole picture (none when the
         // primaries are already the working ones). Today's two tags take today's steps exactly.
         let (curve, matrix) = match color_space {
-            ColorSpace::LinearLight | ColorSpace::Unknown => (color::Curve::Linear, None),
+            ColorSpace::LinearLight | ColorSpace::Unknown(_) => (color::Curve::Linear, None),
             ColorSpace::Srgb => (color::Curve::Srgb, None),
             ColorSpace::Named(s, to) => (
                 s.curve,
                 (s.gamut != to).then(|| color::gamut_matrix(s.gamut, to)),
             ),
         };
-        if color_space == ColorSpace::Unknown {
+        if matches!(color_space, ColorSpace::Unknown(_)) {
             data.fill(0.0);
         }
         // P-18: across the pool, as the dequantise before it. Each pixel is its own.
@@ -397,6 +415,37 @@ impl WorkingBuffer {
     }
     pub fn data_mut(&mut self) -> &mut [f32] {
         &mut self.0.data
+    }
+
+    /// D-910: `run` given this picture as linear Rec.709 numbers, for a rule written for them,
+    /// and the picture taken back to the working space `working` after. Just `run` when
+    /// `working` is `None` (colour management off, or working in Rec.709).
+    pub fn in_rec709<R>(
+        &mut self,
+        working: Option<color::Gamut>,
+        run: impl FnOnce(&mut Self) -> R,
+    ) -> R {
+        let Some(g) = working else {
+            return run(self);
+        };
+        color::convert_rgba(self.data_mut(), g, color::Gamut::Rec709);
+        let r = run(self);
+        color::convert_rgba(self.data_mut(), color::Gamut::Rec709, g);
+        r
+    }
+
+    /// D-910: this picture through the matrix from `from` to `to`, shared when nothing changes.
+    pub fn converted(
+        picture: std::sync::Arc<Self>,
+        from: color::Gamut,
+        to: color::Gamut,
+    ) -> std::sync::Arc<Self> {
+        if from == to {
+            return picture;
+        }
+        let mut b = std::sync::Arc::unwrap_or_clone(picture);
+        color::convert_rgba(b.data_mut(), from, to);
+        std::sync::Arc::new(b)
     }
     pub fn pixel(&self, x: usize, y: usize) -> [f32; 4] {
         self.0.pixel(x, y)

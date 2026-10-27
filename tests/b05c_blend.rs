@@ -318,6 +318,7 @@ fn b05c_blend_fixtures() {
     let plan_for = |mode: BlendMode| FramePlan {
         float: false,
         display: false,
+        working: None,
         width: 2,
         height: 2,
         layers: vec![
