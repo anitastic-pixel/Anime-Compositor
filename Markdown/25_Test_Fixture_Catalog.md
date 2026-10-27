@@ -890,6 +890,17 @@ FX-COLSW-001: off to on. `view/hdr_scene_off.json` with `working` `acescg` becom
 FX-COLSW-002: the working space with colour management on. `c4/solid_rec709.json` with `acescg` becomes `c4/solid_acescg.json`, and back with `linear-srgb`; project and frame as FX-COLSW-001.
 
 FX-COLSW-003: refused. `off_eight_bpc.json` and `off_ae_32bpc.json` with `acescg` or `linear-srgb`: `COLOR_DEPTH_REFUSED` naming composition "Main" and its depth; colour management stays off, the depth is not changed, nothing goes into the history, and the file saves back byte for byte.
+## Colour readout fixtures
+
+Specified on 2026-10-26 by D-918 for B-797. `Fixtures/colour/c7/expected_readout.json` was written by `tools/c7_reference.py` with OpenColorIO 2.5.1 (PyOpenColorIO, its built-in config `ocio://studio-config-v4.0.0_aces-v2.0_ocio-v2.5`, `OPTIMIZATION_LOSSLESS`, nothing downloaded), display "sRGB - Display". A level is floor(clamp(v, 0, 1) times 255 plus 0.5). It reads D-915's projects `Fixtures/colour/view/hdr_scene_*.json` and their picture; it adds no project.
+
+FX-COLC7-001: the picker. For each of the 33 hexes in `picker` and each working space (ACEScg, linear Rec.709, colour management on), the window's readout of the hex's stored colour: stored within 1e-6 times max(1, |c|) of `stored`, working within the same bar of `working`, the nearest picker hex exactly the hex, display within 1 level of `display` for the view shown (ACES 2.0 SDR, Un-tone-mapped) and exactly the viewer's own bytes for that colour.
+
+FX-COLC7-002: the pointer. For each of the 64 points in `pixels`, `hdr_scene_aces.json` and `hdr_scene_un_tone_mapped.json` (ACEScg working) at frame 0: working and stored within the bar, alpha 1, display exactly the window's own frame bytes at that pixel, and within 1 level of `display` on the barred bands (white ramp, fire); the pure primary ramps are reported.
+
+FX-COLC7-003: the eyedropper's round trip. A picker set from a pixel's stored colour gets the nearest picker hex, and that hex's readout gives the same hex back; nothing in the project changes until the pick is sent, and the pick saves exactly what the picker saves for that hex.
+
+FX-COLC7-004: colour management off. With `hdr_scene_off.json` the window's question answers off for a colour and a pixel, and the project, its file and the window's frame are as before.
 
 ## Adjustment layer fixtures
 
