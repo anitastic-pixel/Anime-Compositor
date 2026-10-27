@@ -1290,16 +1290,16 @@ impl CelCache {
             key
         });
         if let Some(key) = &key {
-            if let Some(at) = self.entries.iter().position(|(k, _)| k == key) {
-                let entry = self.entries.remove(at);
-                let buffer = Arc::clone(&entry.1);
-                self.entries.push(entry);
+            if let Some(at) = self.entries.iter().position(|c| c.key == *key) {
+                let cel = self.entries.remove(at);
+                let buffer = Arc::clone(cel.wide.as_ref().expect("a smaller drawing is held as floats"));
+                self.entries.push(cel);
                 return buffer;
             }
         }
         let buffer = Arc::new(make());
         if let Some(key) = key {
-            self.store(key, Arc::clone(&buffer));
+            self.store(key, None, &buffer);
         }
         buffer
     }
