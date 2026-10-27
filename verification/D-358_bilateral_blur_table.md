@@ -58,7 +58,7 @@ B-237, after After Effects' Bilateral Blur: each pixel mixes with the pixels rou
 | Check | The build's answer | Matches |
 | --- | --- | --- |
 | it never grows the layer: it declares no growth | 0 | yes |
-| a half-size draft preview halves the radius, 5 to 2.5, and keeps the threshold, which is colour, not distance, and the word | BilateralBlur { radius: 2.5, threshold: 20.0, colorize: "off" } | yes |
+| a half-size draft preview halves the radius, 5 to 2.5, and keeps the threshold, which is colour, not distance, and the word | BilateralBlur { radius: 2.5, threshold: 20.0, colorize: "off", quality: "exact" } | yes |
 
 ## The file
 

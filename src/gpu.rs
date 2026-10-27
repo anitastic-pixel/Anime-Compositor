@@ -21029,6 +21029,7 @@ impl Gpu {
                 radius,
                 threshold,
                 colorize,
+                ..
             } => bilateral(steps, *radius, *threshold, colorize == "on"),
             // D-448: the smoothing as Bilateral Blur's (none when it would count only the pixel
             // itself), then the edges, then the fill and the line.

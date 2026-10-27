@@ -1491,6 +1491,10 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
         // the CPU for D-122's reason.
         && !matches!(&instance.effect, crate::effects::Effect::MatteChoker { gray_level_softness_1, gray_level_softness_2, .. }
             if *gray_level_softness_1 == 0.0 || *gray_level_softness_2 == 0.0)
+        // D-913: Bilateral Blur's and Cartoon's Quality Fast, the bilateral grid, is drawn here;
+        // the card draws Exact only.
+        && !matches!(&instance.effect, crate::effects::Effect::BilateralBlur { quality, .. }
+            | crate::effects::Effect::Cartoon { quality, .. } if quality == "fast")
         // D-416: a Fractal that would keep the card past half a second is drawn here.
         // ponytail: a layer grown by the effects before it in the card's run is counted at its
         // drawing's size; cut the dispatch in rows if a Fractal's work is wanted on the card.
@@ -2034,6 +2038,7 @@ fn card_effect(
                     radius,
                     threshold,
                     colorize,
+                    ..
                 } => colorize == "on" && (*radius < 1.0 || *threshold == 0.0),
                 E::RoughenEdges { border, .. } => *border == 0.0,
                 E::BevelAlpha {

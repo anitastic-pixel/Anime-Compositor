@@ -2087,10 +2087,13 @@ pub enum Effect {
     SmartBlur { radius: f64, threshold: f64 },
     /// D-358: `radius`, 0 to 50 pixels; `threshold`, 0 to 255 steps of the sRGB curve; and
     /// `colorize`, "on" or "off". The word is kept as written, so a wrong one is reported.
+    /// D-913: `quality`, "exact" (the default, never saved) or "fast", the bilateral grid, the
+    /// user's choice, drawn in exports too.
     BilateralBlur {
         radius: f64,
         threshold: f64,
         colorize: String,
+        quality: String,
     },
     /// D-360: after CycoreFX's CC Cross Blur. The layer blurred across by one box of Fast Box
     /// Blur's `radius_x` and, apart, down by one of `radius_y`, each 0 to 500 pixels, laid
@@ -3199,7 +3202,8 @@ pub enum Effect {
     /// [`CARTOON_RENDERS`]; `detail_radius`, 0 to 50 pixels; `detail_threshold`, 0 to 255;
     /// `shading_steps`, 2 to 64, its floor; `shading_smoothness`, 0 to 100; `edge_threshold`, 0
     /// to 10; `edge_width`, 0 to 10 pixels; `edge_softness` and `edge_opacity`, 0 to 100;
-    /// `edge_enhancement`, -100 to 100; `edge_black_level` and `edge_contrast`, 0 to 1.
+    /// `edge_enhancement`, -100 to 100; `edge_black_level` and `edge_contrast`, 0 to 1. D-913:
+    /// `quality`, "exact" (the default, never saved) or "fast", the smoothing on the grid.
     Cartoon {
         render: String,
         detail_radius: f64,
@@ -3213,6 +3217,7 @@ pub enum Effect {
         edge_enhancement: f64,
         edge_black_level: f64,
         edge_contrast: f64,
+        quality: String,
     },
     /// D-456: this program's own Deband on CelFX's control list (`grade::deband`, document 21).
     /// `view`, one of [`DEBAND_VIEWS`]; `edge_threshold` and `edge_softness`, 0 to 255 levels;
@@ -14621,6 +14626,11 @@ impl Effect {
             Effect::BilateralBlur { colorize, .. } if !["off", "on"].contains(&colorize.as_str()) => Some(format!(
                 "Bilateral Blur's colorize is \"off\" or \"on\", and this is \"{colorize}\"."
             )),
+            Effect::BilateralBlur { quality: v, .. } | Effect::Cartoon { quality: v, .. }
+                if !["exact", "fast"].contains(&v.as_str()) =>
+            {
+                Some(format!("{name}'s quality is \"exact\" or \"fast\", and this is \"{v}\"."))
+            }
             Effect::LineBlur { lines_only, .. } if !["off", "on"].contains(&lines_only.as_str()) => Some(format!(
                 "Line Blur's lines only is \"off\" or \"on\", and this is \"{lines_only}\"."
             )),
@@ -19150,8 +19160,15 @@ pub(crate) fn apply_stack_at(
                 radius,
                 threshold,
                 colorize,
+                quality,
             } => crate::perf::time(crate::perf::Stage::EffectBilateralBlur, || {
-                crate::median::bilateral_blur(source, *radius, *threshold, colorize == "on")
+                crate::median::bilateral_blur(
+                    source,
+                    *radius,
+                    *threshold,
+                    colorize == "on",
+                    quality == "fast",
+                )
             }),
             Effect::CrossBlur {
                 radius_x,

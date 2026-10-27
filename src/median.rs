@@ -185,13 +185,16 @@ pub(crate) fn smart_blur(source: &mut WorkingBuffer, radius: f64, threshold: f64
 /// bell on how far its value is from the pixel's own in sRGB levels (spread `threshold`). With
 /// `colorize` red, green and blue are worked one at a time; without it the luminance alone, and
 /// the pixel turns grey. Every pixel keeps its covering; the settings are already valid.
-// ponytail: every pixel weighs its whole disc, about 7,850 taps at Radius 50; a grid or
-// separable approximation would be the upgrade, at the price of the rule.
+/// D-913: with `fast`, the same weights worked on a bilateral grid ([`bilateral_grid`]) where
+/// document 21 says the grid is used, else this rule.
+// ponytail: every pixel weighs its whole disc, about 7,850 taps at Radius 50; `fast` is the
+// grid, the user's choice.
 pub(crate) fn bilateral_blur(
     source: &mut WorkingBuffer,
     radius: f64,
     threshold: f64,
     colorize: bool,
+    fast: bool,
 ) {
     let taps = disc(radius);
     let still = taps.len() == 1 || threshold <= 0.0;
@@ -226,6 +229,27 @@ pub(crate) fn bilateral_blur(
             })
         })
         .collect();
+    if fast && !still {
+        if let Some(worked) = bilateral_grid(source.data(), &vals, w, h, radius, threshold, n) {
+            let mut out = WorkingBuffer::transparent(w, h);
+            let src = source.data();
+            out.data_mut()
+                .par_chunks_exact_mut(4)
+                .enumerate()
+                .for_each(|(i, px)| {
+                    if vals[i].is_none() {
+                        return;
+                    }
+                    let a = src[4 * i + 3];
+                    for k in 0..3 {
+                        px[k] = (worked[if colorize { k } else { 0 }][i] * a as f64) as f32;
+                    }
+                    px[3] = a;
+                });
+            *source = out;
+            return;
+        }
+    }
     let s = radius / 2.0;
     let near: Vec<f32> = if still {
         Vec::new()
@@ -277,6 +301,173 @@ pub(crate) fn bilateral_blur(
             px[3] = a;
         });
     *source = out;
+}
+
+/// D-913's grid for one value: cells `ss` pixels across and `sr` levels deep, `nx` by `ny` by
+/// `nz`; None where document 21 says Fast is the exact rule (cells under 2 pixels, or more than
+/// 4 cells for each pixel).
+fn grid_cells(
+    w: usize,
+    h: usize,
+    radius: f64,
+    threshold: f64,
+    lo: f64,
+    hi: f64,
+) -> Option<(f64, f64, usize, usize, usize)> {
+    let (ss, sr) = (radius / 2.2, 1.1 * threshold);
+    if ss < 2.0 || threshold <= 0.0 {
+        return None;
+    }
+    let nx = ((w - 1) as f64 / ss).floor() as usize + 2;
+    let ny = ((h - 1) as f64 / ss).floor() as usize + 2;
+    let nz = ((hi - lo) / sr).floor() as usize + 2;
+    (nx * ny * nz <= 4 * w * h).then_some((ss, sr, nx, ny, nz))
+}
+
+/// The two cells either side of `t` along one axis, and each one's share.
+fn corners(t: f64) -> [(usize, f64); 2] {
+    let i = t.floor();
+    [(i as usize, 1.0 - (t - i)), (i as usize + 1, t - i)]
+}
+
+/// D-913, Bilateral Blur's Quality Fast (document 21): for each of the `n` values worked, after
+/// Paris and Durand (2006) and Chen, Paris and Durand (2007), written from the papers: each pixel
+/// that shows added into the 8 cells round it (its covering, and its covering times its value),
+/// the grid blurred 1 2 1 along x, y and z, and each pixel read back at its own place and level,
+/// the first sum over the second. The new straight values, one list for each value worked, or
+/// None where the rule is the exact one. The grid is built one row of cells at a time, each by
+/// gathering the pixel rows that reach it, so the sums are the same on every run.
+fn bilateral_grid(
+    src: &[f32],
+    vals: &[Option<([f64; 3], [f32; 3])>],
+    w: usize,
+    h: usize,
+    radius: f64,
+    threshold: f64,
+    n: usize,
+) -> Option<Vec<Vec<f64>>> {
+    let level = |v: f64| {
+        255.0
+            * if v <= 0.0031308 {
+                12.92 * v
+            } else {
+                1.055 * v.powf(1.0 / 2.4) - 0.055
+            }
+    };
+    let levels: Vec<Vec<f64>> = (0..n)
+        .map(|k| {
+            vals.par_iter()
+                .map(|v| v.map_or(f64::NAN, |(c, _)| level(c[k])))
+                .collect()
+        })
+        .collect();
+    let mut cells = Vec::with_capacity(n);
+    for l in &levels {
+        let (lo, hi) = l
+            .iter()
+            .filter(|v| !v.is_nan())
+            .fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), &v| {
+                (lo.min(v), hi.max(v))
+            });
+        if lo > hi {
+            return None;
+        }
+        cells.push((lo, grid_cells(w, h, radius, threshold, lo, hi)?));
+    }
+    let mut worked = Vec::with_capacity(n);
+    for (k, &(lo, (ss, sr, nx, ny, nz))) in cells.iter().enumerate() {
+        let (l, slab) = (&levels[k], nx * nz);
+        // Splat, one row of cells (gy) at a time, then the blur along x within it.
+        let mut grid: Vec<[f32; 2]> = vec![[0.0; 2]; slab * ny];
+        grid.par_chunks_exact_mut(slab)
+            .enumerate()
+            .for_each(|(gy, cells)| {
+                let first = (((gy as f64 - 1.0) * ss).floor() - 1.0).max(0.0) as usize;
+                let last = ((((gy + 1) as f64) * ss).ceil() as usize + 1).min(h);
+                for y in first..last {
+                    let [(y0, f0), (_, f1)] = corners(y as f64 / ss);
+                    let fy = if y0 == gy {
+                        f0
+                    } else if y0 + 1 == gy {
+                        f1
+                    } else {
+                        continue;
+                    };
+                    for x in 0..w {
+                        let i = y * w + x;
+                        let Some((c, _)) = vals[i] else { continue };
+                        let a = src[4 * i + 3] as f64;
+                        for (gx, fx) in corners(x as f64 / ss) {
+                            for (gz, fz) in corners((l[i] - lo) / sr) {
+                                let wt = fx * fy * fz * a;
+                                let cell = &mut cells[gz * nx + gx];
+                                cell[0] += (wt * c[k]) as f32;
+                                cell[1] += wt as f32;
+                            }
+                        }
+                    }
+                }
+                for row in cells.chunks_exact_mut(nx) {
+                    let was = row.to_vec();
+                    for x in 0..nx {
+                        for m in 0..2 {
+                            let left = if x > 0 { was[x - 1][m] } else { 0.0 };
+                            let right = if x + 1 < nx { was[x + 1][m] } else { 0.0 };
+                            row[x][m] = (left + 2.0 * was[x][m] + right) / 4.0;
+                        }
+                    }
+                }
+            });
+        // The blur along y, into a new grid, then along z within each row of cells.
+        let mut blurred: Vec<[f32; 2]> = vec![[0.0; 2]; slab * ny];
+        blurred
+            .par_chunks_exact_mut(slab)
+            .enumerate()
+            .for_each(|(gy, cells)| {
+                for (j, cell) in cells.iter_mut().enumerate() {
+                    for m in 0..2 {
+                        let up = if gy > 0 { grid[(gy - 1) * slab + j][m] } else { 0.0 };
+                        let down = if gy + 1 < ny { grid[(gy + 1) * slab + j][m] } else { 0.0 };
+                        cell[m] = (up + 2.0 * grid[gy * slab + j][m] + down) / 4.0;
+                    }
+                }
+                let was = cells.to_vec();
+                for z in 0..nz {
+                    for x in 0..nx {
+                        for m in 0..2 {
+                            let below = if z > 0 { was[(z - 1) * nx + x][m] } else { 0.0 };
+                            let above = if z + 1 < nz { was[(z + 1) * nx + x][m] } else { 0.0 };
+                            cells[z * nx + x][m] = (below + 2.0 * was[z * nx + x][m] + above) / 4.0;
+                        }
+                    }
+                }
+            });
+        drop(grid);
+        // Slice: each pixel that shows reads both sums at its own place and level.
+        let out: Vec<f64> = (0..w * h)
+            .into_par_iter()
+            .map(|i| {
+                if vals[i].is_none() {
+                    return 0.0;
+                }
+                let (x, y) = (i % w, i / w);
+                let (mut num, mut den) = (0.0f64, 0.0f64);
+                for (gy, fy) in corners(y as f64 / ss) {
+                    for (gx, fx) in corners(x as f64 / ss) {
+                        for (gz, fz) in corners((l[i] - lo) / sr) {
+                            let cell = blurred[gy * slab + gz * nx + gx];
+                            let wt = fx * fy * fz;
+                            num += wt * cell[0] as f64;
+                            den += wt * cell[1] as f64;
+                        }
+                    }
+                }
+                num / den
+            })
+            .collect();
+        worked.push(out);
+    }
+    Some(worked)
 }
 
 /// D-448: Cartoon's numbers, as the processor and the card share them: Edge Threshold, the edge's
@@ -350,6 +541,7 @@ pub(crate) fn cartoon(source: &mut WorkingBuffer, e: &crate::effects::Effect) {
     let crate::effects::Effect::Cartoon {
         detail_radius,
         detail_threshold,
+        quality,
         ..
     } = e
     else {
@@ -360,7 +552,7 @@ pub(crate) fn cartoon(source: &mut WorkingBuffer, e: &crate::effects::Effect) {
     else {
         return;
     };
-    bilateral_blur(source, *detail_radius, *detail_threshold, true);
+    bilateral_blur(source, *detail_radius, *detail_threshold, true, quality == "fast");
     let (w, h) = (source.width() as i64, source.height() as i64);
     let src = source.data();
     let held = |x: i64, y: i64| (y.clamp(0, h - 1) * w + x.clamp(0, w - 1)) as usize;

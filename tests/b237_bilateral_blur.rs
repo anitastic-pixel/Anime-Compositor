@@ -32,6 +32,7 @@ fn bilateral(radius: f64, threshold: f64, colorize: &str) -> Effect {
         radius,
         threshold,
         colorize: colorize.to_string(),
+        quality: "exact".to_string(),
     }
 }
 

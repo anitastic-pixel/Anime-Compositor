@@ -13525,7 +13525,8 @@ const EFFECT_WORDS = {
   'core.block_load': { choices: [['start_cleared', 'Start Cleared', [['on', 'On'], ['off', 'Off']]],
     ['bilinear', 'Bilinear', [['off', 'Off'], ['on', 'On']]]] },
   // D-448: After Effects' words.
-  'core.cartoon': { choices: [['render', 'Render', [['fill', 'Fill'], ['edges', 'Edges'], ['fill_and_edges', 'Fill & Edges']]]] },
+  'core.cartoon': { choices: [['render', 'Render', [['fill', 'Fill'], ['edges', 'Edges'], ['fill_and_edges', 'Fill & Edges']]],
+    ['quality', 'Quality', [['exact', 'Exact'], ['fast', 'Fast']]]] },
   // D-447: After Effects' words; Animate is ours, on as After Effects does it.
   'core.brush_strokes': {
     choices: [['paint_surface', 'Paint Surface', [['original', 'Paint On Original Image'], ['transparent', 'Paint On Transparent'], ['white', 'Paint On White'], ['black', 'Paint On Black']]],
@@ -13860,7 +13861,8 @@ const EFFECT_WORDS = {
       ['oversample_method', 'Oversample Method', [['edge_detect', 'Edge Detect'], ['brute_force', 'Brute Force']]]],
   },
   // D-358.
-  'core.bilateral_blur': { choices: [['colorize', 'Colorize', [['on', 'On'], ['off', 'Off']]]] },
+  'core.bilateral_blur': { choices: [['colorize', 'Colorize', [['on', 'On'], ['off', 'Off']]],
+    ['quality', 'Quality', [['exact', 'Exact'], ['fast', 'Fast']]]] },
   'core.cross_blur': { choices: [['mode', 'Transfer Mode', [['blend', 'Blend'], ['add', 'Add'], ['screen', 'Screen'],
     ['multiply', 'Multiply'], ['lighten', 'Lighten'], ['darken', 'Darken']]], EDGES] },
   'core.spin_zoom_blur': { choices: [['type', 'Type', [['straight_zoom', 'Straight Zoom'], ['fading_zoom', 'Fading Zoom'],

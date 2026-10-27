@@ -410,7 +410,7 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | the panel's `core.brush_strokes` is an effect this build has | added | added | pass |
 | and the settings it sends for it - stroke_angle, brush_size, stroke_length, stroke_density, stroke_randomness, paint_surface, blend_with_original, random_seed, animate - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.cartoon` is an effect this build has | added | added | pass |
-| and the settings it sends for it - render, detail_radius, detail_threshold, shading_steps, shading_smoothness, edge_threshold, edge_width, edge_softness, edge_opacity, edge_enhancement, edge_black_level, edge_contrast - are the ones the command reads | accepted | accepted | pass |
+| and the settings it sends for it - render, detail_radius, detail_threshold, shading_steps, shading_smoothness, edge_threshold, edge_width, edge_softness, edge_opacity, edge_enhancement, edge_black_level, edge_contrast, quality - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.block_load` is an effect this build has | added | added | pass |
 | and the settings it sends for it - completion, scans, start_cleared, bilinear - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.burn_film` is an effect this build has | added | added | pass |
@@ -440,7 +440,7 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | the panel's `core.smart_blur` is an effect this build has | added | added | pass |
 | and the settings it sends for it - radius, threshold - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.bilateral_blur` is an effect this build has | added | added | pass |
-| and the settings it sends for it - radius, threshold, colorize - are the ones the command reads | accepted | accepted | pass |
+| and the settings it sends for it - radius, threshold, colorize, quality - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.cross_blur` is an effect this build has | added | added | pass |
 | and the settings it sends for it - radius_x, radius_y, mode, edges - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.spin_zoom_blur` is an effect this build has | added | added | pass |

@@ -5584,6 +5584,7 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             edge_enhancement: 0.0,
             edge_black_level: 0.0,
             edge_contrast: 0.5,
+            quality: "exact".to_string(),
         }),
         SMART_BLUR => Some(Effect::SmartBlur {
             radius: 3.0,
@@ -5594,6 +5595,7 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             radius: 5.0,
             threshold: 20.0,
             colorize: "on".to_string(),
+            quality: "exact".to_string(),
         }),
         // D-360..D-362: our own starting values, a soft cross, a light zoom and a fading streak.
         CROSS_BLUR => Some(Effect::CrossBlur {
@@ -8849,6 +8851,7 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             edge_enhancement: number("edge_enhancement")?,
             edge_black_level: number("edge_black_level")?,
             edge_contrast: number("edge_contrast")?,
+            quality: word("quality").unwrap_or_else(|_| "exact".to_string()),
         }),
         SMART_BLUR => Ok(Effect::SmartBlur {
             radius: number("radius")?,
@@ -8858,6 +8861,7 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             radius: number("radius")?,
             threshold: number("threshold")?,
             colorize: word("colorize")?,
+            quality: word("quality").unwrap_or_else(|_| "exact".to_string()),
         }),
         CROSS_BLUR => Ok(Effect::CrossBlur {
             radius_x: number("radius_x")?,

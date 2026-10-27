@@ -3582,6 +3582,7 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             edge_enhancement,
             edge_black_level,
             edge_contrast,
+            quality,
         } => {
             params.insert("render".into(), J::from(render.as_str()));
             params.insert("detail_radius".into(), num(*detail_radius));
@@ -3595,6 +3596,10 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("edge_enhancement".into(), num(*edge_enhancement));
             params.insert("edge_black_level".into(), num(*edge_black_level));
             params.insert("edge_contrast".into(), num(*edge_contrast));
+            // D-913: Exact, the default, is never written, so an older file saves back as it was.
+            if quality != "exact" {
+                params.insert("quality".into(), J::from(quality.as_str()));
+            }
         }
         // D-456: the frame is never saved.
         Effect::Deband {
@@ -4862,10 +4867,15 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             radius,
             threshold,
             colorize,
+            quality,
         } => {
             params.insert("radius".into(), num(*radius));
             params.insert("threshold".into(), num(*threshold));
             params.insert("colorize".into(), J::from(colorize.as_str()));
+            // D-913: Exact, the default, is never written.
+            if quality != "exact" {
+                params.insert("quality".into(), J::from(quality.as_str()));
+            }
         }
         Effect::CrossBlur {
             radius_x,
@@ -10375,6 +10385,7 @@ fn parse_effect(
             edge_enhancement: effect_number(params, "edge_enhancement", at)?,
             edge_black_level: effect_number(params, "edge_black_level", at)?,
             edge_contrast: effect_number(params, "edge_contrast", at)?,
+            quality: effect_word_or(params, "quality", at, "exact")?,
         }),
         crate::effects::DEBAND => Some(crate::effects::Effect::Deband {
             view: effect_word(params, "view", at)?,
@@ -11367,6 +11378,7 @@ fn parse_effect(
             radius: effect_number(params, "radius", at)?,
             threshold: effect_number(params, "threshold", at)?,
             colorize: effect_word(params, "colorize", at)?,
+            quality: effect_word_or(params, "quality", at, "exact")?,
         }),
         // D-360..D-362: a word or quality the file leaves out is the default.
         crate::effects::CROSS_BLUR => Some(crate::effects::Effect::CrossBlur {

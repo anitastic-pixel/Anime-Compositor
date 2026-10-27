@@ -3940,6 +3940,7 @@ const EFFECT_KINDS: &[(&str, &[(&str, &str)])] = &[
             ("edge_enhancement", "40"),
             ("edge_black_level", "0.2"),
             ("edge_contrast", "0.7"),
+            ("quality", "fast"),
         ],
     ),
     // D-449.
@@ -4058,7 +4059,7 @@ const EFFECT_KINDS: &[(&str, &[(&str, &str)])] = &[
     ),
     ("core.smart_blur", &[("radius", "5"), ("threshold", "20")]),
     // D-358.
-    ("core.bilateral_blur", &[("radius", "8"), ("threshold", "30"), ("colorize", "off")]),
+    ("core.bilateral_blur", &[("radius", "8"), ("threshold", "30"), ("colorize", "off"), ("quality", "fast")]),
     // D-360..D-362.
     ("core.cross_blur", &[("radius_x", "20"), ("radius_y", "6"), ("mode", "add"), ("edges", "repeat")]),
     ("core.spin_zoom_blur", &[("type", "rotate"), ("amount", "45"), ("quality", "80"), ("center", "40,60")]),
