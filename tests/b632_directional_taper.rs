@@ -18,6 +18,7 @@ fn dirblur(direction: f64, length: f64) -> Effect {
         direction,
         length,
         edges: "transparent".into(),
+        taper: "on".into(),
     }
 }
 
@@ -99,10 +100,11 @@ fn b632_directional_taper() {
     let mut gpu = Gpu::new().expect("a usable card");
     // The card draws a Directional Blur as its own step (`OnCard::Directional`), not an effect
     // step, so the count of effect steps is 0 for every case; the pixels are what is compared.
+    // D-919: 016 to 029 too, 016 to 026 with Taper Ends off.
     t.card_fixtures(
         &mut gpu,
         "expected_directional_blur.json",
-        &(1..=15).collect::<Vec<u32>>(),
+        &(1..=29).collect::<Vec<u32>>(),
         |e| matches!(e, Effect::DirectionalBlur { .. }),
     );
 

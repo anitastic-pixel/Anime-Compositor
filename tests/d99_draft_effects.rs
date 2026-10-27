@@ -122,6 +122,7 @@ fn d99_draft_effects() {
                 direction: 30.0,
                 length: 40.0,
                 edges: "transparent".into(),
+                taper: "on".into(),
             },
         ),
         (

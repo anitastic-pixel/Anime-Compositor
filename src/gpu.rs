@@ -14872,7 +14872,7 @@ impl Gpu {
         let grow = d.grow();
         let (gw, gh) = (w + 2 * grow, h + 2 * grow);
         let u = crate::blurs::along(d.direction);
-        let wt = crate::blurs::directional_weights(u, d.length);
+        let wt = crate::blurs::directional_weights(u, d.length, d.taper);
         let f = crate::blurs::line_frame(u, w, h, grow);
         let count = (f.k1 - f.k0 + 1) as usize;
         let lines = self.scratch("B-49 lines", f.ow, count);

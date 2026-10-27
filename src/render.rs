@@ -440,12 +440,13 @@ impl Gaussian {
 
 /// B-49: a Directional Blur's settings (`blurs::directional_blur`), the length already divided
 /// for Draft and never 0, so the drawing grows by exactly half the length, rounded up, or
-/// (D-109) with `repeat`, by nothing.
+/// (D-109) with `repeat`, by nothing. D-919: `taper`, D-753's tent, or D-98's flat average.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Directional {
     pub direction: f64,
     pub length: f64,
     pub repeat: bool,
+    pub taper: bool,
 }
 
 impl Directional {
@@ -865,6 +866,7 @@ fn draw_card(source: &mut std::sync::Arc<WorkingBuffer>, card: OnCard) {
                     d.direction,
                     d.length,
                     d.repeat,
+                    d.taper,
                 )
             });
         }

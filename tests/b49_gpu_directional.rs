@@ -41,8 +41,9 @@ struct Shot {
     root: PathBuf,
     comp: Id,
     frames: Vec<i32>,
-    /// FX-DIRBLUR-012 to 015 have a setting out of range: the blur is left out with a warning on
-    /// either path, and nothing is left to the card.
+    /// FX-DIRBLUR-012 to 015 have a setting out of range, and 028 and 029 a Taper Ends word that
+    /// is not one (D-919): the blur is left out with a warning on either path, and nothing is left
+    /// to the card.
     invalid: bool,
 }
 
@@ -76,9 +77,9 @@ fn blurred_reference() -> Shot {
     }
 }
 
-/// FX-DIRBLUR-001 to 015, each at every frame it has.
+/// FX-DIRBLUR-001 to 029, each at every frame it has; 016 to 026 with Taper Ends off (D-919).
 fn fixtures() -> Vec<Shot> {
-    (1..=15)
+    (1..=29)
         .map(|n| {
             let name = format!("fx_dirblur_{n:03}");
             let loaded = persist::load(&repo(&format!("Fixtures/directional_blur/{name}.json")))
@@ -95,7 +96,7 @@ fn fixtures() -> Vec<Shot> {
                 root: repo("Fixtures/directional_blur"),
                 comp: id,
                 frames,
-                invalid: n >= 12,
+                invalid: (12..=15).contains(&n) || n >= 28,
             }
         })
         .collect()
@@ -305,7 +306,9 @@ fn b49_gpu_directional() {
          GPU, with the layer's last Directional Blur done on the card. **The rule: no channel of \
          any pixel more than {LIMIT} level of 255 apart** (D-106, proposed). A blur of length 0 \
          changes nothing, so it is not left to the card and the two pictures must be the same \
-         bytes. FX-DIRBLUR-012 to 015 each have a setting out of range: the blur is left out \
+         bytes. FX-DIRBLUR-016 to 027 have Taper Ends written, 016 to 026 off, D-98's flat average \
+         (D-919). FX-DIRBLUR-012 to 015 each have a setting out of range, and 028 and 029 a Taper \
+         Ends word that is not one: the blur is left out \
          with the warning `EFFECT_PARAMETER_INVALID`, nothing goes to the card, and the two \
          pictures must be the same bytes. On every row both paths must give the same warnings.\n\n\
          **{passed} of {checks} checks pass.**\n\n\

@@ -1637,10 +1637,16 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             direction,
             length,
             edges,
+            taper,
         } => {
             params.insert("direction".into(), num(*direction));
             params.insert("length".into(), num(*length));
             put_edges(&mut params, edges);
+            // D-919: on is how a file without it reads, so a project that never turned it off
+            // saves byte for byte as before.
+            if taper != "on" || params.contains_key("taper") {
+                params.insert("taper".into(), J::from(taper.as_str()));
+            }
         }
         Effect::SelectColor {
             colors,
@@ -9218,6 +9224,7 @@ fn parse_effect(
             direction: effect_number(params, "direction", at)?,
             length: effect_number(params, "length", at)?,
             edges: effect_edges(params, at)?,
+            taper: effect_word_or(params, "taper", at, "on")?,
         }),
         // D-93: keep is read as written; "Chosen" is not the word, and is reported.
         crate::effects::SELECT_COLOR => Some(crate::effects::Effect::SelectColor {

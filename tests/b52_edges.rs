@@ -26,6 +26,7 @@ fn streak(direction: f64, length: f64, edges: &str) -> Effect {
         direction,
         length,
         edges: edges.into(),
+        taper: "on".into(),
     }
 }
 

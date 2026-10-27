@@ -170,6 +170,7 @@ fn cases() -> Vec<(&'static str, Effect)> {
                 direction: 30.0,
                 length: 10.0,
                 edges: "transparent".into(),
+                taper: "on".into(),
             },
         ),
         (
@@ -178,6 +179,7 @@ fn cases() -> Vec<(&'static str, Effect)> {
                 direction: 30.0,
                 length: 100.0,
                 edges: "transparent".into(),
+                taper: "on".into(),
             },
         ),
         (
@@ -214,6 +216,7 @@ fn cases() -> Vec<(&'static str, Effect)> {
                 direction: 30.0,
                 length: 100.0,
                 edges: "repeat".into(),
+                taper: "on".into(),
             },
         ),
         (

@@ -1601,11 +1601,13 @@ fn card_effect(
             direction,
             length,
             edges,
+            taper,
         } => (length != 0.0).then(|| {
             let d = render::Directional {
                 direction,
                 length,
                 repeat: edges == "repeat",
+                taper: taper == "on",
             };
             *offset = (offset.0 + d.grow(), offset.1 + d.grow());
             render::OnCard::Directional(d)

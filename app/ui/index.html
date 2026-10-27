@@ -13261,7 +13261,7 @@ const EFFECT_WORDS = {
   'core.gaussian_blur': { choices: [EDGES, ['dimensions', 'Blur Dimensions', [['both', 'Horizontal and Vertical'],
     ['horizontal', 'Horizontal'], ['vertical', 'Vertical']]],
     ['units', 'Units', [['sigma', 'Sigma (older projects)'], ['blurriness', 'Blurriness (After Effects)']]]] },
-  'core.directional_blur': { choices: [EDGES] },
+  'core.directional_blur': { choices: [EDGES, ['taper', 'Taper Ends', [['on', 'On'], ['off', 'Off']]]] },
   'core.selective_color_blur': { chosen: () => true },
   // D-353.
   'core.glow.physical': {

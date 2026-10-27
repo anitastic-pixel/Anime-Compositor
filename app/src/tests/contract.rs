@@ -2037,7 +2037,7 @@ const EFFECT_KINDS: &[(&str, &[(&str, &str)])] = &[
     ),
     (
         "core.directional_blur",
-        &[("direction", "45"), ("length", "10")],
+        &[("direction", "45"), ("length", "10"), ("taper", "off")],
     ),
     // D-93: the colours and the keep word are sent with the tolerance.
     (

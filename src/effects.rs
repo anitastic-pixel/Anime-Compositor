@@ -766,11 +766,14 @@ pub enum Effect {
         new_color: String,
     },
     /// D-92: `direction`, degrees clockwise from up, -3600 to 3600, and `length`, the whole
-    /// streak in pixels, 0 to 500. D-109: `edges`, "transparent" or "repeat".
+    /// streak in pixels, 0 to 500. D-109: `edges`, "transparent" or "repeat". D-919: `taper`,
+    /// "on" or "off", kept as written so a wrong word is reported; "on" (D-753's tent) when a
+    /// file leaves it out, "off" D-98's flat average.
     DirectionalBlur {
         direction: f64,
         length: f64,
         edges: String,
+        taper: String,
     },
     /// D-93: `colors` and `tolerance` as D-88's, and `keep`, "chosen" or "others": the pixels
     /// kept, every other one made transparent.
@@ -13231,7 +13234,11 @@ impl Effect {
                     format!("{name}'s units are \"sigma\" or \"blurriness\", and this is \"{units}\".")
                 })
             }),
-            Effect::DirectionalBlur { edges: e, .. } => edges(e),
+            Effect::DirectionalBlur { edges: e, taper, .. } => edges(e).or_else(|| {
+                (!["on", "off"].contains(&taper.as_str())).then(|| {
+                    format!("{name}'s taper ends is \"on\" or \"off\", and this is \"{taper}\".")
+                })
+            }),
             Effect::LineRecolor {
                 colors, new_color, ..
             } => chosen(colors).or_else(|| one("new colour", new_color)),
@@ -16285,9 +16292,16 @@ pub(crate) fn apply_stack_at(
                 direction,
                 length,
                 edges,
+                taper,
             } => {
                 let r = crate::perf::time(crate::perf::Stage::EffectDirBlur, || {
-                    crate::blurs::directional_blur(source, *direction, *length, edges == "repeat")
+                    crate::blurs::directional_blur(
+                        source,
+                        *direction,
+                        *length,
+                        edges == "repeat",
+                        taper == "on",
+                    )
                 });
                 ox += r;
                 oy += r;

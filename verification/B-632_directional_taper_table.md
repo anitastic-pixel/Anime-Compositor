@@ -45,6 +45,41 @@ D-753, accepted on 2026-10-23 by the owner's message "Proceed, if an effect is m
 | FX-DIRBLUR-015 frame 0: Length keyed to 600 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-DIRBLUR-015 frame 4: Length keyed to 600 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-DIRBLUR-015: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
+| FX-DIRBLUR-016 frame 0: Taper Ends off, FX-DIRBLUR-001 with D-98's flat average. Direction 0, length 4: every edge streaks up and down, two pixels each way and faintly a third, and left and right stay sharp. | largest difference 1.4e-7 | yes |
+| FX-DIRBLUR-016: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-DIRBLUR-017 frame 0: Taper Ends off, FX-DIRBLUR-002 with D-98's flat average. Direction 90, length 4: the same streak left and right, and up and down stay sharp. | largest difference 1.8e-7 | yes |
+| FX-DIRBLUR-017: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-DIRBLUR-018 frame 0: Taper Ends off, FX-DIRBLUR-003 with D-98's flat average. Direction 270, the opposite way: the streak runs both ways, so this is FX-DIRBLUR-017. | largest difference 1.8e-7 | yes |
+| FX-DIRBLUR-018: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-DIRBLUR-019 frame 0: Taper Ends off, FX-DIRBLUR-004 with D-98's flat average. Direction 45, length 6: a diagonal streak, up and right and down and left, between pixels. | largest difference 1.6e-7 | yes |
+| FX-DIRBLUR-019: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-DIRBLUR-020 frame 0: Taper Ends off, FX-DIRBLUR-005 with D-98's flat average. Length 0: the drawing, untouched. | largest difference 1.9e-7 | yes |
+| FX-DIRBLUR-020: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-DIRBLUR-021 frame 0: Taper Ends off, FX-DIRBLUR-006 with D-98's flat average. Length 1, direction 90: each column mixes itself and the two beside it at a quarter, a half and a quarter, so the block's left edge column is three quarters covered and the column outside it one quarter. | largest difference 1.9e-7 | yes |
+| FX-DIRBLUR-021: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-DIRBLUR-022 frame 0: Taper Ends off, FX-DIRBLUR-007 with D-98's flat average. Length 2.5, direction 90: a length that is not a whole number, the ends of the average softened. | largest difference 1.9e-7 | yes |
+| FX-DIRBLUR-022: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-DIRBLUR-023 frame 0: Taper Ends off, FX-DIRBLUR-008 with D-98's flat average. Direction 3600, ten turns: this is FX-DIRBLUR-016. | largest difference 1.4e-7 | yes |
+| FX-DIRBLUR-023: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-DIRBLUR-024 frame 0: Taper Ends off, FX-DIRBLUR-009 with D-98's flat average. Direction 90, length 6, moved three pixels right: the line on the drawing's left edge streaks three pixels past it into the grown border. | largest difference 1.5e-7 | yes |
+| FX-DIRBLUR-024 frame 3: Taper Ends off, FX-DIRBLUR-009 with D-98's flat average. Direction 90, length 6, moved three pixels right: the line on the drawing's left edge streaks three pixels past it into the grown border. | largest difference 1.5e-7 | yes |
+| FX-DIRBLUR-024: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-DIRBLUR-025 frame 0: Taper Ends off, FX-DIRBLUR-010 with D-98's flat average. Length keyed from 0 at frame 0 to 8 at frame 4, direction 90, linear: frame 0 untouched, frame 2 at length 4 is FX-DIRBLUR-017, frame 4 at 8. | largest difference 1.9e-7 | yes |
+| FX-DIRBLUR-025 frame 2: Taper Ends off, FX-DIRBLUR-010 with D-98's flat average. Length keyed from 0 at frame 0 to 8 at frame 4, direction 90, linear: frame 0 untouched, frame 2 at length 4 is FX-DIRBLUR-017, frame 4 at 8. | largest difference 1.8e-7 | yes |
+| FX-DIRBLUR-025 frame 4: Taper Ends off, FX-DIRBLUR-010 with D-98's flat average. Length keyed from 0 at frame 0 to 8 at frame 4, direction 90, linear: frame 0 untouched, frame 2 at length 4 is FX-DIRBLUR-017, frame 4 at 8. | largest difference 1.4e-7 | yes |
+| FX-DIRBLUR-025: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-DIRBLUR-026 frame 0: Taper Ends off, FX-DIRBLUR-011 with D-98's flat average. Direction keyed from 0 at frame 0 to 90 at frame 4, length 4: frame 0 is FX-DIRBLUR-016, frame 2 streaks at 45 degrees, frame 4 is FX-DIRBLUR-017. | largest difference 1.4e-7 | yes |
+| FX-DIRBLUR-026 frame 2: Taper Ends off, FX-DIRBLUR-011 with D-98's flat average. Direction keyed from 0 at frame 0 to 90 at frame 4, length 4: frame 0 is FX-DIRBLUR-016, frame 2 streaks at 45 degrees, frame 4 is FX-DIRBLUR-017. | largest difference 1.9e-7 | yes |
+| FX-DIRBLUR-026 frame 4: Taper Ends off, FX-DIRBLUR-011 with D-98's flat average. Direction keyed from 0 at frame 0 to 90 at frame 4, length 4: frame 0 is FX-DIRBLUR-016, frame 2 streaks at 45 degrees, frame 4 is FX-DIRBLUR-017. | largest difference 1.8e-7 | yes |
+| FX-DIRBLUR-026: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-DIRBLUR-027 frame 0: Taper Ends "on" written in the file: FX-DIRBLUR-001 exactly, as a file without the word. | largest difference 1.5e-7 | yes |
+| FX-DIRBLUR-027: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-DIRBLUR-028 frame 0: Taper Ends written "Off", the panel's name, not the word "off". The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
+| FX-DIRBLUR-028 frame 4: Taper Ends written "Off", the panel's name, not the word "off". The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
+| FX-DIRBLUR-028: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
+| FX-DIRBLUR-029 frame 0: Taper Ends written "yes". The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
+| FX-DIRBLUR-029 frame 4: Taper Ends written "yes". The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
+| FX-DIRBLUR-029: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
 
 ## The streak's shape: one half-covered red pixel streaked up and down, length 8
 
@@ -159,6 +194,20 @@ D-753, accepted on 2026-10-23 by the owner's message "Proceed, if an effect is m
 | FX-DIRBLUR-013, fx_dirblur_013.json, frames [0, 4] at Full and Draft | largest difference 0 of 255; on the card in 0 of 4 frames; refused by the card: false; the same warnings: true | yes |
 | FX-DIRBLUR-014, fx_dirblur_014.json, frames [0, 4] at Full and Draft | largest difference 0 of 255; on the card in 0 of 4 frames; refused by the card: false; the same warnings: true | yes |
 | FX-DIRBLUR-015, fx_dirblur_015.json, frames [0, 4] at Full and Draft | largest difference 0 of 255; on the card in 0 of 4 frames; refused by the card: false; the same warnings: true | yes |
+| FX-DIRBLUR-016, fx_dirblur_016.json, frames [0] at Full and Draft | largest difference 0 of 255; on the card in 0 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-DIRBLUR-017, fx_dirblur_017.json, frames [0] at Full and Draft | largest difference 1 of 255; on the card in 0 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-DIRBLUR-018, fx_dirblur_018.json, frames [0] at Full and Draft | largest difference 1 of 255; on the card in 0 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-DIRBLUR-019, fx_dirblur_019.json, frames [0] at Full and Draft | largest difference 0 of 255; on the card in 0 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-DIRBLUR-020, fx_dirblur_020.json, frames [0] at Full and Draft | largest difference 0 of 255; on the card in 0 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-DIRBLUR-021, fx_dirblur_021.json, frames [0] at Full and Draft | largest difference 0 of 255; on the card in 0 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-DIRBLUR-022, fx_dirblur_022.json, frames [0] at Full and Draft | largest difference 0 of 255; on the card in 0 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-DIRBLUR-023, fx_dirblur_023.json, frames [0] at Full and Draft | largest difference 0 of 255; on the card in 0 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-DIRBLUR-024, fx_dirblur_024.json, frames [0, 3] at Full and Draft | largest difference 0 of 255; on the card in 0 of 4 frames; refused by the card: false; the same warnings: true | yes |
+| FX-DIRBLUR-025, fx_dirblur_025.json, frames [0, 2, 4] at Full and Draft | largest difference 1 of 255; on the card in 0 of 6 frames; refused by the card: false; the same warnings: true | yes |
+| FX-DIRBLUR-026, fx_dirblur_026.json, frames [0, 2, 4] at Full and Draft | largest difference 1 of 255; on the card in 0 of 6 frames; refused by the card: false; the same warnings: true | yes |
+| FX-DIRBLUR-027, fx_dirblur_027.json, frames [0] at Full and Draft | largest difference 0 of 255; on the card in 0 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| FX-DIRBLUR-028, fx_dirblur_028.json, frames [0, 4] at Full and Draft | largest difference 0 of 255; on the card in 0 of 4 frames; refused by the card: false; the same warnings: true | yes |
+| FX-DIRBLUR-029, fx_dirblur_029.json, frames [0, 4] at Full and Draft | largest difference 0 of 255; on the card in 0 of 4 frames; refused by the card: false; the same warnings: true | yes |
 
 ## The frame does not depend on how it is cut up
 
@@ -170,4 +219,4 @@ D-753, accepted on 2026-10-23 by the owner's message "Proceed, if an effect is m
 
 ## Result
 
-141 of 141 checks pass.
+190 of 190 checks pass.

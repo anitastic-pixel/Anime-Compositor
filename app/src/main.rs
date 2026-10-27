@@ -4477,6 +4477,7 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             direction: 0.0,
             length: 10.0,
             edges: "transparent".to_string(),
+            taper: "on".to_string(),
         }),
         // D-93: no colour chosen, so adding it changes nothing until one is.
         SELECT_COLOR => Some(Effect::SelectColor {
@@ -7749,6 +7750,8 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             direction: number("direction")?,
             length: number("length")?,
             edges: edges(),
+            // D-919: an older page's send without it keeps the default, the taper on.
+            taper: word("taper").unwrap_or_else(|_| "on".to_string()),
         }),
         SELECT_COLOR => Ok(Effect::SelectColor {
             colors: colors()?,

@@ -4,7 +4,8 @@
 //!
 //! Every expected pixel is `Fixtures/directional_blur/expected_directional_blur.json`, written
 //! by `tools/directional_blur_reference.py` before this code existed and printed in document 25
-//! as FX-DIRBLUR-001 to 015. Tolerance 2e-5. Nothing here is a snapshot of a run.
+//! as FX-DIRBLUR-001 to 015, and since D-919 (Taper Ends) 016 to 029. Tolerance 2e-5. Nothing
+//! here is a snapshot of a run.
 
 mod effect_table;
 
@@ -17,6 +18,16 @@ fn dirblur(direction: f64, length: f64) -> Effect {
         direction,
         length,
         edges: "transparent".into(),
+        taper: "on".into(),
+    }
+}
+
+fn tapered(direction: f64, length: f64, taper: &str) -> Effect {
+    Effect::DirectionalBlur {
+        direction,
+        length,
+        edges: "transparent".into(),
+        taper: taper.into(),
     }
 }
 
@@ -28,12 +39,14 @@ fn b36_directional_blur() {
          B-42 the same day. Every expected \
          pixel is `Fixtures/directional_blur/expected_directional_blur.json`, written by \
          `tools/directional_blur_reference.py` before this code existed and printed in document \
-         25 as FX-DIRBLUR-001 to 015. The build's frame is compared sample by sample; the answer \
+         25 as FX-DIRBLUR-001 to 015; FX-DIRBLUR-016 to 029, Taper Ends (D-919, 2026-10-27), \
+         were added to it before that code existed, 016 to 026 being 001 to 011 with the taper \
+         off, D-98's flat average. The build's frame is compared sample by sample; the answer \
          is the largest difference over all of them, against the catalogue's tolerance of \
          2e-5.\n",
     );
 
-    t.heading("FX-DIRBLUR-001 to 015 (document 25)");
+    t.heading("FX-DIRBLUR-001 to 029 (document 25)");
     t.fixtures("expected_directional_blur.json");
 
     t.heading("How far it reaches");
@@ -63,7 +76,17 @@ fn b36_directional_blur() {
         "fx_dirblur_013.json",
         "fx_dirblur_014.json",
         "fx_dirblur_015.json",
+        "fx_dirblur_016.json",
+        "fx_dirblur_025.json",
+        "fx_dirblur_027.json",
+        "fx_dirblur_028.json",
+        "fx_dirblur_029.json",
     ]);
+    t.shape_refused(
+        "fx_dirblur_016.json",
+        "Taper Ends that is not a word",
+        r#"{"direction": 0, "length": 4, "taper": false}"#,
+    );
     t.shape_refused(
         "fx_dirblur_001.json",
         "no `length` at all",
@@ -84,6 +107,8 @@ fn b36_directional_blur() {
             ("length -1", set(dirblur(0.0, -1.0))),
             ("direction 3601", set(dirblur(3601.0, 4.0))),
             ("direction -3601", set(dirblur(-3601.0, 4.0))),
+            ("Taper Ends \"yes\"", set(tapered(0.0, 4.0, "yes"))),
+            ("Taper Ends \"Off\"", set(tapered(0.0, 4.0, "Off"))),
             (
                 "length keyed to 600",
                 keys("length", &[(0, &[0.0]), (4, &[600.0])]),
@@ -106,11 +131,17 @@ fn b36_directional_blur() {
                 "direction keyed from 0 to 90",
                 keys("direction", &[(0, &[0.0]), (4, &[90.0])]),
             ),
+            ("Taper Ends off", set(tapered(30.0, 12.0, "off"))),
         ],
     );
 
     t.heading("The frame does not depend on how it is cut up");
-    t.tiles(&[("fx_dirblur_004.json", 0), ("fx_dirblur_009.json", 3)]);
+    t.tiles(&[
+        ("fx_dirblur_004.json", 0),
+        ("fx_dirblur_009.json", 3),
+        ("fx_dirblur_019.json", 0),
+        ("fx_dirblur_024.json", 3),
+    ]);
 
     t.finish("B-36_directional_blur_table.md");
 }

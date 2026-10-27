@@ -569,3 +569,61 @@ fn drop_shadow_only_typed_in_the_panel_reaches_the_shadow() {
     assert!(said.starts_with("Set ") || said.starts_with("Change "), "{said}");
     assert_eq!(only(&viewer), "off");
 }
+
+/// D-919: Directional Blur's Taper Ends, on when added, set off from the panel, refused for a
+/// word that is not "on" or "off", kept through a save, and on again for an older page's send.
+#[test]
+fn directional_taper_ends_typed_in_the_panel_reaches_the_blur() {
+    let viewer = Mutex::new(demo());
+    let said = run(&viewer, "effect.add?layer=layer-3&type=core.directional_blur");
+    assert!(said.starts_with("Add "), "{said}");
+    let id = effects(&viewer)
+        .into_iter()
+        .find(|e| matches!(e.effect, Effect::DirectionalBlur { .. }))
+        .expect("a Directional Blur")
+        .instance_id
+        .as_str()
+        .to_string();
+    let taper = |viewer: &Mutex<Viewer>| match effects(viewer)
+        .into_iter()
+        .find(|e| e.instance_id.as_str() == id)
+        .expect("the blur")
+        .effect
+    {
+        Effect::DirectionalBlur { taper, .. } => taper,
+        other => panic!("{other:?}"),
+    };
+    assert_eq!(taper(&viewer), "on");
+    let base = "&direction=0&length=10&edges=transparent";
+    let said = run(&viewer, &format!("effect.set_parameters?layer=layer-3&effect={id}{base}&taper=off"));
+    assert!(said.starts_with("Set ") || said.starts_with("Change "), "{said}");
+    assert_eq!(taper(&viewer), "off");
+    let said = run(&viewer, &format!("effect.set_parameters?layer=layer-3&effect={id}{base}&taper=yes"));
+    assert!(!said.starts_with("Set ") && !said.starts_with("Change "), "{said}");
+    assert_eq!(taper(&viewer), "off");
+    let written = {
+        let held = viewer.lock().expect("the viewer lock was poisoned");
+        persist::to_json(held.document.project(), &held.preserved)
+    };
+    let reopened = persist::load_str(&written).unwrap_or_else(|d| panic!("{}: {}", d.message, d.detail));
+    let back = reopened
+        .document
+        .project()
+        .compositions
+        .iter()
+        .find_map(|c| c.layer(&Id::new("layer-3")))
+        .expect("layer-3")
+        .effects
+        .iter()
+        .find(|e| e.instance_id.as_str() == id)
+        .expect("the blur came back")
+        .clone();
+    assert!(
+        matches!(&back.effect, Effect::DirectionalBlur { taper, .. } if taper == "off"),
+        "{:?}",
+        back.effect
+    );
+    let said = run(&viewer, &format!("effect.set_parameters?layer=layer-3&effect={id}{base}"));
+    assert!(said.starts_with("Set ") || said.starts_with("Change "), "{said}");
+    assert_eq!(taper(&viewer), "on");
+}

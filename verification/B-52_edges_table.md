@@ -43,7 +43,7 @@ D-109, proposed on 2026-09-26 and built at the owner's "proceed, add to other bl
 | a Directional Blur 20 long repeating its edges does not grow | 0 | yes |
 | one leaving them transparent grows by half its length, as before | 10 | yes |
 | a Radial Blur repeating its edges does not grow, as it never did | 0 | yes |
-| a half-size draft preview halves the length and keeps the edges | DirectionalBlur { direction: 30.0, length: 10.0, edges: "repeat" } | yes |
+| a half-size draft preview halves the length and keeps the edges | DirectionalBlur { direction: 30.0, length: 10.0, edges: "repeat", taper: "on" } | yes |
 
 ## The file
 
@@ -72,8 +72,8 @@ D-109, proposed on 2026-09-26 and built at the owner's "proceed, add to other bl
 | fx_edges_001.json: GaussianBlur { sigma_px: 1.0, edges: "wrap", dimensions: "both", units: "sigma" } is refused with a sentence, and nothing changes | Gaussian Blur's edges are "transparent" or "repeat", and this is "wrap". | yes |
 | fx_edges_001.json: GaussianBlur { sigma_px: 1.0, edges: "transparent", dimensions: "both", units: "sigma" } is taken | taken | yes |
 | undo 1 times: frame 0 is the frame it was | byte-identical | yes |
-| fx_edges_004.json: DirectionalBlur { direction: 90.0, length: 6.0, edges: "Repeat" } is refused with a sentence, and nothing changes | Directional Blur's edges are "transparent" or "repeat", and this is "Repeat". | yes |
-| fx_edges_004.json: DirectionalBlur { direction: 90.0, length: 6.0, edges: "transparent" } is taken | taken | yes |
+| fx_edges_004.json: DirectionalBlur { direction: 90.0, length: 6.0, edges: "Repeat", taper: "on" } is refused with a sentence, and nothing changes | Directional Blur's edges are "transparent" or "repeat", and this is "Repeat". | yes |
+| fx_edges_004.json: DirectionalBlur { direction: 90.0, length: 6.0, edges: "transparent", taper: "on" } is taken | taken | yes |
 | undo 1 times: frame 0 is the frame it was | byte-identical | yes |
 | fx_edges_007.json: RadialBlur { kind: "spin", amount: 30.0, center: [50.0, 50.0], edges: "" } is refused with a sentence, and nothing changes | Radial Blur's edges are "transparent" or "repeat", and this is "". | yes |
 | fx_edges_007.json: RadialBlur { kind: "spin", amount: 30.0, center: [50.0, 50.0], edges: "transparent" } is taken | taken | yes |
