@@ -552,6 +552,16 @@ The conditions, which fall due at the first distribution of a binary and not bef
 
 The name on the copyright line was settled by D-34.
 
+## Tools that write fixtures, never shipped
+
+Not crates and not in the binary, so not in the bill above; recorded here as AGENTS.md asks.
+
+- **PyOpenColorIO 2.5.1** (`opencolorio==2.5.1` from PyPI, BSD-3-Clause, the Academy Software
+  Foundation's OpenColorIO). Purpose: `tools/ocio_reference.py` writes the expected values in
+  `Fixtures/colour/expected_conversions.json` (ADR-023, D-906). Installed in its own Python virtual
+  environment outside the repository, never in the build. Distribution impact: none; nothing of it
+  ships, and the fixture holds only numbers it computed.
+
 ## What this record does not yet contain
 
 - **A professional legal review.** The review above is an engineer's. Document 10's release packet

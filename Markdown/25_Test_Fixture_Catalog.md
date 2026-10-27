@@ -823,6 +823,16 @@ FX-COLMETA-002: warned files, one warning each naming the file and the listed ch
 
 FX-COLMETA-003: `seq/frame_0001.png` to `frame_0003.png`, each gAMA 100000, imported as one sequence: one warning, naming drawings 1-3.
 
+## Colour conversion fixtures
+
+Specified on 2026-10-26 by D-906 for B-785 (ADR-023, step C2). `Fixtures/colour/expected_conversions.json` is written by `tools/ocio_reference.py` with PyOpenColorIO 2.5.1 (pinned; a tool, never shipped), from OpenColorIO's built-in config `ocio://studio-config-v4.0.0_aces-v2.0_ocio-v2.5` at `OPTIMIZATION_LOSSLESS`; nothing in it comes from the build. Samples, all rounded to single precision: for linear light 5,200 colours (a 17 by 17 by 17 cube over 0..1, a 65-step grey ramp and three 33-step channel ramps over -1..64 with the other channels at 0.18, 100 fixed pseudo-random colours over -1..64, and greys from 2^-14 to 64 with -0.5 and -0.01); for encoded numbers 5,177 colours the same way over -0.5..2. The bar for every row: |build - OpenColorIO| at most 1e-6 times the sample's size, the size being the largest magnitude in the sample's input and OpenColorIO's answer (per channel for a curve, the whole colour for a matrix).
+
+FX-COLCONV-001: the matrices. For each of linear Rec.709, ACEScg, ACES2065-1, linear Rec.2020 and linear P3-D65, OpenColorIO's own matrix to ACES2065-1 (`matrices_to_aces2065_1`, 17 digits). The build's matrix from the chromaticities with Bradford adaptation equals it within 1e-12 in every entry.
+
+FX-COLCONV-002: the 20 ordered pairs of those five linear spaces, every linear sample, within the bar.
+
+FX-COLCONV-003: the five curves, each both ways against its linear space: sRGB, BT.1886 (gamma 2.4) and gamma 2.2 encoded Rec.709 against linear Rec.709, ACEScct and ACEScc against ACEScg. Each row also carries `formula`, the published curve worked in double precision by the script (12 digits). BT.1886, gamma 2.2 and ACEScct decoding are within the bar against OpenColorIO. Five rows, where OpenColorIO's config does not follow the published formula, are within the bar against `formula` instead, each with its reason in the verification table: sRGB both ways (OpenColorIO's smooth knee), ACEScc both ways (OpenColorIO's 4096-step table and clamps), and ACEScct encoding (one sample, -0.01, where OpenColorIO's single-precision sum cancels).
+
 ## Adjustment layer fixtures
 
 D-66, accepted on 2026-09-17; B-17b's `verification/B-17b_adjust_table.md` walks every case. Every case is a composition 6 by 2 at 24 fps, three frames long, drawn from the projects and drawings in `Fixtures/adjust/`: `bg` is opaque, red on the top row and sRGB grey 128 on the bottom; `dot` is one opaque white pixel at (2, 0); `half` is green at alpha 128 everywhere; `matte` is white on the left three columns and empty on the right three. Layers are listed bottom first. Every layer's transform is the identity unless the case moves it. Each cell is R G B A of the finished frame, linear and premultiplied.
