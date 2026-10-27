@@ -14906,7 +14906,7 @@ fn b795_colour_management_switch() {
         ("the Colour management list's three choices", "<option value=\"off\">Off</option>\n    <option value=\"acescg\">On, working in ACEScg</option>\n    <option value=\"linear-srgb\">On, working in linear Rec.709</option>"),
         ("choosing sends the command", "command('/project.set_color_management?working=' + encodeURIComponent($('colourmanagement').value));"),
         ("the list is redrawn from the project with the panels", "  drawColourView();\n  drawProjectSettings();\n"),
-        ("the box says exports are not done yet", "exports are still written from the working numbers"),
+        ("the box says each export chooses its Output", "Exports: each export chooses its own Output in the export window."),
     ] {
         report.check(what, "yes", yes_no(page.contains(needle)));
     }
@@ -14921,7 +14921,7 @@ fn b795_colour_management_switch() {
              accepted case must become a project an earlier reference tool wrote, and send that \
              project's frame; a refused case must change nothing.",
         ],
-        &["Exports with ACEScg working are not yet colour managed (C6); the box says so."],
+        &["Since D-917 (C6) each export chooses its Output; the box says so."],
     );
     let failed: Vec<_> = report.rows.iter().filter(|(_, e, a)| e != a).collect();
     assert!(failed.is_empty(), "see verification/B-795_colour_management_switch_table.md: {failed:?}");
