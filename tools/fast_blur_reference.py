@@ -16,9 +16,11 @@ is Soft Physical Glow's and Halation's own rule (D-353), which they already use 
 from its top left corner, each cell holding its pixels' sum over d * d (nothing outside the
 picture). The cells are blurred by document 21's Gaussian at sigma_l = sqrt(max(sigma^2 - d^2 / 4,
 0)) / d (the cell's average and the read back's tent spread it by about d^2 / 4 between them),
-cut at its own reach, nothing outside the cells. Each full pixel (x, y) reads the blurred cells
-bilinearly at u = (x + 0.5) / d - 0.5, v = (y + 0.5) / d - 0.5, nothing outside. The full blur's
-reach is kept, so the picture grows as at Exact.
+cut at its own reach, nothing outside the cells. Each full pixel (x, y) reads the blurred cells,
+which reach past the picture, bilinearly at u = (x + 0.5) / d - 0.5, v = (y + 0.5) / d - 0.5. A
+first version read nothing past the last cell, and that cut darkened the glow along the picture's
+edge, up to 0.01 from Exact on FX-GLOW-035; read past it, 0.0002. The full blur's reach is kept,
+so the picture grows as at Exact.
 
 **Glow**: the light's blur is the reduced blur at Glow's sigma (both dimensions only; one
 dimension stays exact). **Bloom**: each of its four halo blurs at its own sigma and cell; the
@@ -92,7 +94,7 @@ def cells(plane, w, h, d):
 
 
 def read_back(at, lw, lh, d):
-    """The full pixel (x, y)'s bilinear read of the cells' `at(i, j)`, nothing outside."""
+    """The full pixel (x, y)'s bilinear read of the blurred cells' `at(i, j)`, any i and j."""
     def sample(x, y):
         u, v = (x + 0.5) / d - 0.5, (y + 0.5) / d - 0.5
         u0, v0 = math.floor(u), math.floor(v)
@@ -101,7 +103,7 @@ def read_back(at, lw, lh, d):
         for dj, wj in ((0, 1 - fv), (1, fv)):
             for di, wi in ((0, 1 - fu), (1, fu)):
                 i, j = u0 + di, v0 + dj
-                if 0 <= i < lw and 0 <= j < lh and wi * wj:
+                if wi * wj:
                     out = [o + wi * wj * p for o, p in zip(out, at(i, j))]
         return out
     return sample
