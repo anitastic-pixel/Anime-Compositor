@@ -2,7 +2,7 @@
 
 Written by `tests/b794_colour_view.rs` (D-915). The expected levels are OpenColorIO 2.5.1's (built-in config `ocio://studio-config-v4.0.0_aces-v2.0_ocio-v2.5`, lossless, display "sRGB - Display"), written by `tools/view_reference.py` into `Fixtures/colour/view/expected_view.json` before the code. The bar: within 1 level of 255 on every channel on at least 99.9% of a barred case's pixels. A view this build does not have is kept, shown as Standard and warned `COLOR_VIEW_UNAVAILABLE`.
 
-**62 of 62 checks pass.**
+**65 of 65 checks pass.**
 
 | Check | Expected | Actual | Result |
 |---|---|---|---|
@@ -36,13 +36,16 @@ Written by `tests/b794_colour_view.rs` (D-915). The expected levels are OpenColo
 | Un-tone-mapped view, stress: 4000 colours, half outside Rec.709, acescg: within 1 level on at least 99.9% | true | true | pass |
 | hdr_scene_aces.json, 8-bit: the card within 1 level of the processor on every pixel | true | true | pass |
 | hdr_scene_aces.json, Float: the card within 1 level of the processor on every pixel | true | true | pass |
-| hdr_scene_aces.json, 8 bpc (After Effects): the card within 1 level of the processor on every pixel | true | true | pass |
+| hdr_scene_aces.json, 8-bit, Rec.709 working: the card within 1 level of the processor on every pixel | true | true | pass |
+| hdr_scene_aces.json, Float, Rec.709 working: the card within 1 level of the processor on every pixel | true | true | pass |
 | hdr_scene_un_tone_mapped.json, 8-bit: the card within 1 level of the processor on every pixel | true | true | pass |
 | hdr_scene_un_tone_mapped.json, Float: the card within 1 level of the processor on every pixel | true | true | pass |
-| hdr_scene_un_tone_mapped.json, 8 bpc (After Effects): the card within 1 level of the processor on every pixel | true | true | pass |
+| hdr_scene_un_tone_mapped.json, 8-bit, Rec.709 working: the card within 1 level of the processor on every pixel | true | true | pass |
+| hdr_scene_un_tone_mapped.json, Float, Rec.709 working: the card within 1 level of the processor on every pixel | true | true | pass |
 | hdr_scene_standard.json, 8-bit: the card within 1 level of the processor on every pixel | true | true | pass |
 | hdr_scene_standard.json, Float: the card within 1 level of the processor on every pixel | true | true | pass |
-| hdr_scene_standard.json, 8 bpc (After Effects): the card within 1 level of the processor on every pixel | true | true | pass |
+| hdr_scene_standard.json, 8-bit, Rec.709 working: the card within 1 level of the processor on every pixel | true | true | pass |
+| hdr_scene_standard.json, Float, Rec.709 working: the card within 1 level of the processor on every pixel | true | true | pass |
 | hdr_scene_off.json, 8-bit: the card within 1 level of the processor on every pixel | true | true | pass |
 | hdr_scene_off.json, Float: the card within 1 level of the processor on every pixel | true | true | pass |
 | hdr_scene_off.json, 8 bpc (After Effects): the card within 1 level of the processor on every pixel | true | true | pass |
@@ -120,15 +123,18 @@ Card: NVIDIA GeForce RTX 4070 Ti SUPER (DiscreteGpu), driver NVIDIA 610.88, Vulk
 
 | Project | View | Depth | Drawn by | Pixels past 1 | Largest difference | Largest past 1 | Pixels over 1 level | Result |
 |---|---|---|---|---|---|---|---|---|
-| hdr_scene_aces.json | ACES 2.0 SDR | 8-bit | card | 59360 | 0 | 0 | 0 | pass |
-| hdr_scene_aces.json | ACES 2.0 SDR | Float | card | 59360 | 0 | 0 | 0 | pass |
-| hdr_scene_aces.json | ACES 2.0 SDR | 8 bpc (After Effects) | processor (refused) | 0 | 0 | 0 | 0 | pass |
-| hdr_scene_un_tone_mapped.json | Un-tone-mapped | 8-bit | card | 59360 | 0 | 0 | 0 | pass |
-| hdr_scene_un_tone_mapped.json | Un-tone-mapped | Float | card | 59360 | 0 | 0 | 0 | pass |
-| hdr_scene_un_tone_mapped.json | Un-tone-mapped | 8 bpc (After Effects) | processor (refused) | 0 | 0 | 0 | 0 | pass |
-| hdr_scene_standard.json | Standard | 8-bit | card | 59360 | 1 | 1 | 0 | pass |
-| hdr_scene_standard.json | Standard | Float | card | 59360 | 0 | 0 | 0 | pass |
-| hdr_scene_standard.json | Standard | 8 bpc (After Effects) | card | 0 | 0 | 0 | 0 | pass |
+| hdr_scene_aces.json | ACES 2.0 SDR | 8-bit | processor (refused) | 59360 | 0 | 0 | 0 | pass |
+| hdr_scene_aces.json | ACES 2.0 SDR | Float | processor (refused) | 59360 | 0 | 0 | 0 | pass |
+| hdr_scene_aces.json | ACES 2.0 SDR | 8-bit, Rec.709 working | card | 61344 | 0 | 0 | 0 | pass |
+| hdr_scene_aces.json | ACES 2.0 SDR | Float, Rec.709 working | card | 61344 | 0 | 0 | 0 | pass |
+| hdr_scene_un_tone_mapped.json | Un-tone-mapped | 8-bit | processor (refused) | 59360 | 0 | 0 | 0 | pass |
+| hdr_scene_un_tone_mapped.json | Un-tone-mapped | Float | processor (refused) | 59360 | 0 | 0 | 0 | pass |
+| hdr_scene_un_tone_mapped.json | Un-tone-mapped | 8-bit, Rec.709 working | card | 61344 | 0 | 0 | 0 | pass |
+| hdr_scene_un_tone_mapped.json | Un-tone-mapped | Float, Rec.709 working | card | 61344 | 0 | 0 | 0 | pass |
+| hdr_scene_standard.json | Standard | 8-bit | processor (refused) | 59360 | 0 | 0 | 0 | pass |
+| hdr_scene_standard.json | Standard | Float | processor (refused) | 59360 | 0 | 0 | 0 | pass |
+| hdr_scene_standard.json | Standard | 8-bit, Rec.709 working | card | 61344 | 1 | 1 | 0 | pass |
+| hdr_scene_standard.json | Standard | Float, Rec.709 working | card | 61344 | 0 | 0 | 0 | pass |
 | hdr_scene_off.json | Standard | 8-bit | card | 61344 | 1 | 1 | 0 | pass |
 | hdr_scene_off.json | Standard | Float | card | 61344 | 0 | 0 | 0 | pass |
 | hdr_scene_off.json | Standard | 8 bpc (After Effects) | card | 0 | 0 | 0 | 0 | pass |

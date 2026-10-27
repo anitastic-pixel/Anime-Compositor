@@ -18,6 +18,7 @@ use anime_compositor::diagnostics::{DiagnosticId, FrameLog};
 use anime_compositor::gpu::Gpu;
 use anime_compositor::model::{Id, Project};
 use anime_compositor::preview::{self, PreviewQuality};
+use anime_compositor::view;
 use anime_compositor::{persist, png_out, OutputDepth, WorkingBuffer};
 use serde_json::Value as J;
 
@@ -230,7 +231,8 @@ fn b789_stored_colours() {
         Ok(mut gpu) => {
             let loaded = open("overlay_acescg.json");
             let project = loaded.document.project();
-            let cpu = frame(project).to_srgb8_straight();
+            // D-915: the viewer shows the frame through the project's view.
+            let cpu = view::encode8(&frame(project), view::Shown::of(project));
             let mut log = FrameLog::new(3);
             let mut cache = CelCache::viewer();
             let (card, ..) = preview::preview_frame_srgb8(

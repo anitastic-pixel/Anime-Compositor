@@ -7,14 +7,14 @@
 //! document 25). The card is judged against this build's processor, as every card table is.
 
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::AtomicBool;
 
 use anime_compositor::cache::CelCache;
 use anime_compositor::color::Gamut;
 use anime_compositor::command::Command;
 use anime_compositor::compose::DEFAULT_TILE_SIZE;
 use anime_compositor::diagnostics::{DiagnosticId, FrameLog};
-use anime_compositor::export::{export_sequence, ExportChoices, ExportRequest, MissingSource, OutputFormat, ON_CARD};
+use anime_compositor::export::{export_sequence, ExportChoices, ExportRequest, MissingSource, OutputFormat};
 use anime_compositor::gpu::Gpu;
 use anime_compositor::model::{Id, Project};
 use anime_compositor::preview::{self, PreviewQuality};
@@ -128,9 +128,13 @@ fn both(project: &Project, gpu: &mut Gpu) -> (WorkingBuffer, Vec<u8>, Vec<u8>, b
     (cpu, bytes, card, refused)
 }
 
-/// `name` with its composition set to a depth: "" as saved, else the key set true.
-fn at_depth(name: &str, key: &str) -> Project {
+/// `name` with its composition set to a depth: "" as saved, else the key set true; and its
+/// working space set to `working` where the file has colour management.
+fn at_depth(name: &str, key: &str, working: &str) -> Project {
     let mut j: J = serde_json::from_str(&text(name)).unwrap();
+    if let Some(c) = j.get_mut("color_settings").and_then(|c| c.as_object_mut()).filter(|c| c.contains_key("color_management")) {
+        c.insert("working_space".into(), J::from(working));
+    }
     if !key.is_empty() {
         for c in j["compositions"].as_array_mut().unwrap() {
             c.as_object_mut().unwrap().insert(key.into(), J::from(true));
@@ -209,8 +213,18 @@ fn b794_colour_view() {
     let mut gpu = Gpu::new().expect("a usable card");
     let about = gpu.about().to_string();
     for name in ["hdr_scene_aces.json", "hdr_scene_un_tone_mapped.json", "hdr_scene_standard.json", "hdr_scene_off.json"] {
+        // D-910: an ACEScg frame is drawn by the processor; Rec.709 working keeps the card's view drawn.
+        for working in ["acescg", "linear-srgb"] {
+        if working == "linear-srgb" && name == "hdr_scene_off.json" {
+            continue;
+        }
         for (depth, key) in [("8-bit", ""), ("Float", "float_depth"), ("8 bpc (After Effects)", "eight_bpc")] {
-            let project = at_depth(name, key);
+            // D-910 refuses 8 bpc (AE) with colour management on at opening; only the off file takes it.
+            if key == "eight_bpc" && name != "hdr_scene_off.json" {
+                continue;
+            }
+            let project = at_depth(name, key, working);
+            let depth = if working == "acescg" { depth.to_string() } else { format!("{depth}, Rec.709 working") };
             let (cpu, bytes, card, refused) = both(&project, &mut gpu);
             let past1: Vec<usize> = cpu
                 .data()
@@ -227,7 +241,7 @@ fn b794_colour_view() {
                 .unwrap_or(0);
             let off_today = if name == "hdr_scene_off.json" { bytes == cpu.to_srgb8_straight() } else { true };
             // Only an 8 bpc (After Effects) frame with a view goes to the processor, on purpose.
-            let on_purpose = key == "eight_bpc" && Shown::of(&project).code() != 0;
+            let on_purpose = (key == "eight_bpc" && Shown::of(&project).code() != 0) || project.color_management == Some(Gamut::Ap1);
             let ok = largest <= 1 && refused == on_purpose && (!refused || largest == 0) && off_today;
             t.card.push(format!(
                 "| {name} | {} | {depth} | {} | {} | {largest} | {largest_past1} | {over1} | {} |",
@@ -237,9 +251,10 @@ fn b794_colour_view() {
                 if ok { "pass" } else { "FAIL" }
             ));
             t.check(&format!("{name}, {depth}: the card within 1 level of the processor on every pixel"), "true", ok);
-            if key.is_empty() && name != "hdr_scene_off.json" {
+            if key.is_empty() && working == "acescg" && name != "hdr_scene_off.json" {
                 picture(&cpu, &bytes, Shown::of(&project).view.word().unwrap_or("unknown"));
             }
+        }
         }
     }
 
@@ -249,7 +264,6 @@ fn b794_colour_view() {
             let out = PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join("b794_export").join(format!("{name}_{cards}"));
             let _ = std::fs::remove_dir_all(&out);
             std::fs::create_dir_all(&out).unwrap();
-            ON_CARD.store(cards > 0, Ordering::SeqCst);
             let request = ExportRequest {
                 composition: Id::new("comp-main"),
                 first_frame: 0,
@@ -261,10 +275,9 @@ fn b794_colour_view() {
                 tile_size: DEFAULT_TILE_SIZE,
                 missing: MissingSource::RenderTransparent,
                 format: OutputFormat::Png,
-                choices: ExportChoices::default(),
+                choices: ExportChoices { on_card: cards > 0, ..ExportChoices::default() },
             };
             let report = export_sequence(open(name).document.project(), &dir(), &request, &AtomicBool::new(false));
-            ON_CARD.store(false, Ordering::SeqCst);
             assert!(report.succeeded(), "{name}: {:?}", report.diagnostics);
             std::fs::read(out.join("f_0000.png")).unwrap()
         };
