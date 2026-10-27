@@ -14537,3 +14537,37 @@ fn d887_a_bar_dragged_in_the_page_is_one_entry_and_the_frame_follows_it() {
     let failed: Vec<&String> = report.rows.iter().filter(|(_, e, a)| e != a).map(|(c, _, _)| c).collect();
     assert!(failed.is_empty(), "these checks failed: {failed:#?}");
 }
+
+/// B-788 (D-909): Interpret as from the Project panel, on the ACES chart, and a word this build
+/// does not have, kept and said.
+#[test]
+fn b788_interpret_as_from_the_window() {
+    let word = |viewer: &Mutex<Viewer>| {
+        let state: serde_json::Value =
+            serde_json::from_str(&state(viewer)).expect("the state answer is JSON");
+        state["project"]["assets"][0]["interpretation"]["color_space"].clone()
+    };
+    let source = repo("Fixtures/colour/interpret/chart_tagged_linear_rec709.json");
+    let viewer = Mutex::new(
+        open(&source).unwrap_or_else(|d| panic!("open {}: {}", source.display(), d.message)),
+    );
+    assert_eq!(word(&viewer), "linear-srgb");
+    assert_eq!(
+        run(&viewer, "asset.set_interpretation?asset=asset-chart&color_space=aces2065-1"),
+        "Interpret asset-chart as aces2065-1"
+    );
+    assert_eq!(word(&viewer), "aces2065-1");
+    assert!(held(&viewer).document.is_dirty());
+    undo(&viewer);
+    assert_eq!(word(&viewer), "linear-srgb");
+    let refused = run(&viewer, "asset.set_interpretation?asset=asset-chart&color_space=rec709-ish");
+    assert!(refused.contains("not a colour space this version has"), "{refused}");
+    assert_eq!(word(&viewer), "linear-srgb");
+
+    let source = repo("Fixtures/colour/interpret/unknown_space.json");
+    let viewer = Mutex::new(
+        open(&source).unwrap_or_else(|d| panic!("open {}: {}", source.display(), d.message)),
+    );
+    assert_eq!(word(&viewer), "arri-logc4-awg4");
+    assert!(notes_mention(&viewer, "COLOR_SPACE_UNKNOWN"), "{:?}", held(&viewer).notes);
+}

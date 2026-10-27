@@ -1888,13 +1888,16 @@ impl Asset {
 /// Document 19: "Project owns: schema version, project ID, project settings, assets,
 /// compositions, color settings and application metadata."
 ///
-/// Colour settings are the fixed pair document 21 requires of G1 and are not modelled as a
-/// choice, because there is not yet a second option to choose.
+/// Colour settings: alpha is always premultiplied; D-909 adds colour management, off unless
+/// the file says `color_management` true.
 #[derive(Clone, PartialEq, Debug)]
 pub struct Project {
     pub id: Id,
     pub assets: Vec<Asset>,
     pub compositions: Vec<Composition>,
+    /// D-909: `None` is colour management off (the working space is linear Rec.709, today's);
+    /// `Some` is on, with the working space's primaries (ACEScg's or Rec.709's).
+    pub color_management: Option<crate::color::Gamut>,
 }
 
 impl Project {
@@ -1903,7 +1906,20 @@ impl Project {
             id,
             assets: Vec::new(),
             compositions: Vec::new(),
+            color_management: None,
         }
+    }
+
+    /// D-909: how `asset`'s files are read in this project: its record, converted into the
+    /// working space when colour management is on with a working space other than Rec.709.
+    pub fn interpretation(&self, asset: &Asset) -> Interpretation {
+        let mut read = asset.interpretation;
+        if let (Some(to), Some(s)) = (self.color_management, read.color_space.stored()) {
+            if to != crate::color::Gamut::Rec709 {
+                read.color_space = crate::ColorSpace::Named(s, to);
+            }
+        }
+        read
     }
 
     pub fn composition(&self, id: &Id) -> Option<&Composition> {

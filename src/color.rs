@@ -221,6 +221,11 @@ pub fn gamut_matrix(from: Gamut, to: Gamut) -> M3 {
     mul(&invert(&to.to_xyz()), &src)
 }
 
+/// D-909: `rgb` through a [`gamut_matrix`] in double precision, rounded once to single precision.
+pub fn apply_f32(m: &M3, rgb: [f32; 3]) -> [f32; 3] {
+    apply(m, rgb.map(f64::from)).map(|c| c as f32)
+}
+
 /// A transfer curve: how a stored number relates to linear light.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Curve {

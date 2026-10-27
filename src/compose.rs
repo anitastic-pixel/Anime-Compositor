@@ -754,7 +754,8 @@ fn exposed_cel(
     let asset = project.assets.iter().find(|a| a.id == layer.asset_id)?;
     let local = layer.source_time(frame)?.floor() as i32;
     let relative = source_at(layer.exposure_spans.clone(), asset, local, frame).ok()??;
-    Some((root.join(relative), asset.interpretation))
+    let read = project.interpretation(asset);
+    (read.color_space != crate::ColorSpace::Unknown).then(|| (root.join(relative), read))
 }
 
 /// D-57's `M_world` for a chain of layers, with the two things keeping place needs that the
@@ -3149,6 +3150,28 @@ fn decode_cel(
         }
     };
     let path = root.join(&relative);
+    let read = project.interpretation(asset);
+    // D-909: a colour-space word this build does not have draws nothing, never a guess.
+    if read.color_space == crate::ColorSpace::Unknown {
+        log.record(
+            frame,
+            layer.name.clone(),
+            Diagnostic::new(
+                DiagnosticId::ColorSpaceUnknown,
+                Severity::Warning,
+                format!(
+                    "{} is stored in a colour space this version does not know.",
+                    asset.name
+                ),
+                format!(
+                    "Layer {} shows asset {}, whose colour space is not one this build has; the                      layer is left out of frame {frame} rather than drawn as sRGB.",
+                    layer.name, asset.id
+                ),
+            )
+            .with_remediation("Choose what the file is in under Interpret as, in the Project panel."),
+        );
+        return None;
+    }
     if crate::cache::looked_at(&path).is_err() {
         log.record(
             frame,
@@ -3176,14 +3199,14 @@ fn decode_cel(
     // sRGB, straight — and the asset record is what overrides it, so a project that says a
     // sequence was rendered premultiplied is believed here and nowhere else. All three of
     // those steps happen inside the cache, because all three are what a hit skips.
-    let source = match cache.decoded(&path, asset.interpretation) {
+    let source = match cache.decoded(&path, read) {
         Ok(buffer) => buffer,
         Err(d) => {
             log.record(frame, layer.name.clone(), d);
             return None;
         }
     };
-    Some((source, (path, asset.interpretation)))
+    Some((source, (path, read)))
 }
 
 /// Document 21 from step 2 for one layer, given its decoded cel or, with `cel` `None`, an

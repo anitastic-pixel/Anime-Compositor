@@ -4166,6 +4166,8 @@ fn propose_relink(viewer: &Mutex<Viewer>, asset: &Id, files: &[PathBuf]) -> Stri
             match i.color_space {
                 ColorSpace::Srgb => "sRGB",
                 ColorSpace::LinearLight => "linear light",
+                // D-909: the project file's word for a named space.
+                other => other.word().unwrap_or("a colour space this version does not know"),
             },
             match i.alpha {
                 AlphaMode::Straight => "straight",
@@ -10622,6 +10624,7 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
 /// `verification/B-12b_page_table.md` checks that everything the page sends is in this list, and
 /// `verification/B-12b_command_map_table.md` checks that nothing outside it is answered.
 const ANSWERS: &[&str] = &[
+    "asset.set_interpretation",
     "asset.set_redistribute",
     "camera.set_property",
     "composition.create",
@@ -11093,6 +11096,23 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                     .to_string(),
                 false => propose_relink(viewer, &asset, &files),
             });
+        }
+        // D-909's Interpret as, for the still or sequence chosen in the Project panel.
+        "asset.set_interpretation" => {
+            let Some(asset) = parameter(query, "asset") else {
+                return Some("Which drawings? Choose them in the Project panel.".to_string());
+            };
+            let word = parameter(query, "color_space").unwrap_or_default();
+            let Some(color_space) = ColorSpace::from_word(&word) else {
+                return Some(format!("{word:?} is not a colour space this version has."));
+            };
+            return Some(edit(
+                viewer,
+                Command::SetAssetInterpretation {
+                    asset: Id::new(&asset),
+                    color_space,
+                },
+            ));
         }
         // D-61's "Can be passed on" tick, for the drawing chosen in the Project panel.
         "asset.set_redistribute" => {

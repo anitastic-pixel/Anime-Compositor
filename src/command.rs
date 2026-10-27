@@ -91,6 +91,12 @@ pub enum Command {
         asset: Id,
         redistribute: bool,
     },
+    /// Document 24's `asset.set_interpretation`, D-909: Interpret as, the colour space a
+    /// still's or a sequence's files are stored in. B-788.
+    SetAssetInterpretation {
+        asset: Id,
+        color_space: crate::ColorSpace,
+    },
     /// Document 24's `item.set_label`, D-254: a composition's or a footage item's label colour,
     /// as a layer's (W-24). 0 for none.
     SetItemLabel {
@@ -625,6 +631,7 @@ impl Command {
             Command::AddAsset { .. } => "ADD_ASSET",
             Command::RelinkAsset { .. } => "RELINK_ASSET",
             Command::SetAssetRedistribute { .. } => "SET_ASSET_REDISTRIBUTE",
+            Command::SetAssetInterpretation { .. } => "SET_ASSET_INTERPRETATION",
             Command::SetItemLabel { .. } => "SET_ITEM_LABEL",
             Command::AddComposition { .. } => "ADD_COMPOSITION",
             Command::RemoveComposition { .. } => "REMOVE_COMPOSITION",
@@ -779,6 +786,10 @@ impl Command {
                 true => format!("Let {asset} be passed on"),
                 false => format!("Keep {asset} out of packages"),
             },
+            Command::SetAssetInterpretation { asset, color_space } => format!(
+                "Interpret {asset} as {}",
+                color_space.word().unwrap_or("an unknown colour space")
+            ),
             Command::SetItemLabel { item, label } => match label {
                 0 => format!("Clear {item}'s label"),
                 n => format!("Set {item}'s label to colour {n}"),
@@ -1034,6 +1045,7 @@ impl Command {
             Command::AddAsset { .. }
             | Command::RelinkAsset { .. }
             | Command::SetAssetRedistribute { .. }
+            | Command::SetAssetInterpretation { .. }
             | Command::SetItemLabel { .. }
             | Command::AddComposition { .. }
             | Command::RemoveComposition { .. } => None,
@@ -1109,6 +1121,7 @@ impl Command {
             Command::AddAsset { asset } => ids.push(asset.id.clone()),
             Command::RelinkAsset { asset } => ids.push(asset.id.clone()),
             Command::SetAssetRedistribute { asset, .. } => ids.push(asset.clone()),
+            Command::SetAssetInterpretation { asset, .. } => ids.push(asset.clone()),
             Command::SetItemLabel { item, .. } => ids.push(item.clone()),
             Command::AddComposition { composition } => ids.push(composition.id.clone()),
             Command::RemoveComposition { composition } => ids.push(composition.clone()),
@@ -1273,6 +1286,7 @@ impl Command {
                 | Command::AddAsset { .. }
                 | Command::RelinkAsset { .. }
                 | Command::SetAssetRedistribute { .. }
+                | Command::SetAssetInterpretation { .. }
                 | Command::SetItemLabel { .. }
                 | Command::AddComposition { .. }
                 | Command::AddLayer { .. }
@@ -2190,6 +2204,26 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
         return Ok(());
     }
 
+    if let Command::SetAssetInterpretation { asset, color_space } = command {
+        let Some(slot) = project.assets.iter_mut().find(|a| a.id == *asset) else {
+            return Err(missing(
+                format!("The asset {asset} is not in this project."),
+                "Interpret as names an asset record; that ID is not present.".to_string(),
+            ));
+        };
+        // D-71, D-182: a sound or a lookup file has no colours to interpret.
+        if matches!(slot.kind, AssetKind::Audio | AssetKind::Lut)
+            || *color_space == crate::ColorSpace::Unknown
+        {
+            return Err(reject(
+                &format!("{} has no colour space to choose.", slot.name),
+                "D-909: Interpret as is for a still or a sequence, with one of the named spaces.",
+            ));
+        }
+        slot.interpretation.color_space = *color_space;
+        return Ok(());
+    }
+
     if let Command::SetItemLabel { item, label } = command {
         if *label > 8 {
             return Err(reject(
@@ -2384,6 +2418,7 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
         Command::AddAsset { .. }
         | Command::RelinkAsset { .. }
         | Command::SetAssetRedistribute { .. }
+        | Command::SetAssetInterpretation { .. }
         | Command::SetItemLabel { .. }
         | Command::AddComposition { .. }
         | Command::RemoveComposition { .. } => {

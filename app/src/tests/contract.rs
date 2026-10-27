@@ -92,6 +92,7 @@ fn accelerators(page: &str) -> String {
 /// the older command any more. It too stays in document 24 and `REACHED` still checks the
 /// window answers it.
 const SENT: &[&str] = &[
+    "asset.set_interpretation",
     "asset.set_redistribute",
     "composition.create",
     "composition.delete",
@@ -322,6 +323,11 @@ const WIRING: &[(&str, &str, &str)] = &[
         "Colour, Width and Height of a solid",
         "solid.set",
         "command('/solid.set?layer=' + encodeURIComponent(layer.id) + '&' + what)",
+    ),
+    (
+        "Interpret as",
+        "asset.set_interpretation",
+        "command('/asset.set_interpretation?asset=' + encodeURIComponent(asset.id)",
     ),
     (
         "Can be passed on",
@@ -606,6 +612,8 @@ const REACHED: &[(&str, &str)] = &[
     ("media.relink", "a command the window answers"),
     // D-61, B-15c: the tick on a drawing, and File > Collect Files and Check Package.
     ("asset.set_redistribute", "a command the window answers"),
+    // D-909: Interpret as, in the Project panel's line for a still or a sequence.
+    ("asset.set_interpretation", "a command the window answers"),
     // D-253 and D-254, accepted on 2026-10-02.
     ("item.set_label", "a command the window answers"),
     ("project.collect", "a route the shell answers"),

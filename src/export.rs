@@ -1213,6 +1213,8 @@ fn bypassed(ids: &[DiagnosticId]) -> bool {
         || ids.contains(&DiagnosticId::EffectParameterInvalid)
         || ids.contains(&DiagnosticId::EffectLayerTooLarge)
         || ids.contains(&DiagnosticId::TextFontMissing)
+        // D-909: a drawing in a colour space this build does not have was left out.
+        || ids.contains(&DiagnosticId::ColorSpaceUnknown)
 }
 
 /// The text tags an exported PNG carries.

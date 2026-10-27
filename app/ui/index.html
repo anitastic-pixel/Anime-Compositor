@@ -3574,7 +3574,25 @@ function drawProject() {
         f.uses ? 'used by ' + layersWord(f.uses) : 'not used yet'].filter(Boolean).join(' · ')),
       f.missing.length ? el('span', 'pmissing', missingWords(f.missing))
         : el('span', 'pdim', files.length > 1 ? files[0] + ' to ' + files[files.length - 1] : files[0] || ''));
-    $('pinfo').replaceChildren(projTile(asset, false), txt);
+    // D-909: Interpret as, the colour space the files are stored in. A sound or a lookup file has none.
+    const cs = asset.interpretation && asset.interpretation.color_space;
+    const interp = [];
+    if (cs !== undefined) {
+      const names = [['srgb', 'sRGB'], ['linear-srgb', 'Linear Rec.709'], ['acescg', 'ACEScg'], ['aces2065-1', 'ACES2065-1'],
+        ['acescct', 'ACEScct'], ['acescc', 'ACEScc'], ['linear-rec2020', 'Linear Rec.2020'], ['linear-p3-d65', 'Linear P3-D65'],
+        ['bt1886-rec709', 'Gamma 2.4 Rec.709 (BT.1886)'], ['gamma22-rec709', 'Gamma 2.2 Rec.709']];
+      if (!names.some(([w]) => w === cs)) names.push([cs, cs + ' (not known to this build)']);
+      const sel = el('select', 'pinterp');
+      sel.title = 'Interpret as: the colour space these files are stored in';
+      for (const [w, n] of names) sel.append(Object.assign(document.createElement('option'), { value: w, textContent: n }));
+      sel.value = cs;
+      sel.onchange = () => command('/asset.set_interpretation?asset=' + encodeURIComponent(asset.id)
+        + '&color_space=' + encodeURIComponent(sel.value));
+      const lab = el('label', 'pdim', 'Interpret as ');
+      lab.append(sel);
+      interp.push(lab);
+    }
+    $('pinfo').replaceChildren(projTile(asset, false), txt, ...interp);
   } else if (comp) {
     const uses = compUses(comp.id);
     txt.append(withDot(comp, el('b', '', comp.name)),

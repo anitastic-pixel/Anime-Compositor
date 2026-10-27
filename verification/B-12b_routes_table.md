@@ -56,6 +56,7 @@ And the function itself. It needs a running application to be called, so what is
 | `/sketch-png` is left alone by the command layer | not mine - the shell answers it | not mine - the shell answers it | pass |
 | `/sound` is left alone by the command layer | not mine - the shell answers it | not mine - the shell answers it | pass |
 | `/state` is left alone by the command layer | not mine - the shell answers it | not mine - the shell answers it | pass |
+| `/stop` is left alone by the command layer | not mine - the shell answers it | not mine - the shell answers it | pass |
 | `/thumb` is left alone by the command layer | not mine - the shell answers it | not mine - the shell answers it | pass |
 | `/layer.remove`, which is nothing this window has, is refused | not mine | not mine | pass |
 | `/save-it`, which is nothing this window has, is refused | not mine | not mine | pass |
@@ -75,4 +76,4 @@ And the function itself. It needs a running application to be called, so what is
 | what an export asked for with `missing=` does with a missing drawing | Block | Block | pass |
 | what an export asked for with `no query at all` does with a missing drawing | Block | Block | pass |
 
-**54 of 54 checks pass.**
+**55 of 55 checks pass.**

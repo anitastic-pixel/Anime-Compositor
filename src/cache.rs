@@ -593,7 +593,12 @@ fn widen(
         // Never, for bytes that widened once already; the decode's own steps say why if it were.
         return Ok(retag(media::from_8bit(path, *w, *h, rgba)?, interpretation).into_working());
     }
+    if interpretation.color_space == crate::ColorSpace::Unknown {
+        // D-909: as `into_working` makes it, every sample 0.
+        return Ok(WorkingBuffer::transparent(*w, *h));
+    }
     let (alpha, colour, straight) = tables(interpretation);
+    let matrix = matrix(interpretation);
     let mut out = spare
         .filter(|s| (s.width(), s.height()) == (*w, *h))
         .unwrap_or_else(|| WorkingBuffer::transparent(*w, *h));
@@ -604,9 +609,12 @@ fn widen(
             .with_min_len(4096)
             .for_each(|(px, b)| {
                 let a = alpha[b[3] as usize];
+                let mut rgb = [0, 1, 2].map(|c| colour[b[c] as usize]);
+                if let Some(m) = &matrix {
+                    rgb = crate::color::apply_f32(m, rgb);
+                }
                 for c in 0..3 {
-                    let v = colour[b[c] as usize];
-                    px[c] = if straight { v * a } else { v };
+                    px[c] = if straight { rgb[c] * a } else { rgb[c] };
                 }
                 px[3] = a;
             });
@@ -620,8 +628,22 @@ fn tables(interpretation: Interpretation) -> ([f32; 256], [f32; 256], bool) {
     let colour = alpha.map(|c| match interpretation.color_space {
         crate::ColorSpace::Srgb => crate::color::srgb_to_linear(c),
         crate::ColorSpace::LinearLight => c,
+        // D-909: one table per curve; the matrix, if any, follows per pixel.
+        crate::ColorSpace::Named(s, _) => s.curve.to_linear(c),
+        crate::ColorSpace::Unknown => 0.0,
     });
     (alpha, colour, interpretation.alpha == crate::AlphaMode::Straight)
+}
+
+/// D-909: the matrix into the working gamut after the curve, worked out once per drawing, or
+/// `None` when the primaries are already the working ones.
+fn matrix(interpretation: Interpretation) -> Option<[[f64; 3]; 3]> {
+    match interpretation.color_space {
+        crate::ColorSpace::Named(s, to) if s.gamut != to => {
+            Some(crate::color::gamut_matrix(s.gamut, to))
+        }
+        _ => None,
+    }
 }
 
 /// D-897: bytes that [`widen`] turns back into exactly `floats`, every sample to the bit, or
@@ -630,6 +652,12 @@ fn tables(interpretation: Interpretation) -> ([f32; 256], [f32; 256], bool) {
 /// exact match. Where two bytes widen to the same float (any colour under alpha 0, say) either
 /// gives the same floats back, which is all that is asked of them.
 fn narrow(interpretation: Interpretation, floats: &WorkingBuffer) -> Option<Compact> {
+    // D-909: after a matrix a sample is no longer one of a byte's 256 values; such a drawing is
+    // held as floats. So is one whose space is unknown, which is transparent anyway.
+    if matrix(interpretation).is_some() || interpretation.color_space == crate::ColorSpace::Unknown
+    {
+        return None;
+    }
     let (alpha, colour, straight) = tables(interpretation);
     let (w, h) = (floats.width(), floats.height());
     let mut rgba = vec![0u8; w * h * 4];

@@ -114,6 +114,9 @@ diagnostic_ids! {
     /// Document 28, added by D-902: a PNG's sRGB, gAMA, cHRM, iCCP or cICP chunk says something
     /// other than the sRGB every PNG is read as. The picture is drawn as sRGB, unchanged.
     MediaColorMetadataIgnored = ("MEDIA_COLOR_METADATA_IGNORED", true),
+    /// Document 28, added by D-909: an asset's colour space is a word this build does not have.
+    /// The word is kept and saved back; the asset draws nothing.
+    ColorSpaceUnknown = ("COLOR_SPACE_UNKNOWN", true),
     /// Document 28, added by D-71: a WAV file's data ends before its header says. What is
     /// there plays.
     MediaAudioCutShort = ("MEDIA_AUDIO_CUT_SHORT", true),

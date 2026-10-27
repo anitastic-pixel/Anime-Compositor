@@ -80,9 +80,10 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | `layer.time_stretch` is in the answer | present | present | pass |
 | `layer.timesheet` is in the answer | present | present | pass |
 | `layer.transform` is in the answer | present | present | pass |
-| the panels read 5 fields out of one sequence in the media bin | true | true | pass |
+| the panels read 6 fields out of one sequence in the media bin | true | true | pass |
 | `asset.frames` is in the answer | present | present | pass |
 | `asset.id` is in the answer | present | present | pass |
+| `asset.interpretation` is in the answer | present | present | pass |
 | `asset.kind` is in the answer | present | present | pass |
 | `asset.name` is in the answer | present | present | pass |
 | `asset.redistribute` is in the answer | present | present | pass |
@@ -649,9 +650,9 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | the panel's `core.matte_choker` is an effect this build has | added | added | pass |
 | and the settings it sends for it - geometric_softness_1, choke_1, gray_level_softness_1, geometric_softness_2, choke_2, gray_level_softness_2, iterations - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.refine_hard_matte` is an effect this build has | added | added | pass |
-| and the settings it sends for it - feather, contrast, shift_edge, decontaminate, decontamination_amount, decontamination_radius, view_decontamination_map - are the ones the command reads | accepted | accepted | pass |
+| and the settings it sends for it - feather, contrast, shift_edge, decontaminate, decontamination_amount, decontamination_radius, view_decontamination_map, quality - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.refine_soft_matte` is an effect this build has | added | added | pass |
-| and the settings it sends for it - edge_radius, view_edge_region, feather, contrast, shift_edge, decontaminate, decontamination_amount, decontamination_radius, view_decontamination_map - are the ones the command reads | accepted | accepted | pass |
+| and the settings it sends for it - edge_radius, view_edge_region, feather, contrast, shift_edge, decontaminate, decontamination_amount, decontamination_radius, view_decontamination_map, quality - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.stroke` is an effect this build has | added | added | pass |
 | and the settings it sends for it - mask, all_masks, stroke_sequentially, color, brush_size, brush_hardness, opacity, start, end, spacing, paint_style, source - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.snowfall` is an effect this build has | added | added | pass |
@@ -663,4 +664,4 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | the panel's `core.compressor` is an effect this build has | added | added | pass |
 | and the settings it sends for it - threshold, ratio, knee, attack, release, makeup, output_limit, auto_release - are the ones the command reads | accepted | accepted | pass |
 
-**642 of 642 checks pass.**
+**643 of 643 checks pass.**

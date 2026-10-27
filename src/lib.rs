@@ -109,6 +109,57 @@ pub enum ColorSpace {
     LinearLight,
     /// sRGB encoded, IEC 61966-2-1 transfer function. See [`color`].
     Srgb,
+    /// D-909: stored in the named space, converted at decode into the working gamut (the second).
+    /// Today's two words stay `Srgb` and `LinearLight` with colour management off, so their
+    /// pictures and their cache keys are what they were.
+    Named(color::Space, color::Gamut),
+    /// D-909: a word this build does not have (`COLOR_SPACE_UNKNOWN`). It decodes to transparent.
+    Unknown,
+}
+
+impl ColorSpace {
+    /// D-909: the project file's words for an asset's colour space, with the space each names.
+    pub const WORDS: [(&'static str, color::Space); 10] = [
+        ("srgb", color::SRGB_REC709),
+        ("linear-srgb", color::LINEAR_REC709),
+        ("acescg", color::ACESCG),
+        ("aces2065-1", color::ACES2065_1),
+        ("acescct", color::ACESCCT),
+        ("acescc", color::ACESCC),
+        ("linear-rec2020", color::LINEAR_REC2020),
+        ("linear-p3-d65", color::LINEAR_P3_D65),
+        ("bt1886-rec709", color::BT1886_REC709),
+        ("gamma22-rec709", color::GAMMA22_REC709),
+    ];
+
+    /// The space a word names, read into today's working space (linear Rec.709); `None` for a
+    /// word this build does not have.
+    pub fn from_word(word: &str) -> Option<ColorSpace> {
+        match word {
+            "srgb" => Some(ColorSpace::Srgb),
+            "linear-srgb" => Some(ColorSpace::LinearLight),
+            _ => Self::WORDS
+                .iter()
+                .find(|(w, _)| *w == word)
+                .map(|(_, s)| ColorSpace::Named(*s, color::Gamut::Rec709)),
+        }
+    }
+
+    /// The space the file's numbers are stored in; `None` when unknown.
+    pub fn stored(self) -> Option<color::Space> {
+        match self {
+            ColorSpace::Srgb => Some(color::SRGB_REC709),
+            ColorSpace::LinearLight => Some(color::LINEAR_REC709),
+            ColorSpace::Named(s, _) => Some(s),
+            ColorSpace::Unknown => None,
+        }
+    }
+
+    /// The project file's word; `None` when unknown (the file's own word is kept instead).
+    pub fn word(self) -> Option<&'static str> {
+        let s = self.stored()?;
+        Self::WORDS.iter().find(|(_, n)| *n == s).map(|(w, _)| *w)
+    }
 }
 
 /// How the RGB channels relate to alpha.
@@ -264,15 +315,32 @@ impl ImageBuffer {
             alpha_mode,
             mut data,
         } = self;
+        // D-909: the curve, and the matrix worked out once for the whole picture (none when the
+        // primaries are already the working ones). Today's two tags take today's steps exactly.
+        let (curve, matrix) = match color_space {
+            ColorSpace::LinearLight | ColorSpace::Unknown => (color::Curve::Linear, None),
+            ColorSpace::Srgb => (color::Curve::Srgb, None),
+            ColorSpace::Named(s, to) => (
+                s.curve,
+                (s.gamut != to).then(|| color::gamut_matrix(s.gamut, to)),
+            ),
+        };
+        if color_space == ColorSpace::Unknown {
+            data.fill(0.0);
+        }
         // P-18: across the pool, as the dequantise before it. Each pixel is its own.
         perf::time(perf::Stage::ToLinear, || {
             data.par_chunks_exact_mut(4)
                 .with_min_len(4096)
                 .for_each(|px| {
-                    if color_space == ColorSpace::Srgb {
+                    if curve != color::Curve::Linear {
                         for c in &mut px[..3] {
-                            *c = color::srgb_to_linear(*c);
+                            *c = curve.to_linear(*c);
                         }
+                    }
+                    if let Some(m) = &matrix {
+                        let rgb = color::apply_f32(m, [px[0], px[1], px[2]]);
+                        px[..3].copy_from_slice(&rgb);
                     }
                     if alpha_mode == AlphaMode::Straight {
                         let a = px[3];

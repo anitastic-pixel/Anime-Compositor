@@ -118,6 +118,7 @@ const KEY_ORDER: &[&str] = &[
     "project_id",
     "color_settings",
     "working_space",
+    "color_management",
     "alpha_mode",
     "assets",
     "compositions",
@@ -519,25 +520,18 @@ fn transform_json(base: Option<&J>, layer: &Layer) -> J {
 }
 
 fn interpretation_json(base: Option<&J>, interpretation: Interpretation) -> J {
-    merge(
-        base,
-        vec![
-            (
-                "color_space",
-                J::from(match interpretation.color_space {
-                    ColorSpace::Srgb => "srgb",
-                    ColorSpace::LinearLight => "linear-srgb",
-                }),
-            ),
-            (
-                "alpha",
-                J::from(match interpretation.alpha {
-                    AlphaMode::Straight => "straight",
-                    AlphaMode::Premultiplied => "premultiplied",
-                }),
-            ),
-        ],
-    )
+    let mut owned = vec![(
+        "alpha",
+        J::from(match interpretation.alpha {
+            AlphaMode::Straight => "straight",
+            AlphaMode::Premultiplied => "premultiplied",
+        }),
+    )];
+    // D-909: a word this build does not have is not written over; the base keeps it.
+    if let Some(word) = interpretation.color_space.word() {
+        owned.insert(0, ("color_space", J::from(word)));
+    }
+    merge(base, owned)
 }
 
 fn asset_json(base: Option<&J>, asset: &Asset) -> J {
@@ -8007,7 +8001,20 @@ pub fn to_json(project: &Project, preserved: &Preserved) -> String {
         .and_then(J::as_object)
         .cloned()
         .unwrap_or_else(Map::new);
-    colors.insert("working_space".into(), J::from("linear-srgb"));
+    // D-909: `color_management` is written only when on; off removes only a `true`.
+    match project.color_management {
+        Some(gamut) => {
+            colors.insert("color_management".into(), J::Bool(true));
+            let word = if gamut == crate::color::Gamut::Ap1 { "acescg" } else { "linear-srgb" };
+            colors.insert("working_space".into(), J::from(word));
+        }
+        None => {
+            if colors.get("color_management") == Some(&J::Bool(true)) {
+                colors.remove("color_management");
+            }
+            colors.insert("working_space".into(), J::from("linear-srgb"));
+        }
+    }
     colors.insert("alpha_mode".into(), J::from("premultiplied"));
     let root = merge(
         base,
@@ -8610,14 +8617,12 @@ fn four_numbers(v: &J, pointer: &str, names: &str) -> Result<[f64; 4], Diagnosti
 
 fn parse_interpretation(v: &J, pointer: &str) -> Result<Interpretation, Diagnostic> {
     as_object(v, pointer)?;
-    let color_space = match as_enum(
+    // D-909: a word this build does not have is kept (the base) and reported at load.
+    let color_space = ColorSpace::from_word(as_str(
         field(v, pointer, "color_space")?,
         &format!("{pointer}/color_space"),
-        &["srgb", "linear-srgb"],
-    )? {
-        "srgb" => ColorSpace::Srgb,
-        _ => ColorSpace::LinearLight,
-    };
+    )?)
+    .unwrap_or(ColorSpace::Unknown);
     let alpha = match as_enum(
         field(v, pointer, "alpha")?,
         &format!("{pointer}/alpha"),
@@ -14805,10 +14810,21 @@ pub fn load_str(text: &str) -> Result<Loaded, Diagnostic> {
     let colors_at = "/color_settings";
     let colors = field(&root, "", "color_settings")?;
     as_object(colors, colors_at)?;
-    as_enum(
+    // D-909: colour management is on only when the file says `true`; ACEScg works only then,
+    // and a working space this build does not have refuses the project (every pixel needs it).
+    let managed = match colors.get("color_management") {
+        Some(on) => as_bool(on, "/color_settings/color_management")?,
+        None => false,
+    };
+    let allowed: &[&str] = if managed {
+        &["acescg", "linear-srgb"]
+    } else {
+        &["linear-srgb"]
+    };
+    let working = as_enum(
         field(colors, colors_at, "working_space")?,
         "/color_settings/working_space",
-        &["linear-srgb"],
+        allowed,
     )?;
     as_enum(
         field(colors, colors_at, "alpha_mode")?,
@@ -14817,13 +14833,38 @@ pub fn load_str(text: &str) -> Result<Loaded, Diagnostic> {
     )?;
 
     let mut project = Project::new(as_id(field(&root, "", "project_id")?, "/project_id")?);
+    project.color_management = managed.then_some(if working == "acescg" {
+        crate::color::Gamut::Ap1
+    } else {
+        crate::color::Gamut::Rec709
+    });
     let mut warnings = Vec::new();
 
-    for (i, asset) in as_array(field(&root, "", "assets")?, "/assets")?
+    for (i, raw) in as_array(field(&root, "", "assets")?, "/assets")?
         .iter()
         .enumerate()
     {
-        let asset = parse_asset(asset, &format!("/assets/{i}"))?;
+        let asset = parse_asset(raw, &format!("/assets/{i}"))?;
+        if asset.interpretation.color_space == ColorSpace::Unknown {
+            let word = raw["interpretation"]["color_space"].as_str().unwrap_or_default();
+            warnings.push(
+                Diagnostic::new(
+                    DiagnosticId::ColorSpaceUnknown,
+                    Severity::Warning,
+                    format!(
+                        "{} is stored in the colour space \"{word}\", which this version does                          not know, so it is not drawn.",
+                        asset.name
+                    ),
+                    format!(
+                        "Asset {} at /assets/{i}/interpretation/color_space says \"{word}\";                          the word is kept and saved back unchanged, and the asset draws as                          missing rather than as sRGB.",
+                        asset.id
+                    ),
+                )
+                .with_remediation(
+                    "Choose what the file is in under Interpret as, in the Project panel, or                      open the project in the version that wrote it.",
+                ),
+            );
+        }
         if project.assets.iter().any(|a| a.id == asset.id) {
             return Err(invalid(
                 &format!("/assets/{i}"),
