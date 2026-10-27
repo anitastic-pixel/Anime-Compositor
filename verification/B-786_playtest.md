@@ -21,7 +21,7 @@ Open `verification/B-786_card_export_table.md`.
 - "Largest difference" is the worst single pixel, in steps of 255.
 - "Frames the same bytes" is how many card frames match the processor's file exactly. Expect few or none: the card adds numbers in a different order, so even an invisible difference changes the file.
 
-What was measured, in short: on the light reference shot (4 layers) the card was no quicker (0.94x, 13.4 s against 12.6 s for 240 frames). On a heavier 25-layer project it was 2.46x quicker (6.3 s against 15.5 s for 48 frames). Every pixel on both was within 1 level of the processor's, and no frame was the same bytes.
+What was measured, in short: on the light reference shot (4 layers) the card was about the same (1.07x, 11.0 s against 11.8 s for 240 frames). On a heavier 25-layer project it was 3.36x quicker (4.0 s against 13.5 s for 48 frames). These are the quiet re-measure of 2026-10-27, nothing else building; the first run, on a busy machine, gave 0.94x and 2.46x. Every pixel on both was within 1 level of the processor's, and no frame was the same bytes.
 
 **Your decision (D-907):** offer the card export as a choice in the export window, labelled "not the processor's exact pixels", or leave it out. The processor stays the default either way.
 
