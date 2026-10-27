@@ -274,9 +274,17 @@ pub fn import_sequence(files: &[PathBuf]) -> ImportResult {
     // on one of them.
     let mut sizes: BTreeMap<(u32, u32), Vec<u32>> = BTreeMap::new();
     let mut unreadable = Vec::new();
+    // D-902: drawings by the colour chunks they carry, said once per kind, not once a drawing.
+    let mut coloured: BTreeMap<String, Vec<u32>> = BTreeMap::new();
     for (number, path) in &asset.frames {
         match file_size(path, &mut diagnostics) {
-            Ok(size) => sizes.entry(size).or_default().push(*number),
+            Ok(size) => {
+                sizes.entry(size).or_default().push(*number);
+                let chunks = colour_chunks(path);
+                if !chunks.is_empty() {
+                    coloured.entry(chunks).or_default().push(*number);
+                }
+            }
             Err(d) => {
                 unreadable.push(*number);
                 diagnostics.push(d);
@@ -285,6 +293,22 @@ pub fn import_sequence(files: &[PathBuf]) -> ImportResult {
     }
     for number in unreadable {
         asset.frames.remove(&number);
+    }
+    for (chunks, numbers) in &coloured {
+        diagnostics.push(colour_ignored(
+            format!(
+                "{} in {} {}",
+                pick(
+                    numbers.len(),
+                    "One drawing".to_string(),
+                    format!("{} drawings", numbers.len())
+                ),
+                asset.pattern,
+                pick(numbers.len(), "carries", "carry")
+            ),
+            chunks,
+            Some(&ranges(numbers)),
+        ));
     }
 
     if let Some((&(w, h), _)) = sizes.iter().max_by_key(|(_, ns)| ns.len()) {
@@ -522,6 +546,101 @@ fn check_format(
     .with_remediation(
         "Re-export as 8-bit RGBA. The file is left untouched and the asset record is kept.",
     ))
+}
+
+/// D-902: the PNG's sRGB, gAMA, cHRM, iCCP and cICP chunks, described in that order with their
+/// stored numbers, or empty when there are none or every one says exactly the sRGB a PNG is read
+/// as. Never changes the picture; only what import says. Empty for any other kind of file, and
+/// for a file whose header cannot be read, which its own decode reports.
+// ponytail: opens the header a second time at import, beside png_size; fold the two together if
+// header reads ever show in an import timing.
+pub(crate) fn colour_chunks(path: &Path) -> String {
+    if crate::exr_io::is_exr(&path.to_string_lossy()) || is_other_format(path) {
+        return String::new();
+    }
+    let Ok(reader) = open_png(path) else {
+        return String::new();
+    };
+    let info = reader.info();
+    let srgb = info.srgb.is_some();
+    // (description, says exactly sRGB)
+    let mut found: Vec<(String, bool)> = Vec::new();
+    if srgb {
+        found.push(("sRGB".to_string(), true));
+    }
+    if let Some(g) = info.gama_chunk {
+        // 45455 alone is a plain 2.2 power curve, not sRGB's; beside sRGB, sRGB takes its place.
+        found.push((
+            format!("gAMA {}", g.into_scaled()),
+            srgb && g.into_scaled() == 45455,
+        ));
+    }
+    if let Some(c) = info.chrm_chunk {
+        let v = [c.white, c.red, c.green, c.blue].map(|(x, y)| (x.into_scaled(), y.into_scaled()));
+        found.push((
+            format!(
+                "cHRM white {} {}, red {} {}, green {} {}, blue {} {}",
+                v[0].0, v[0].1, v[1].0, v[1].1, v[2].0, v[2].1, v[3].0, v[3].1
+            ),
+            v == [
+                (31270, 32900),
+                (64000, 33000),
+                (30000, 60000),
+                (15000, 6000),
+            ],
+        ));
+    }
+    if let Some(icc) = &info.icc_profile {
+        found.push((format!("iCCP {} bytes", icc.len()), false));
+    }
+    if let Some(c) = info.coding_independent_code_points {
+        let full = c.is_video_full_range_image as u8;
+        let (p, t, m) = (
+            c.color_primaries,
+            c.transfer_function,
+            c.matrix_coefficients,
+        );
+        found.push((
+            format!("cICP {p}/{t}/{m}/{full}"),
+            (p, t, m, full) == (1, 13, 0, 1),
+        ));
+    }
+    if found.iter().all(|(_, quiet)| *quiet) {
+        return String::new();
+    }
+    found
+        .into_iter()
+        .map(|(d, _)| d)
+        .collect::<Vec<_>>()
+        .join("; ")
+}
+
+/// D-902: `MEDIA_COLOR_METADATA_IGNORED` for one PNG chosen on its own, or `None`.
+pub fn colour_metadata(path: &Path) -> Option<Diagnostic> {
+    let chunks = colour_chunks(path);
+    (!chunks.is_empty())
+        .then(|| colour_ignored(format!("{} carries", display(path)), &chunks, None))
+}
+
+/// `what` is the subject and its verb: "a.png carries", "3 drawings in a_%04d.png carry".
+fn colour_ignored(what: String, chunks: &str, drawings: Option<&str>) -> Diagnostic {
+    let mut detail = format!(
+        "Found: {chunks}. The picture is drawn as sRGB, as every PNG is (document 21), with its \
+         numbers unchanged."
+    );
+    if let Some(d) = drawings {
+        let _ = write!(detail, " Drawings: {d}.");
+    }
+    Diagnostic::new(
+        DiagnosticId::MediaColorMetadataIgnored,
+        Severity::Warning,
+        format!("{what} colour information this build does not read."),
+        detail,
+    )
+    .with_remediation(
+        "If the colours look wrong, re-export the file as plain sRGB from the program that \
+         made it. The file is left untouched.",
+    )
 }
 
 /// Decode a PNG into a tagged buffer: sRGB encoded, straight alpha, per document 21.

@@ -51,6 +51,7 @@ One row per identifier this build can print, and the table where a person can re
 | `PACKAGE_MEDIA_EXCLUDED` | yes | `verification/B-15b_package_table.md` |
 | `PACKAGE_FILE_UNVERIFIED` | yes | `verification/B-15b_package_table.md` |
 | `MEDIA_EXR_ADJUSTED` | yes | `verification/B-16b_exr_table.md` |
+| `MEDIA_COLOR_METADATA_IGNORED` | yes | `verification/B-782_colour_metadata_table.md` |
 | `MEDIA_AUDIO_CUT_SHORT` | yes | `verification/B-20b_audio_table.md` |
 | `MEDIA_AUDIO_UNREADABLE` | yes | `verification/B-20b_audio_table.md` |
 | `MEDIA_AUDIO_PREVIEW_ONLY` | yes | `verification/D-639_sound_read_table.md` |
@@ -112,7 +113,7 @@ One row per identifier this build can print, and the table where a person can re
 
 | Check | Expected | Actual | Result |
 |---|---|---|---|
-| document 28's catalogue is read from the document, not from a copy of it | 67 identifiers | 67 identifiers | pass |
+| document 28's catalogue is read from the document, not from a copy of it | 68 identifiers | 68 identifiers | pass |
 | PROJECT_SCHEMA_NEWER: the enum spells it the way the catalogue does | PROJECT_SCHEMA_NEWER | PROJECT_SCHEMA_NEWER | pass |
 | PROJECT_SCHEMA_NEWER: says truthfully whether document 28 lists it | true | true | pass |
 | PROJECT_SCHEMA_NEWER: a table somewhere shows a person this sentence | named in B-09_persistence_table.md | named in B-09_persistence_table.md | pass |
@@ -242,6 +243,9 @@ One row per identifier this build can print, and the table where a person can re
 | MEDIA_EXR_ADJUSTED: the enum spells it the way the catalogue does | MEDIA_EXR_ADJUSTED | MEDIA_EXR_ADJUSTED | pass |
 | MEDIA_EXR_ADJUSTED: says truthfully whether document 28 lists it | true | true | pass |
 | MEDIA_EXR_ADJUSTED: a table somewhere shows a person this sentence | named in B-16b_exr_table.md | named in B-16b_exr_table.md | pass |
+| MEDIA_COLOR_METADATA_IGNORED: the enum spells it the way the catalogue does | MEDIA_COLOR_METADATA_IGNORED | MEDIA_COLOR_METADATA_IGNORED | pass |
+| MEDIA_COLOR_METADATA_IGNORED: says truthfully whether document 28 lists it | true | true | pass |
+| MEDIA_COLOR_METADATA_IGNORED: a table somewhere shows a person this sentence | named in B-782_colour_metadata_table.md | named in B-782_colour_metadata_table.md | pass |
 | MEDIA_AUDIO_CUT_SHORT: the enum spells it the way the catalogue does | MEDIA_AUDIO_CUT_SHORT | MEDIA_AUDIO_CUT_SHORT | pass |
 | MEDIA_AUDIO_CUT_SHORT: says truthfully whether document 28 lists it | true | true | pass |
 | MEDIA_AUDIO_CUT_SHORT: a table somewhere shows a person this sentence | named in B-20b_audio_table.md | named in B-20b_audio_table.md | pass |
@@ -341,7 +345,7 @@ One row per identifier this build can print, and the table where a person can re
 | and nothing is written down as not built that the build actually has | none | none | pass |
 | and every entry written down as not built is one the catalogue actually lists | none invented | none invented | pass |
 
-**228 of 228 checks pass.**
+**231 of 231 checks pass.**
 
 ## What this cannot cover
 

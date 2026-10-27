@@ -3700,6 +3700,9 @@ fn import(viewer: &Mutex<Viewer>, files: &[PathBuf]) -> String {
                         return format!("Nothing was imported. {}", refused.sentence());
                     }
                 }
+            } else {
+                // D-902: a PNG's own colour chunks, named when they are not sRGB.
+                told.extend(media::colour_metadata(file));
             }
             let asset = {
                 let held = viewer.lock().expect("the viewer lock was poisoned");

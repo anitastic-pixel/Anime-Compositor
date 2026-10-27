@@ -247,6 +247,11 @@ const BUILT: &[(DiagnosticId, &str, &str)] = &[
         "B-16b_exr_table.md",
     ),
     (
+        DiagnosticId::MediaColorMetadataIgnored,
+        "MEDIA_COLOR_METADATA_IGNORED",
+        "B-782_colour_metadata_table.md",
+    ),
+    (
         DiagnosticId::MediaAudioCutShort,
         "MEDIA_AUDIO_CUT_SHORT",
         "B-20b_audio_table.md",
@@ -472,7 +477,7 @@ fn every_identifier_is_either_shown_to_somebody_or_recorded_as_unbuilt() {
 
     report.check(
         "document 28's catalogue is read from the document, not from a copy of it",
-        "67 identifiers",
+        "68 identifiers",
         format!("{} identifiers", listed.len()),
     );
 

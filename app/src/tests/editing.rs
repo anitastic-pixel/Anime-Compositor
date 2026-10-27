@@ -6512,6 +6512,36 @@ fn exr_drawings_come_in_and_exr_frames_go_out_from_the_window() {
     assert!(failed.is_empty(), "these checks failed: {failed:#?}");
 }
 
+/// B-782 (D-902): a PNG still whose colour chunks are not sRGB says so in the notes, once, and
+/// is still added; a plain sRGB one says nothing.
+#[test]
+fn b782_png_colour_chunks_reach_the_notes() {
+    let png = |rel: &str| repo(&format!("Fixtures/colour/metadata/{rel}"));
+    let source = repo("Fixtures/projects/cel_holds_project.json");
+    let viewer = Mutex::new(
+        open(&source).unwrap_or_else(|d| panic!("open {}: {}", source.display(), d.message)),
+    );
+    let before = asset_count(&viewer);
+    run(&viewer, &import_of(&[png("srgb_gama_chrm.png")]));
+    assert_eq!(asset_count(&viewer), before + 1);
+    assert!(!notes_mention(&viewer, "MEDIA_COLOR_METADATA_IGNORED"));
+    run(&viewer, &import_of(&[png("gama_linear.png")]));
+    assert_eq!(asset_count(&viewer), before + 2);
+    let notes: Vec<String> = held(&viewer)
+        .notes
+        .iter()
+        .filter(|n| n.contains("MEDIA_COLOR_METADATA_IGNORED"))
+        .cloned()
+        .collect();
+    assert_eq!(notes.len(), 1, "{notes:?}");
+    assert!(
+        notes[0].contains("gama_linear.png carries colour information this build does not read")
+            && notes[0].contains("gAMA 100000"),
+        "{}",
+        notes[0]
+    );
+}
+
 /// B-21b: D-72's drawing formats imported from the window, on its fixture files.
 #[test]
 fn the_new_drawing_formats_come_in_from_the_window() {
