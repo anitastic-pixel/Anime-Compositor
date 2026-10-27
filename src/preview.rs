@@ -46,6 +46,14 @@ use crate::WorkingBuffer;
 /// blurrier. That measurement fired the bounded cache's revisit trigger; see D-37.
 pub const DRAFT_DIVISOR: usize = 4;
 
+/// D-898: the picture made while the hand drags or scrubs is an eighth of the composition on each
+/// axis, After Effects' own Adaptive Resolution limit of 1/8, and never kept as final.
+pub const MOTION_DIVISOR: usize = 8;
+
+/// D-898: at most this many moments of a shutter while in motion: the composition's motion blur
+/// and the effects with a sample count of their own.
+pub const MOTION_SAMPLES: u32 = 4;
+
 /// Which resolution the preview is rendering at. D-33: the default is [`Draft`](Self::Draft).
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
 pub enum PreviewQuality {
@@ -56,6 +64,10 @@ pub enum PreviewQuality {
     Half,
     /// The composition's own extent. Identical to what an export of the same frame produces.
     Full,
+    /// D-898: what the viewer draws while the hand drags or scrubs, whatever was chosen: an
+    /// eighth on each axis, masks drawn at that size and fewer blur samples. Never final, and
+    /// replaced by the chosen quality the moment the hand stops.
+    Motion,
 }
 
 impl PreviewQuality {
@@ -66,6 +78,7 @@ impl PreviewQuality {
             PreviewQuality::Draft => "Draft",
             PreviewQuality::Half => "Half",
             PreviewQuality::Full => "Full",
+            PreviewQuality::Motion => "In motion",
         }
     }
 
@@ -84,6 +97,7 @@ impl PreviewQuality {
             PreviewQuality::Draft => DRAFT_DIVISOR,
             PreviewQuality::Half => 2,
             PreviewQuality::Full => 1,
+            PreviewQuality::Motion => MOTION_DIVISOR,
         }
     }
 
@@ -150,6 +164,72 @@ pub fn scale_plan(plan: FramePlan, quality: PreviewQuality) -> FramePlan {
             })
             .collect(),
     }
+}
+
+/// D-898: `project` with every shutter cut to [`MOTION_SAMPLES`] moments, for a frame in motion:
+/// each composition's motion blur, and a CC Force Motion Blur's, Pixel Motion Blur's or
+/// Timewarp's sample count, keys and all. `None` when nothing has more, so the usual project is
+/// drawn as it is, uncopied.
+pub fn fewer_samples(project: &Project) -> Option<Project> {
+    use crate::effects::Effect as E;
+    let most = MOTION_SAMPLES as f64;
+    fn count(e: &mut crate::effects::Effect) -> Option<&mut f64> {
+        use crate::effects::Effect as E;
+        match e {
+            E::ForceMotionBlur {
+                motion_blur_samples: s,
+                ..
+            }
+            | E::PixelMotionBlur {
+                shutter_samples: s, ..
+            }
+            | E::Timewarp {
+                shutter_samples: s, ..
+            } => Some(s),
+            _ => None,
+        }
+    }
+    let more = |i: &crate::effects::EffectInstance| match &i.effect {
+        E::ForceMotionBlur {
+            motion_blur_samples: s,
+            ..
+        }
+        | E::PixelMotionBlur {
+            shutter_samples: s, ..
+        }
+        | E::Timewarp {
+            shutter_samples: s, ..
+        } => {
+            *s > most
+                || i.tracks.contains_key("motion_blur_samples")
+                || i.tracks.contains_key("shutter_samples")
+        }
+        _ => false,
+    };
+    let heavy = project.compositions.iter().any(|c| {
+        // A switched-off shutter's count (16 by default) costs nothing, so is no reason to copy.
+        (c.motion_blur.enabled && c.motion_blur.samples > MOTION_SAMPLES)
+            || c.layers_in_order().any(|l| l.effects.iter().any(more))
+    });
+    if !heavy {
+        return None;
+    }
+    let mut fewer = project.clone();
+    for c in &mut fewer.compositions {
+        c.motion_blur.samples = c.motion_blur.samples.min(MOTION_SAMPLES);
+        for id in c.layer_order().to_vec() {
+            let Some(l) = c.layer_mut(&id) else { continue };
+            for i in &mut l.effects {
+                if let Some(s) = count(&mut i.effect) {
+                    *s = s.min(most);
+                    for name in ["motion_blur_samples", "shutter_samples"] {
+                        i.tracks.remove(name);
+                    }
+                }
+            }
+        }
+    }
+    Some(fewer)
 }
 
 /// One frame for display: document 20's evaluation order, then the preview scale, then a render.

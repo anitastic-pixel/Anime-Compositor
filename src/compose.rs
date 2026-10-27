@@ -183,8 +183,12 @@ pub fn plan_preview(
     cache: &mut CelCache,
     card: bool,
 ) -> Result<FramePlan, Diagnostic> {
+    // D-898: in motion, fewer moments of every shutter.
+    let fewer = (quality == PreviewQuality::Motion)
+        .then(|| crate::preview::fewer_samples(project))
+        .flatten();
     plan_scaled(
-        project,
+        fewer.as_ref().unwrap_or(project),
         composition_id,
         frame,
         root,
@@ -231,7 +235,7 @@ fn plan_scaled(
 pub fn tile_size(quality: PreviewQuality, tile_size: usize) -> usize {
     match quality {
         PreviewQuality::Full | PreviewQuality::Half => tile_size,
-        PreviewQuality::Draft => DRAFT_TILE_SIZE,
+        PreviewQuality::Draft | PreviewQuality::Motion => DRAFT_TILE_SIZE,
     }
 }
 
@@ -3051,11 +3055,16 @@ fn resolve_held(
     // the pixels - as D-67 already does for a composition layer's picture. D-189: a map at a
     // draft divisor is taken down so, whatever its layer. `Full` never enters here, so a full
     // preview and an export are what they were.
+    // D-898: in motion, so is a drawing with a mask, which is then drawn at that size too.
+    let motion_masked =
+        quality == PreviewQuality::Motion && layer.masks.iter().any(|m| m.enabled);
     if quality != PreviewQuality::Full
-        && (map || ((cel.is_some() || mixed) && layer.effects.iter().any(|i| i.enabled)))
+        && (map
+            || ((cel.is_some() || mixed)
+                && (motion_masked || layer.effects.iter().any(|i| i.enabled))))
     {
         let d = quality.divisor();
-        let small = crate::preview::scale_plan(
+        let small = |source: std::sync::Arc<WorkingBuffer>| crate::preview::scale_plan(
             FramePlan {
                 width: source.width(),
                 height: source.height(),
@@ -3080,7 +3089,15 @@ fn resolve_held(
             },
             quality,
         );
-        let small = std::sync::Arc::new(render::render(&small, DRAFT_TILE_SIZE));
+        let take_down = |source| render::render(&small(source), DRAFT_TILE_SIZE);
+        // D-898: in motion a drawing taken down is held, so a drag does not take every unchanged
+        // drawing down again each frame. Draft takes it down each frame, as it did.
+        let small = match &cel {
+            Some((path, interpretation)) if quality == PreviewQuality::Motion && !mixed => {
+                cache.smaller(path, *interpretation, d, || take_down(source))
+            }
+            _ => std::sync::Arc::new(take_down(source)),
+        };
         return resolve_rest(
             project, root, comp, layer, frame, at, cache, log, small, cel, d as f64, card, map,
             float, bits,
@@ -4305,6 +4322,8 @@ fn resolve_rest(
             PreviewQuality::Full
         } else if pre == 0.5 {
             PreviewQuality::Half
+        } else if pre == crate::preview::MOTION_DIVISOR as f64 {
+            PreviewQuality::Motion
         } else {
             PreviewQuality::Draft
         };
@@ -6046,7 +6065,8 @@ fn fill_wire(
 /// measured 1.0x to 1.4x, and the viewer frame with it no faster, so those stay on the processor
 /// and the card is neither opened nor given its ~125 bytes a pixel for them.
 fn finder_on_card(card: bool, quality: PreviewQuality, vector_detail: f64) -> bool {
-    card && (quality == PreviewQuality::Draft || vector_detail >= 40.0)
+    card && (matches!(quality, PreviewQuality::Draft | PreviewQuality::Motion)
+        || vector_detail >= 40.0)
 }
 
 /// D-650: each switched-on Pixel Motion Blur's frames either side: the holder one composition

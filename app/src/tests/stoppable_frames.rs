@@ -215,7 +215,8 @@ const { stopsInFlight } = new Function(page.slice(from, to) + '\nreturn { stopsI
 const F = (n, q) => 'http://frame.localhost/frame/' + n + '?q=' + q;
 const cases = [
   ['the sharp Full picture, and the drag has started again (B-162 would throw it away)', [F(4, 'full'), F(5, 'full'), true, false, false], true],
-  ['a Draft frame of a drag, and the drag goes on', [F(4, 'draft'), F(5, 'draft'), true, false, false], false],
+  ['an In motion frame of a drag (D-898), and the drag goes on', [F(4, 'motion'), F(5, 'draft'), true, false, false], false],
+  ['the Draft picture chosen, and the drag has started again (D-898: as Full above)', [F(4, 'draft'), F(5, 'draft'), true, false, false], true],
   ['a Full frame with Refine off, and the drag goes on', [F(4, 'full'), F(5, 'full'), false, false, false], false],
   ['any frame, and the hand is still (an undo, a click, a typed value)', [F(4, 'draft'), F(4, 'draft'), false, true, false], true],
   ['the same, but the last answer was a stopped one', [F(4, 'draft'), F(4, 'draft'), false, true, true], false],

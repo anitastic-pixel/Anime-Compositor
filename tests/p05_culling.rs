@@ -79,7 +79,7 @@ fn workloads() -> Vec<Workload> {
 fn tile_size(quality: PreviewQuality) -> usize {
     match quality {
         PreviewQuality::Full | PreviewQuality::Half => DEFAULT_TILE_SIZE,
-        PreviewQuality::Draft => compose::DRAFT_TILE_SIZE,
+        PreviewQuality::Draft | PreviewQuality::Motion => compose::DRAFT_TILE_SIZE,
     }
 }
 

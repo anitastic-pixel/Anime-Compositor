@@ -32,14 +32,14 @@ const { SETTLE_MS, askedAs, drawnWhenBack } = new Function(page.slice(from, to)
 
 // `moves` is when the hand puts the playhead on which frame, at the quality chosen.
 function run(refine, quality, moves) {
-  const RENDER = { draft: 40, full: 300 };
+  const RENDER = { motion: 20, draft: 40, half: 120, full: 300 };
   let now = 0, stirred = -Infinity, inFlight = null, pending = null, settleAt = null, frame = 0;
   const asked = [], sent = [], drawn = [], dropped = [];
   const restless = () => refine && now - stirred < SETTLE_MS;
   const show = (url) => {
     if (inFlight) { pending = url; return; }
     const out = askedAs(url, restless());
-    inFlight = { url: out, rough: out !== url, done: now + RENDER[out.endsWith('draft') ? 'draft' : 'full'] };
+    inFlight = { url: out, rough: out !== url, done: now + RENDER[out.split('?q=')[1]] };
     sent.push({ t: now, url: out, newest: asked.length ? asked[asked.length - 1].url : null });
   };
   const back = () => {
@@ -87,6 +87,8 @@ console.log(JSON.stringify({
   scrubFull: run(true, 'full', scrub(0, 30, 0)),
   scrubFullNoRefine: run(false, 'full', scrub(0, 30, 0)),
   scrubDraft: run(true, 'draft', scrub(0, 30, 0)),
+  scrubHalf: run(true, 'half', scrub(0, 30, 0)),
+  scrubDraftNoRefine: run(false, 'draft', scrub(0, 30, 0)),
   // Frames 0 to 10, still, then frames 11 to 20 while the sharp picture of 10 is being made.
   again: run(true, 'full', scrub(0, 10, 0).concat(scrub(11, 20, 400))),
 }));
@@ -307,9 +309,9 @@ fn b163_draft_while_moving_and_the_full_picture_once_still() {
     let last_move = *times(&run["asked"]).last().expect("moves");
     let during: Vec<&String> = sent[..sent.len() - 1].iter().collect();
     check(
-        "at Full with Refine when idle, every frame made while the hand moves is Draft",
+        "at Full with Refine when idle, every frame made while the hand moves is In motion (D-898)",
         "true".into(),
-        during.iter().all(|u| u.ends_with("?q=draft")).to_string(),
+        during.iter().all(|u| u.ends_with("?q=motion")).to_string(),
     );
     check(
         "and one more is asked for once it stops: frame 30 at Full",
@@ -341,10 +343,26 @@ fn b163_draft_while_moving_and_the_full_picture_once_still() {
         "true".into(),
         (on < off).to_string(),
     );
+    for (name, q) in [("scrubDraft", "draft"), ("scrubHalf", "half")] {
+        let sent = urls(&said[name]["sent"]);
+        check(
+            &format!(
+                "at {q} too (D-898): In motion while the hand moves, then frame 30 at {q} once it stops"
+            ),
+            format!("true /frame/30?q={q}"),
+            format!(
+                "{} {}",
+                sent[..sent.len() - 1]
+                    .iter()
+                    .all(|u| u.ends_with("?q=motion")),
+                sent.last().cloned().unwrap_or_default()
+            ),
+        );
+    }
     check(
-        "at Draft nothing changes: every frame is asked for at Draft",
+        "at Draft without Refine when idle nothing changes: every frame is asked for at Draft",
         "true".into(),
-        urls(&said["scrubDraft"]["sent"])
+        urls(&said["scrubDraftNoRefine"]["sent"])
             .iter()
             .all(|u| u.ends_with("?q=draft"))
             .to_string(),
@@ -361,16 +379,16 @@ fn b163_draft_while_moving_and_the_full_picture_once_still() {
     // The requests the scrub sent, asked of the window, then the Full picture on its own.
     let made = replay(&sent);
     let sharp_alone = replay(&["/frame/30?q=full".to_string()]).remove(0);
-    let rough_alone = replay(&["/frame/30?q=draft".to_string()]).remove(0);
+    let rough_alone = replay(&["/frame/30?q=motion".to_string()]).remove(0);
     let at = sent
         .iter()
-        .rposition(|u| u == "/frame/30?q=draft")
+        .rposition(|u| u == "/frame/30?q=motion")
         .expect("a stand-in of frame 30");
     let rough = &made[at];
     let sharp = made.last().expect("an answer");
     check(
-        "a stand-in is Draft and says so",
-        "Draft true".into(),
+        "a stand-in is In motion and says so",
+        "In motion true".into(),
         format!(
             "{} {}",
             header(rough, "x-quality"),
@@ -397,7 +415,7 @@ fn b163_draft_while_moving_and_the_full_picture_once_still() {
         (sharp.body() == sharp_alone.body()).to_string(),
     );
     check(
-        "and the Draft stand-in of frame 30 is byte for byte frame 30 at Draft asked for alone",
+        "and the In motion stand-in of frame 30 is byte for byte frame 30 In motion asked for alone",
         "true".into(),
         (rough.body() == rough_alone.body()).to_string(),
     );
@@ -405,7 +423,7 @@ fn b163_draft_while_moving_and_the_full_picture_once_still() {
     for (what, marker) in [
         ("Refine when idle is on unless it has been unticked", "memory: 'auto', refine: true };"),
         ("its tick is in the viewer's row beside the Full/Draft button", "<input type=\"checkbox\" id=\"refine\" checked> Refine when idle</label>"),
-        ("and does nothing at Draft", "    $('refine').disabled = quality !== 'full';"),
+        ("and works at every quality (D-898)", "the tick works at every quality"),
         ("a stand-in leaves the Full/Draft choice as it was", "    if (!rough) quality = drawnAt;"),
         ("the Full/Draft button still names what pressing it does", "    $('toggle').textContent = quality === 'draft' ? 'Full resolution' : 'Draft resolution';"),
         ("\"sharpening…\" shows while a stand-in is on screen", "    $('refining').hidden = !rough;"),
@@ -418,7 +436,7 @@ fn b163_draft_while_moving_and_the_full_picture_once_still() {
     // The run's own times go to the test output, not the table, so the table changes only when a
     // verdict does.
     eprintln!(
-        "B-163: this run's window took {} ms for the Draft stand-in of frame 30 and {} ms for \
+        "B-163: this run's window took {} ms for the In motion stand-in of frame 30 and {} ms for \
          its Full picture",
         header(rough, "x-ms"),
         header(sharp, "x-ms")
@@ -426,11 +444,12 @@ fn b163_draft_while_moving_and_the_full_picture_once_still() {
     write_table(
         &rows,
         "verification/B-163_refine_on_stop_table.md",
-        "B-163: Draft while the hand moves, the Full picture once it stops",
-        "At Full, with Refine when idle ticked (it is, unless unticked), a frame asked for \
-         while the playhead is dragged or a value is scrubbed is made at Draft, and 0.2 s after \
-         the hand stops the same frame is made at Full and replaces it. The scrub rows run the \
-         page's own decision lines on a pretend clock (a Draft frame 40 ms, a Full one 300 ms); \
+        "B-163: a rough picture while the hand moves, the chosen one once it stops",
+        "With Refine when idle ticked (it is, unless unticked), a frame asked for while the \
+         playhead is dragged or a value is scrubbed is made In motion (D-898; Draft before it), \
+         and 0.2 s after the hand stops the same frame is made at the quality chosen and \
+         replaces it. The scrub rows run the page's own decision lines on a pretend clock (an In \
+         motion frame 20 ms, Draft 40 ms, Half 120 ms, Full 300 ms); \
          the window rows ask the real request handler for the frames that scrub sent.",
         "## What this does not cover\n\nHow it feels in the window, which is the playtest \
          sheet, `verification/B-162_B-163_playtest.md`. How long this run's window took is \

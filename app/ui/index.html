@@ -2147,9 +2147,9 @@
       <span class="mi"><button class="mt" aria-haspopup="menu" aria-expanded="false" id="qualitymenu"><span id="quality">&mdash;</span>&#9662;</button><div class="drop" role="menu" aria-label="Picture quality" hidden>
         <button id="toggle" data-line="Draft or full quality" data-key="D">Full resolution</button>
         <button id="halfq" title="Half the size each way: sharper than Draft, quicker than Full, not final pixels">Half resolution</button>
-        <div class="opts" data-stay><label title="At Full: Draft while you drag or scrub, then the Full picture a fifth of a second after you stop"><input type="checkbox" id="refine" checked> Refine when idle</label></div>
+        <div class="opts" data-stay><label title="In motion (an eighth of the size each way, not final) while you drag or scrub, then the quality chosen a fifth of a second after you stop. On the GPU: Draft while you drag"><input type="checkbox" id="refine" checked> Refine when idle</label></div>
       </div></span>
-      <span id="refining" hidden title="This is a Draft stand-in; the Full picture replaces it when you stop">sharpening&hellip;</span>
+      <span id="refining" hidden title="This is the In motion stand-in; the quality chosen replaces it when you stop">sharpening&hellip;</span>
       <select id="gpu" aria-label="What the preview is drawn on" title="What the preview is drawn on. Exports are always drawn on the CPU">
         <option value="auto">Auto</option>
         <option value="gpu">GPU</option>
@@ -2664,22 +2664,24 @@ let relinking = null; // the asset a proposed relink is waiting on, as the last 
 // them outside the window. D-233.
 //
 // B-163, refine when idle, After Effects' "adaptive resolution". While the hand is moving, a
-// frame asked for at Full goes out at Draft, which comes back in a fraction of the time; once
-// the hand has been still for SETTLE_MS the same frame is asked for at Full, the picture Full
-// has always made. Only a frame asked for by number is changed: playback plays at the quality
-// chosen, as it always has.
+// frame asked for goes out In motion (D-898: an eighth each way, masks at that size, fewer blur
+// samples, at Full, Half or Draft alike; on the card the window answers it at Draft, where In
+// motion measured slower), which comes back in a fraction of the time; once the
+// hand has been still for SETTLE_MS the same frame is asked for at the quality chosen, the
+// picture it has always made. Only a frame asked for by number is changed: playback plays at the
+// quality chosen, as it always has.
 const SETTLE_MS = 200;
 function askedAs(url, restless) {
-  return restless && url.includes('/frame/') && url.endsWith('?q=full')
-    ? url.slice(0, -'full'.length) + 'draft' : url;
+  return restless && url.includes('/frame/') && /\?q=(full|half|draft)$/.test(url)
+    ? url.replace(/\?q=\w+$/, '?q=motion') : url;
 }
-// B-162. A Full picture that comes back while the hand is moving and a newer frame is already
+// B-162. A Full picture (D-898: any picture not asked for In motion) that comes back while the hand is moving and a newer frame is already
 // waiting is not drawn: it is of a place the hand has left, and drawing it would flash a sharp
 // picture of where the playhead was before the rough one of where it is. Every other answer is
 // drawn, a Draft one included, because during a drag the frame just made is the nearest there
 // is to the one wanted, and a viewer that drew nothing until the hand stopped would look frozen.
 function drawnWhenBack(asked, waiting, restless) {
-  return !(restless && waiting !== null && asked.endsWith('?q=full'));
+  return !(restless && waiting !== null && !asked.endsWith('?q=motion'));
 }
 // D-893: whether the frame in flight, `flying` as it went out, is told to stop now that `waiting`
 // is the newest request. A frame that would not be drawn anyway (B-162) is stopped, and so is
@@ -2806,7 +2808,7 @@ async function show(url, keep = true) {
   url = askedAs(url, restless());
   flying = url;
   stopAsked = false;
-  const rough = url !== chosen; // B-163: a Draft stand-in for the Full picture chosen
+  const rough = url !== chosen; // B-163: an In motion stand-in (D-898) for the picture chosen
   try {
     const asked = performance.now();
     // B-158: a still frame asks for the part on screen; the address the rest of `show` reads
@@ -2898,7 +2900,7 @@ async function show(url, keep = true) {
     // a shot playing at twenty-four frames a second wants no outline and pays for none, and
     // `askForBoxes` is what decides that.
     const differs = h.get('x-differs') === 'true';
-    drawnAt = (h.get('x-quality') || (differs ? 'Draft' : 'Full')).toLowerCase(); // D-259: draft, half or full
+    drawnAt = (h.get('x-quality') || (differs ? 'Draft' : 'Full')).toLowerCase().replace('in motion', 'motion'); // D-259: draft, half or full; D-898: or motion
     askForBoxes(said);
     if (!dragFlight && !dragging) askReady(); // P-25: the green line can wait for the hand
 
@@ -2925,10 +2927,9 @@ async function show(url, keep = true) {
       + (drawnOn === 'CPU, not GPU' ? '. This frame has something the card does not draw yet, or the card failed; the session log says which' : '');
     label.className = differs ? 'differs' : '';
     // B-163: a stand-in leaves the choice as it was. The button names what pressing it does,
-    // and the tick is only for Full, where there is a sharper picture to wait for.
+    // and the tick works at every quality (D-898: In motion is rougher than Draft).
     if (!rough) quality = drawnAt;
     $('toggle').textContent = quality === 'draft' ? 'Full resolution' : 'Draft resolution';
-    $('refine').disabled = quality !== 'full';
     $('halfq').classList.toggle('on', quality === 'half');
     $('refining').hidden = !rough;
     clearTimeout(settling);

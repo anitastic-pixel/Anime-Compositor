@@ -1273,6 +1273,37 @@ impl CelCache {
         Ok((buffer, non_finite))
     }
 
+    /// D-898: the drawing at `path` taken down `divisor` times each way, as `make` takes it, held
+    /// beside the drawing (as [`pass`](Self::pass) holds a pass), so a frame in motion does not
+    /// take an unchanged drawing down again for every frame of a drag.
+    pub fn smaller(
+        &mut self,
+        path: &Path,
+        interpretation: Interpretation,
+        divisor: usize,
+        make: impl FnOnce() -> WorkingBuffer,
+    ) -> Arc<WorkingBuffer> {
+        let key = Key::of(path, interpretation).map(|mut key| {
+            let mut named = key.path.into_os_string();
+            named.push(format!("#1/{divisor}"));
+            key.path = named.into();
+            key
+        });
+        if let Some(key) = &key {
+            if let Some(at) = self.entries.iter().position(|(k, _)| k == key) {
+                let entry = self.entries.remove(at);
+                let buffer = Arc::clone(&entry.1);
+                self.entries.push(entry);
+                return buffer;
+            }
+        }
+        let buffer = Arc::new(make());
+        if let Some(key) = key {
+            self.store(key, Arc::clone(&buffer));
+        }
+        buffer
+    }
+
     /// Decode the cels this frame is about to ask for, all at once, across the thread pool
     /// (P-03(b)).
     ///

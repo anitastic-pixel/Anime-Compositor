@@ -258,6 +258,8 @@ fn quality_asked(query: Option<&str>) -> Option<PreviewQuality> {
             "draft" => Some(PreviewQuality::Draft),
             "half" => Some(PreviewQuality::Half),
             "full" => Some(PreviewQuality::Full),
+            // D-898: the picture made while the hand moves, for this frame alone.
+            "motion" => Some(PreviewQuality::Motion),
             _ => None,
         })
 }
@@ -736,14 +738,14 @@ fn sheet_grid(viewer: &Mutex<Viewer>) -> serde_json::Value {
 fn boxes(viewer: &Mutex<Viewer>, frame: i32, quality: Option<PreviewQuality>) -> Response<Vec<u8>> {
     let (sight, cache) = {
         let viewer = &mut *viewer.lock().expect("the viewer lock was poisoned");
-        if let Some(quality) = quality {
+        if let Some(quality) = quality.filter(|q| *q != PreviewQuality::Motion) {
             viewer.quality = quality;
         }
         let sight = Sight {
             project: shown(viewer),
             composition: viewer.composition.clone(),
             root: viewer.root.clone(),
-            quality: viewer.quality,
+            quality: quality.unwrap_or(viewer.quality),
             card: None,
         };
         (sight, Arc::clone(&viewer.cache))
@@ -1349,6 +1351,7 @@ struct Snapshot {
 /// snapshot beside it.
 fn said_about(
     viewer: &Viewer,
+    quality: PreviewQuality,
     ask: Ask,
     frame: i32,
     skipped: u32,
@@ -1359,7 +1362,7 @@ fn said_about(
         .header("content-type", "application/octet-stream")
         .header("x-frame", frame.to_string())
         .header("x-skipped", skipped.to_string())
-        .header("x-quality", viewer.quality.label())
+        .header("x-quality", quality.label())
         // What the person is looking through. The page needs both: one to draw the grid behind
         // the canvas, and one so the buttons show which view is on.
         // W-02's proposal, if one is waiting to be agreed to. It travels with the frame like
@@ -1382,7 +1385,7 @@ fn said_about(
         .header("x-checkerboard", viewer.checkerboard.to_string())
         .header(
             "x-differs",
-            viewer.quality.differs_from_export().to_string(),
+            quality.differs_from_export().to_string(),
         )
         .header("x-project", for_a_header(&viewer.name))
         .header("x-notes", for_a_header(&viewer.notes.join("\n")))
@@ -1633,6 +1636,10 @@ fn serve_frame(
             (progress, export.changes),
         )
     };
+    // D-898: whether this frame goes to the card, asked before the viewer's lock is taken.
+    let on_card = card.is_some_and(|c| {
+        drawn_by(Some(&*c.lock().expect("the card lock was poisoned"))).is_some()
+    });
     // P-01: how long the page waited for the frame already in flight. The guard outlives this
     // statement, so the duration is recorded rather than wrapped around a closure.
     let waited = std::time::Instant::now();
@@ -1648,9 +1655,17 @@ fn serve_frame(
             anime_compositor::perf::Stage::LockWait,
             waited.elapsed().as_nanos() as u64,
         );
-        if let Some(quality) = quality {
+        // D-898: a frame in motion leaves the quality chosen as it was, for the frame that
+        // replaces it, the read-ahead and the frame memory's green line.
+        if let Some(quality) = quality.filter(|q| *q != PreviewQuality::Motion) {
             viewer.quality = quality;
         }
+        let quality = match quality.unwrap_or(viewer.quality) {
+            // D-898: the card draws a frame in motion at Draft, which measured quicker there;
+            // labelled Draft, and the quality chosen is left as it was.
+            PreviewQuality::Motion if on_card => PreviewQuality::Draft,
+            q => q,
+        };
         // W-24: the clock plays the work area, so it is rebuilt when the work area has changed.
         if let Some(comp) = viewer.document.project().composition(&viewer.composition) {
             let (first, last) = comp.work_frames();
@@ -1694,7 +1709,7 @@ fn serve_frame(
             project: shown(viewer),
             composition: viewer.composition.clone(),
             root: viewer.root.clone(),
-            quality: viewer.quality,
+            quality,
             alpha_only: viewer.alpha_only,
             cache: Arc::clone(&viewer.cache),
             ram: Arc::clone(&viewer.ram),
@@ -1702,7 +1717,7 @@ fn serve_frame(
             skipped,
             ahead,
             dragging: viewer.document.drag_in_progress(),
-            reply: said_about(viewer, ask, frame, skipped, exporting, &exported)
+            reply: said_about(viewer, quality, ask, frame, skipped, exporting, &exported)
                 .header("x-export-progress", progress.0)
                 // D-251: the queue's changes and the document's, so an edit marks rows stale.
                 .header(
@@ -1956,8 +1971,10 @@ fn serve_frame(
         if on_screen && !finished.pixels.is_empty() {
             ram.shown = Some(finished.clone());
         }
+        // D-898: a frame in motion is never kept, as final or at all.
         if fresh
             && !taken.dragging
+            && taken.quality != PreviewQuality::Motion
             && !card_failed
             && drawn_part.is_none()
             && finished.pixels.len() == finished.width * finished.height * 4
@@ -19216,3 +19233,8 @@ mod stoppable_frames;
 #[cfg(test)]
 #[path = "tests/profiler.rs"]
 mod profiler;
+
+/// D-898: a frame in motion is labelled, never kept, and redrawn whole once the hand stops.
+#[cfg(test)]
+#[path = "tests/in_motion.rs"]
+mod in_motion;

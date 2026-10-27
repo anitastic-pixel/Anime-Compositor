@@ -536,7 +536,7 @@ fn b44_gpu_timing() {
                         // The tile size the window's CPU path uses at this quality.
                         let tile = match quality {
                             PreviewQuality::Full | PreviewQuality::Half => DEFAULT_TILE_SIZE,
-                            PreviewQuality::Draft => compose::DRAFT_TILE_SIZE,
+                            PreviewQuality::Draft | PreviewQuality::Motion => compose::DRAFT_TILE_SIZE,
                         };
                         drop(render::render(&p, tile).to_srgb8_straight());
                         on_cpu.push(t.elapsed().as_secs_f64() * 1000.0);

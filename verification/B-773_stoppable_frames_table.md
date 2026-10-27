@@ -29,7 +29,8 @@ The page's own `stopsInFlight`, run under Node. A drag's own frames are never st
 | Frame in flight, and what is waiting | Expected | The page's rule | Result |
 |---|---|---|---|
 | the sharp Full picture, and the drag has started again (B-162 would throw it away) | stop | stop | PASS |
-| a Draft frame of a drag, and the drag goes on | let it finish | let it finish | PASS |
+| an In motion frame of a drag (D-898), and the drag goes on | let it finish | let it finish | PASS |
+| the Draft picture chosen, and the drag has started again (D-898: as Full above) | stop | stop | PASS |
 | a Full frame with Refine off, and the drag goes on | let it finish | let it finish | PASS |
 | any frame, and the hand is still (an undo, a click, a typed value) | stop | stop | PASS |
 | the same, but the last answer was a stopped one | let it finish | let it finish | PASS |
