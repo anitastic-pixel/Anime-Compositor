@@ -224359,3 +224359,29 @@ FX-SWEEP-034 (`fx_sweep_034.json`): As FX-SWEEP-031, the direction keyed from -3
 FX-SWEEP-035 (`fx_sweep_035.json`): As FX-SWEEP-031, the layer moved three pixels right: the rim moves with it. Frames 0.
 
 FX-SWEEP-036 (`fx_sweep_036.json`): Edge look "glow", which is not one. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### CC Glass AE Lights and rim (D-934)
+
+CC Glass's `light_type` `ae_lights` and `light_look` `rim` (`core.glass`, B-814), the rules ours. The cases are FX-GLASS-001's composition, 16 by 10, the drawing with the effect over the switched-off map layers. `tools/glass_look_reference.py` works the expected frames, `expected_glass_look.json`. `expected_glass.json` is not touched. Tolerance 2e-5.
+
+FX-GLASS-028 (`fx_glass_028.json`): As a CC Glass is now added: Edge Look Rim with the rest as FX-GLASS-001: the two blocks bent outward, their middles their own colour, their soft edges darker all round, a highlight toward the top left. Frames 0.
+
+FX-GLASS-029 (`fx_glass_029.json`): Rim, Softness 4, Displacement 0: the light alone. The blocks keep about their colour, darker than D-561's light makes them, a little darker toward every edge, the bottom and right as well as the top and left, with a faint highlight at the top left. Frames 0.
+
+FX-GLASS-030 (`fx_glass_030.json`): Rim with a point light at 25, 30 per cent, 10 pixels up: the darkening as FX-GLASS-029, the highlight moved toward the light. Frames 0.
+
+FX-GLASS-031 (`fx_glass_031.json`): Rim at Height 0: a flat surface, so every pixel keeps its colour, plus the faintest highlight in its own colour. Frames 0.
+
+FX-GLASS-032 (`fx_glass_032.json`): Rim with Light Intensity 0, Displacement 20: no darkening and no highlight, the blocks bent and their colours untouched. Frames 0.
+
+FX-GLASS-033 (`fx_glass_033.json`): Rim with Ambient 0, Diffuse 100, Specular 0, Softness 4, Displacement 0: each pixel its own colour times Nz, never brighter, darkest where the surface is steepest. Frames 0.
+
+FX-GLASS-034 (`fx_glass_034.json`): Light Type AE Lights, Displacement 20: the blocks bent and not lit, as After Effects shows them under one white ambient light. Frames 0.
+
+FX-GLASS-035 (`fx_glass_035.json`): AE Lights with Displacement 0: nothing bent and nothing lit, the drawing comes back untouched. Frames 0.
+
+FX-GLASS-036 (`fx_glass_036.json`): Rim with the classic light, Displacement 20, Light Intensity 70: the look is not read, so the same as FX-GLASS-003. Frames 0.
+
+FX-GLASS-037 (`fx_glass_037.json`): Edge Look written `lit`: D-561's look, the same as FX-GLASS-001. Frames 0.
+
+FX-GLASS-038 (`fx_glass_038.json`): An edge look written "dark". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
