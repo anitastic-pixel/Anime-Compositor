@@ -463,3 +463,83 @@ fn b829_eyedropper_beside_every_colour_field() {
         &rows,
     );
 }
+
+/// D-950 / B-830: the Align panel: line the chosen layers up by an edge or middle, to the
+/// selection or the composition, or space three or more evenly; one entry to undo.
+#[test]
+fn b830_align_panel() {
+    let mut rows: Rows = Vec::new();
+    let said = node(
+        "B-830",
+        "alignMoves",
+        "const A = { id: 'A', x0: 0, y0: 0, x1: 100, y1: 50 }, B = { id: 'B', x0: 200, y0: 100, x1: 260, y1: 200 },\n\
+               C = { id: 'C', x0: 500, y0: 20, x1: 540, y1: 60 }, comp = { width: 1920, height: 1080 };\n\
+         const go = (rects, how, to) => alignMoves(rects, how, to, comp).map((m) => m.id + ' ' + m.d.join(',')).join('; ');\n\
+         out({\n\
+           left: go([A, B, C], 'left', 'selection'), right: go([A, B, C], 'right', 'comp'),\n\
+           hcentre: go([A, B, C], 'hcentre', 'selection'), vcentre: go([A, B, C], 'vcentre', 'comp'),\n\
+           bottom: go([A, B, C], 'bottom', 'selection'), top: go([A, B, C], 'top', 'comp'),\n\
+           distleft: go([C, A, B], 'distleft', 'selection'), disthcentre: go([A, B, C], 'disthcentre', 'comp'),\n\
+           distvcentre: go([A, B, C], 'distvcentre', 'selection'), two: go([A, B], 'distleft', 'selection'),\n\
+           one: go([B], 'left', 'selection'),\n\
+         });",
+    );
+    for (what, field, want) in [
+        ("left edges to the selection's left", "left", "A 0,0; B -200,0; C -500,0"),
+        ("right edges to the composition's right (1920)", "right", "A 1820,0; B 1660,0; C 1380,0"),
+        ("centres to the selection's centre (270)", "hcentre", "A 220,0; B 40,0; C -250,0"),
+        ("middles to the composition's middle (540)", "vcentre", "A 0,515; B 0,390; C 0,500"),
+        ("bottoms to the selection's bottom (200)", "bottom", "A 0,150; B 0,0; C 0,140"),
+        ("tops to the composition's top", "top", "A 0,0; B 0,-100; C 0,-20"),
+        ("distribute left edges: the outer two stay, the middle one goes halfway", "distleft", "A 0,0; B 50,0; C 0,0"),
+        ("distribute centres (50, 230, 520 become 50, 285, 520)", "disthcentre", "A 0,0; B 55,0; C 0,0"),
+        ("distribute middles (25, 40, 150 become 25, 87.5, 150)", "distvcentre", "A 0,0; C 0,47.5; B 0,0"),
+        ("distribute with two layers does nothing", "two", ""),
+        ("one layer and Selection aligns to the composition", "one", "B -200,0"),
+    ] {
+        rows.push((what.into(), want.into(), said[field].as_str().unwrap_or("?").into()));
+    }
+
+    // The window: three positions sent as the panel sends them are one entry to undo.
+    let viewer = Mutex::new(demo());
+    let depth = |v: &Mutex<Viewer>| v.lock().expect("lock").document.undo_depth();
+    let (ids, before_project) = {
+        let held = viewer.lock().expect("lock");
+        let comp = held.document.project().composition(&held.composition).expect("comp");
+        let ids: Vec<String> = comp.layers_in_order().map(|l| l.id.as_str().to_string()).take(3).collect();
+        (ids, held.document.project().clone())
+    };
+    let before = depth(&viewer);
+    for (n, id) in ids.iter().enumerate() {
+        edit_command(&viewer, "property.set_base", Some(&format!("layer={id}&frame=0&drag=1&prop=position&value={},300", 100 * (n + 1))));
+    }
+    edit_command(&viewer, "property.drag_end", None);
+    let moved = viewer.lock().expect("lock").document.project().clone() != before_project;
+    let entries = depth(&viewer) - before;
+    viewer.lock().expect("lock").document.undo();
+    let back = viewer.lock().expect("lock").document.project().clone() == before_project;
+    rows.push((
+        format!("the window: {} layers moved as the panel sends, then one Ctrl+Z", ids.len()),
+        "moved, 1 entry, all back".into(),
+        format!("{}, {entries} entry, {}", if moved { "moved" } else { "not moved" }, if back { "all back" } else { "not back" }),
+    ));
+    pins(
+        &mut rows,
+        &[
+            ("the panel sits in the Effect controls column", "<h2 data-fold=\"align\">"),
+            ("to the selection or the composition", "<select id=\"alignto\"><option value=\"selection\">Selection</option><option value=\"comp\">Composition</option></select>"),
+            ("a parented layer is left out (its Position is in its parent's space)", "const chosen = movable().filter((l) => !l.parent);"),
+            ("each button moves through alignPanel", "b.onclick = () => alignPanel(row + how);"),
+        ],
+    );
+    table(
+        "B-830_align_panel_table.md",
+        "B-830: the Align panel (D-950)",
+        "b830_align_panel",
+        "The first rows run the page's own `alignMoves` under Node on three made-up boxes in a \
+         1920 by 1080 composition (A: 0 to 100 across, 0 to 50 down; B: 200 to 260, 100 to 200; \
+         C: 500 to 540, 20 to 60), each answer the distance each layer moves; one row asks the real \
+         window; the rest pin the wiring. The private-app check is `verification/B-830_private_app_table.md`.",
+        &rows,
+    );
+}

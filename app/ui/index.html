@@ -1308,7 +1308,10 @@
     border: 0; background: none; padding: 0; width: 12px; color: #8e8e96; font-size: 10px; flex-shrink: 0;
   }
   #inspector.shut-layer #detail, #inspector.shut-layer #sheetlist, #inspector.shut-camera #camera,
-  #inspector.shut-effects #effects, #inspector .shut { display: none; }
+  #inspector.shut-effects #effects, #inspector .shut, #inspector.shut-align #align { display: none; }
+  #align { font-size: 12px; padding: 2px 0 4px; }
+  #align div { display: flex; flex-wrap: wrap; gap: 3px; align-items: center; margin-top: 3px; }
+  #align button { min-width: 0; padding: 1px 6px; }
   #inspector dl, #inspector .effect dl {
     grid-template-columns: minmax(0, 9.5em) minmax(0, 1fr); gap: 0; margin: 0;
   }
@@ -2267,6 +2270,9 @@
         <div id="exposures"><p class="empty">No layer is selected.</p></div>
         <button id="addexposure">Add an exposure</button>
       </details>
+      <!-- D-950: After Effects' Align panel, for the chosen layers. -->
+      <h2 data-fold="align"><button class="etw" aria-expanded="true" aria-label="Hide the align buttons">&#9662;</button>Align</h2>
+      <div id="align"><label>Align layers to <select id="alignto"><option value="selection">Selection</option><option value="comp">Composition</option></select></label></div>
       <!-- D-58. The composition's, not the selected layer's, which is why it sits under its own
            heading rather than among the layer's fields. -->
       <h2 data-fold="camera"><button class="etw" aria-expanded="true" aria-label="Hide the camera's settings">&#9662;</button>Camera</h2>
@@ -7938,6 +7944,76 @@ function movable() {
 // the middle of its drawing without moving the picture, Ctrl+Alt+F scales it to the composition.
 // The drawing's size is only the renderer's, so it is read back out of where the layer's box
 // landed: its two edges, divided by the scale, are the drawing's width and height.
+// ---- B-830 begin
+// D-950: the Align panel. Each chosen layer's box is taken as its smallest upright rectangle in
+// composition pixels, `{ id, x0, y0, x1, y1 }`; the answer is how far each one moves.
+// [axis, where on the box]: 0 is x, 1 is y; 0 the low edge, 0.5 the middle, 1 the high edge.
+const ALIGNS = {
+  left: [0, 0], hcentre: [0, 0.5], right: [0, 1], top: [1, 0], vcentre: [1, 0.5], bottom: [1, 1],
+};
+const ALIGN_NAMES = [['left', 'Left'], ['hcentre', 'Centre'], ['right', 'Right'], ['top', 'Top'], ['vcentre', 'Middle'], ['bottom', 'Bottom']];
+function alignMoves(rects, how, to, comp) {
+  const spread = how.startsWith('dist');
+  const [axis, edge] = ALIGNS[spread ? how.slice(4) : how];
+  const at = (r) => (axis ? r.y0 + (r.y1 - r.y0) * edge : r.x0 + (r.x1 - r.x0) * edge);
+  const by = (r, v) => ({ id: r.id, d: axis ? [0, v - at(r)] : [v - at(r), 0] });
+  if (spread) {
+    // Distribute: the two outermost stay, the rest are spaced evenly between them, by that edge.
+    if (rects.length < 3) return [];
+    const order = [...rects].sort((a, b) => at(a) - at(b));
+    const first = at(order[0]);
+    const step = (at(order[order.length - 1]) - first) / (order.length - 1);
+    return order.map((r, i) => by(r, first + step * i));
+  }
+  // One layer has no selection to align to, so it goes to the composition.
+  const box = to === 'comp' || rects.length < 2 ? { x0: 0, y0: 0, x1: comp.width, y1: comp.height }
+    : rects.reduce((u, r) => ({ x0: Math.min(u.x0, r.x0), y0: Math.min(u.y0, r.y0), x1: Math.max(u.x1, r.x1), y1: Math.max(u.y1, r.y1) }));
+  return rects.map((r) => by(r, at(box)));
+}
+// ---- B-830 end
+// The chosen layers' upright boxes, moved by `alignMoves` as one entry to undo. A layer with a
+// parent is left out: its Position is in the parent's space, not the composition's.
+function alignPanel(how) {
+  const comp = composition();
+  const k = perFramePixel();
+  const chosen = movable().filter((l) => !l.parent);
+  const rects = [];
+  for (const layer of comp ? chosen : []) {
+    const box = boxes.find((b) => b.layer === layer.id);
+    if (!box) continue;
+    const xs = box.corners.filter((_, i) => i % 2 === 0).map((v) => v * k);
+    const ys = box.corners.filter((_, i) => i % 2 === 1).map((v) => v * k);
+    rects.push({ id: layer.id, x0: Math.min(...xs), y0: Math.min(...ys), x1: Math.max(...xs), y1: Math.max(...ys) });
+  }
+  const sends = alignMoves(rects, how, $('alignto').value, comp || {}).filter((m) => m.d[0] || m.d[1]).map((m) => {
+    const layer = layers().find((l) => l.id === m.id);
+    const [px, py, ...pz] = transformValue(layer, 'position');
+    return '/property.set_base?layer=' + encodeURIComponent(m.id) + '&frame=' + frame + '&drag=1&prop=position&value='
+      + encodeURIComponent([px + m.d[0], py + m.d[1], ...pz].map(number).join(','));
+  });
+  const out = movable().length - chosen.length;
+  const why = !rects.length ? 'Choose an unparented layer that is on screen first.'
+    : how.startsWith('dist') && rects.length < 3 ? 'Distribute needs three layers or more.' : '';
+  $('status').textContent = why + (out ? ' ' + out + ' parented layer' + (out > 1 ? 's' : '') + ' left out.' : '');
+  if (!sends.length) return null;
+  return nudge = nudge.then(async () => {
+    for (const request of sends) await command(request);
+    await command('/property.drag_end');
+  });
+}
+for (const [row, word] of [['', 'Align'], ['dist', 'Distribute']]) {
+  const group = Object.assign(document.createElement('div'), { textContent: word + ' ' });
+  group.setAttribute('role', 'group');
+  group.setAttribute('aria-label', word + ' layers');
+  for (const [how, name] of ALIGN_NAMES) {
+    const b = Object.assign(document.createElement('button'), { type: 'button', textContent: name });
+    b.title = (row ? 'Space the chosen layers evenly by their ' : 'Line up the chosen layers by their ') + name.toLowerCase()
+      + (row ? ' (three or more)' : '') + '; one Ctrl+Z';
+    b.onclick = () => alignPanel(row + how);
+    group.append(b);
+  }
+  $('align').append(group);
+}
 function alignLayers(how, chosen = movable()) {
   const comp = composition();
   const k = perFramePixel();
