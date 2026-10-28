@@ -224299,3 +224299,39 @@ FX-SETMATTE-022 (`fx_setmatte_022.json`): Composite written "1". The file is rea
 FX-SETMATTE-023 (`fx_setmatte_023.json`): Premultiply written "maybe". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-SETMATTE-024 (`fx_setmatte_024.json`): A layer written as the number 3, not a word. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Lens Blur parity (D-932)
+
+Lens Blur's Diffraction Fringe and Highlight Saturation (`core.lens_blur`, B-812), both rules ours. The cases without a map are FX-LENS-001's composition, 16 by 10, the drawing `bars` (or `plate`) with the effect; FX-LENS-079 and 080 are FX-LENS-045's, the holder over the switched-off map layers. `tools/lens_blur_parity_reference.py` works the expected frames, `expected_lens_blur_parity.json`. `expected_lens_blur.json` and `expected_lens_blur_map.json` are not touched. Tolerance 2e-5.
+
+FX-LENS-070 (`fx_lens_070.json`): Radius 4 with Diffraction Fringe and Highlight Saturation written at 0: FX-LENS-007 exactly. Frames 0.
+
+FX-LENS-071 (`fx_lens_071.json`): Radius 4, Diffraction Fringe 50: the rim of the iris, the steps more than three pixels out, counts three times, so the red pixel's patch is a ring, brighter at its edge than in its middle. Frames 0.
+
+FX-LENS-072 (`fx_lens_072.json`): Iris hexagon, radius 4, Diffraction Fringe 100: the hexagon's rim counts five times. Frames 0.
+
+FX-LENS-073 (`fx_lens_073.json`): Radius 4, highlight gain 3 at threshold 80, Highlight Saturation 100: the lit skin twice as far from its grey before the average, so its haze is pinker than FX-LENS-029's. Frames 0.
+
+FX-LENS-074 (`fx_lens_074.json`): Radius 4, highlight gain 0.5 at threshold 50, Highlight Saturation 50: the red is lit and made redder, its green and blue held at 0. Frames 0.
+
+FX-LENS-075 (`fx_lens_075.json`): Radius 4, Highlight Saturation 100 with gain 0: nothing is lit, so nothing is saturated: FX-LENS-007. Frames 0.
+
+FX-LENS-076 (`fx_lens_076.json`): Radius 4, Diffraction Fringe keyed from 0 at frame 0 to 100 at frame 4: frame 0 is FX-LENS-007, frame 2 the rim three times, frame 4 five. Frames 0, 2, 4.
+
+FX-LENS-077 (`fx_lens_077.json`): Radius 0.9, Diffraction Fringe 100: the pixel alone has no rim, and the drawing is untouched. Frames 0.
+
+FX-LENS-078 (`fx_lens_078.json`): Radius 2.5, edges repeat, Diffraction Fringe 100, on the picture that fills the layer: every pixel stays fully covered. Frames 0.
+
+FX-LENS-079 (`fx_lens_079.json`): The ramp as the blur map, Focal Distance 0, Diffraction Fringe 50: each level's iris has its own rim, and the white right edge is FX-LENS-071's. Frames 0.
+
+FX-LENS-080 (`fx_lens_080.json`): A white solid read by its Alpha as the blur map, Diffraction Fringe 50: every pixel at the full radius, FX-LENS-071. Frames 0.
+
+FX-LENS-081 (`fx_lens_081.json`): Diffraction Fringe 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-LENS-082 (`fx_lens_082.json`): Diffraction Fringe -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-LENS-083 (`fx_lens_083.json`): Highlight Saturation 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-LENS-084 (`fx_lens_084.json`): Highlight Saturation -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-LENS-085 (`fx_lens_085.json`): Highlight Saturation keyed to 150 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
