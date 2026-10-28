@@ -1268,6 +1268,8 @@
     display: block; width: 100%; height: auto; margin: 4px 0; border-radius: 3px; cursor: crosshair;
     touch-action: none;
   }
+  /* D-949: the eyedropper after every colour field in the panels. */
+  .dropbtn { min-width: 0; padding: 0 3px; height: 1.7em; vertical-align: middle; margin-left: 2px; }
   .effect input[type=color] {
     width: 2.4em; height: 1.7em; padding: 0 1px; vertical-align: middle;
     border: 1px solid #4a4a50; border-radius: 3px; background: #141416;
@@ -17383,7 +17385,7 @@ function drawColourView() {
   const on = cs.color_management === true;
   $('colourviewrow').hidden = !on;
   $('colourinfo').hidden = !on;
-  if (!on) { setDropping(false); return; }
+  if (!on) return;   // D-949: a colour field's own dropper works with colour management off
   readPick();
   const view = cs.view === undefined ? 'aces-2.0-sdr' : String(cs.view);
   const names = [['aces-2.0-sdr', 'ACES 2.0 SDR'], ['un-tone-mapped', 'Un-tone-mapped'], ['standard', 'Standard']];
@@ -17414,7 +17416,7 @@ let lastPick = null;   // the colour picker touched last, by id or label: panels
 let dropping = false;
 let infoWait = 0;
 const infoOn = () => !!doc && (doc.project.color_settings || {}).color_management === true;
-const pickNow = () => lastPick && (document.getElementById(lastPick.id)
+const pickNow = () => lastPick && ((lastPick.el && lastPick.el.isConnected && lastPick.el) || document.getElementById(lastPick.id)
   || [...document.querySelectorAll('input[type=color]')].find((p) => p.getAttribute('aria-label') === lastPick.label));
 const infoText = (a) => 'Working (' + a.working_space + ') ' + a.working.map((c) => c.toFixed(4)).join(' ')
   + '   Display (' + a.view + ') ' + a.display.join(' ');
@@ -17433,7 +17435,7 @@ async function readPick() {
 const touched = (e) => {
   const p = e.target;
   if (!(p instanceof HTMLInputElement) || p.type !== 'color') return;
-  lastPick = { id: p.id, label: p.getAttribute('aria-label') || p.title };
+  lastPick = { el: p, id: p.id, label: p.getAttribute('aria-label') || p.title };
   readPick();
 };
 document.addEventListener('focusin', touched);
@@ -17444,6 +17446,29 @@ function setDropping(on) {
   stage.style.cursor = on ? 'crosshair' : '';
 }
 $('dropper').onclick = () => setDropping(!dropping);
+// ---- B-829 begin
+// D-949: a dropper beside every colour field in the panels, with colour management on or off.
+// A dialog's picker has none (the picture cannot be clicked while it is open), nor Sketch's pen.
+const wantsDropper = (p) => !!p && p.tagName === 'INPUT' && p.type === 'color' && !p.closest('dialog, #sketch')
+  && !(p.nextElementSibling && p.nextElementSibling.classList.contains('dropbtn'));
+function dropperFor(p) {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'dropbtn';
+  b.innerHTML = '<svg class="ic" width="14" height="14" viewBox="0 0 24 24"><path d="M14 4l6 6M17 7l-9 9-4 1 1-4 9-9"/></svg>';
+  b.title = 'Then click the picture: this colour takes that pixel, Escape stops';
+  b.setAttribute('aria-label', 'Pick ' + (p.getAttribute('aria-label') || p.title || 'this colour') + ' from the picture');
+  b.onclick = () => { lastPick = { el: p, id: p.id, label: p.getAttribute('aria-label') || p.title }; setDropping(true); };
+  return b;
+}
+const addDroppers = (n) => {
+  if (n.nodeType !== 1) return;
+  for (const p of [n, ...n.querySelectorAll('input[type=color]')]) if (wantsDropper(p)) p.after(dropperFor(p));
+};
+// ---- B-829 end
+new MutationObserver((ms) => ms.forEach((m) => m.addedNodes.forEach(addDroppers)))
+  .observe(document.body, { childList: true, subtree: true });
+addDroppers(document.body);
 const stopDropping = (e) => { if (dropping && e.key === 'Escape') setDropping(false); };
 document.addEventListener('keydown', stopDropping, true);
 const pointAt = (e) => frameSpace().toLayer(...atCanvas(e)).map(Math.floor);
@@ -17467,8 +17492,8 @@ stage.addEventListener('pointerdown', async (e) => {
   if (!pick) { $('status').textContent = 'Touch a colour picker first, then pick from the picture.'; return; }
   if (needPixels()) { $('status').textContent = 'The view is turned or mirrored; Reset turns it back, then pick.'; return; }
   const [x, y] = pointAt(e);
-  const a = await colourInfo('frame=' + frame + '&x=' + x + '&y=' + y);
-  if (!a || !a.managed) { $('status').textContent = 'Nothing to pick there.'; return; }
+  const a = await colourInfo('frame=' + frame + '&x=' + x + '&y=' + y + '&pick=1');   // D-949
+  if (!a || !a.hex) { $('status').textContent = 'Nothing to pick there.'; return; }
   pick.value = a.hex;
   pick.dispatchEvent(new Event('input', { bubbles: true }));
   pick.dispatchEvent(new Event('change', { bubbles: true }));

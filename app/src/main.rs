@@ -4088,6 +4088,8 @@ fn thumbnail(
 /// D-918: one colour's numbers with colour management on: `?rgb=r,g,b`, a stored colour (linear
 /// Rec.709), or `?frame=&x=&y=`, a pixel of the composition on screen drawn exactly at Full, as
 /// an export draws it. With colour management off it says only that. Nothing is changed or saved.
+/// D-949: `&pick=1` with a pixel is the eyedropper beside every colour field, which works with
+/// colour management off too: off, it answers `managed: false` with the pixel's hex and alpha.
 fn colour_info(
     viewer: &Mutex<Viewer>,
     query: Option<&str>,
@@ -4102,9 +4104,11 @@ fn colour_info(
             held.root.clone(),
         )
     };
-    let Some(working) = project.color_management else {
+    let working = project.color_management;
+    let picking = parameter(query, "pick").is_some() && parameter(query, "rgb").is_none();
+    if working.is_none() && !picking {
         return Ok(serde_json::json!({ "managed": false }));
-    };
+    }
     let readout = if let Some(rgb) = parameter(query, "rgb") {
         let numbers: Vec<f32> = rgb
             .split(',')
@@ -4150,6 +4154,9 @@ fn colour_info(
         .stored
         .map(|c| format!("{:02x}", color::quantise_u8(color::linear_to_srgb(c))))
         .concat();
+    let Some(working) = working else {
+        return Ok(serde_json::json!({ "managed": false, "alpha": readout.alpha, "hex": format!("#{hex}") }));
+    };
     Ok(serde_json::json!({
         "managed": true,
         "working_space": if working == Gamut::Ap1 { "ACEScg" } else { "Linear Rec.709" },

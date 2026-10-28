@@ -378,3 +378,88 @@ fn b828_sixteen_label_colours() {
         &rows,
     );
 }
+
+/// D-949 / B-829: an eyedropper after every colour field in the panels, with colour management on
+/// or off. Off, the window answers a pick with the pixel's hex; a plain question still says off.
+#[test]
+fn b829_eyedropper_beside_every_colour_field() {
+    let mut rows: Rows = Vec::new();
+    let said = node(
+        "B-829",
+        "wantsDropper",
+        "const field = (o) => Object.assign({ tagName: 'INPUT', type: 'color', closest: () => null, nextElementSibling: null }, o);\n\
+         out({\n\
+           panel: wantsDropper(field({})),\n\
+           dialog: wantsDropper(field({ closest: (s) => (s.includes('dialog') ? {} : null) })),\n\
+           twice: wantsDropper(field({ nextElementSibling: { classList: { contains: (c) => c === 'dropbtn' } } })),\n\
+           number: wantsDropper(field({ type: 'number' })),\n\
+           button: wantsDropper(field({ tagName: 'BUTTON' })),\n\
+         });",
+    );
+    for (what, field, want) in [
+        ("a colour field in a panel gets a dropper", "panel", "true"),
+        ("one in a dialog does not (the picture cannot be clicked under it)", "dialog", "false"),
+        ("a field that has its dropper gets no second one", "twice", "false"),
+        ("a number field gets none", "number", "false"),
+        ("nor a button", "button", "false"),
+    ] {
+        rows.push((what.into(), want.into(), said[field].to_string()));
+    }
+
+    // The window, with colour management off: the pick's hex is the pixel the screen shows.
+    let dir = repo("Fixtures/colour/view");
+    let viewer = Mutex::new(open(&dir.join("hdr_scene_off.json")).unwrap_or_else(|d| panic!("{}", d.message)));
+    let ask = |v: &Mutex<Viewer>, q: &str| colour_info(v, Some(q)).unwrap_or_else(|why| panic!("{q}: {why}"));
+    rows.push((
+        "off: a plain question is still answered only with off (FX-COLC7-004)".into(),
+        r#"{"managed":false}"#.into(),
+        ask(&viewer, "frame=0&x=10&y=10").to_string(),
+    ));
+    rows.push((
+        "off: a colour with pick=1 likewise (only a pixel is picked)".into(),
+        r#"{"managed":false}"#.into(),
+        ask(&viewer, "rgb=1,0,0&pick=1").to_string(),
+    ));
+    let project = viewer.lock().expect("lock").document.project().clone();
+    let comp = viewer.lock().expect("lock").composition.clone();
+    let shown = preview::preview_frame(&project, &comp, 0, &dir, PreviewQuality::Full, DEFAULT_TILE_SIZE, &mut FrameLog::new(0))
+        .expect("the frame");
+    let width = shown.width();
+    let bytes = shown.to_srgb8_straight();
+    for (x, y) in [(10usize, 10usize), (width / 2, shown.height() / 2), (width - 5, shown.height() - 5)] {
+        let i = (y * width + x) * 4;
+        let want = format!("#{:02x}{:02x}{:02x}", bytes[i], bytes[i + 1], bytes[i + 2]);
+        let a = ask(&viewer, &format!("frame=0&x={x}&y={y}&pick=1"));
+        rows.push((
+            format!("off: picking {x}, {y} gives the colour shown there"),
+            format!("{want}, managed false"),
+            format!("{}, managed {}", a["hex"].as_str().unwrap_or("?"), a["managed"]),
+        ));
+    }
+    let on = Mutex::new(open(&dir.join("hdr_scene_aces.json")).unwrap_or_else(|d| panic!("{}", d.message)));
+    let a = ask(&on, "frame=0&x=10&y=10&pick=1");
+    let b = ask(&on, "frame=0&x=10&y=10");
+    rows.push((
+        "on: pick=1 changes nothing in the answer".into(),
+        "true".into(),
+        (a == b && a["managed"] == true).to_string(),
+    ));
+    pins(
+        &mut rows,
+        &[
+            ("every colour field added to the page is given its dropper", "new MutationObserver((ms) => ms.forEach((m) => m.addedNodes.forEach(addDroppers)))"),
+            ("a pick asks with pick=1 and takes any answer with a hex", "if (!a || !a.hex) { $('status').textContent = 'Nothing to pick there.'; return; }"),
+            ("colour management off no longer stops a pick", "  if (!on) return;   // D-949"),
+        ],
+    );
+    table(
+        "B-829_eyedropper_table.md",
+        "B-829: an eyedropper beside every colour field (D-949)",
+        "b829_eyedropper_beside_every_colour_field",
+        "The first rows run the page's own `wantsDropper` under Node on made-up fields; then the \
+         real window answers picks from `Fixtures/colour/view` with colour management off and on, \
+         each compared with the bytes the screen shows; the last rows pin the wiring. The \
+         private-app check is `verification/B-829_private_app_table.md`.",
+        &rows,
+    );
+}

@@ -15201,7 +15201,7 @@ fn b797_colour_info_from_the_window() {
         "  off: the Info row is hidden on the page and hidden again when off",
         true,
         page.contains("<div id=\"colourinfo\" hidden")
-            && page.contains("$('colourinfo').hidden = !on;\n  if (!on) { setDropping(false); return; }"),
+            && page.contains("$('colourinfo').hidden = !on;\n  if (!on) return;"),
     );
     report.check(
         "  the hex a stored colour reads as is the picker's own (the sRGB curve, 256 levels)",
