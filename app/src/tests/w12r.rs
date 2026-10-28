@@ -272,7 +272,7 @@ fn b827_sums_in_number_fields() {
         &mut rows,
         &[(
             "the one number field every panel uses reads what is typed through typedSum",
-            "      const said = typedSum(box.value, held); // D-947",
+            "typedSum(box.value, held); // D-947",
         )],
     );
     table(

@@ -5985,7 +5985,7 @@ const CONTROLS: [&str; 140] = [
 
 /// Document 24's shortcuts, as keys rather than as chords: the modifiers live in the same
 /// branch as the key and `verification/B-12b_command_map_table.md` is what checks the pair.
-const KEYS: [&str; 51] = [
+const KEYS: [&str; 52] = [
     "*",
     ",",
     "-",
@@ -6012,6 +6012,7 @@ const KEYS: [&str; 51] = [
     "F",
     "F2",
     "F3",
+    "F4",
     "F9",
     "G",
     "H",
