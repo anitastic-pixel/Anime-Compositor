@@ -860,7 +860,7 @@ const SHORTCUTS: &[(&str, &str, &str)] = &[
     ("layer.set_markers", "* with a layer selected", "addMarkerHere()"),
     ("viewer.fit", "Shift+/", "e.key === '?'"),
     ("viewer.zoom_100", "Ctrl+1", "e.key === '1'"),
-    ("export.sequence", "Ctrl+M", "e.key === 'm'"),
+    ("export.sequence", "Ctrl+Alt+M", "e.code === 'KeyM'"),
     ("app.command_palette", "Ctrl+Shift+P", "e.code === 'KeyP'"),
     (
         "sheet.print",
@@ -896,7 +896,9 @@ const SHORTCUTS: &[(&str, &str, &str)] = &[
 /// there and only what it did had changed. This reads the arm each key opens - the text from
 /// its test to the next `else if` - and says which control that arm reaches for.
 const PRESSES: &[(&str, &str, &str)] = &[
-    ("Ctrl+M", "e.key === 'm'", "$('export')"),
+    // D-945: Ctrl+M is After Effects' Add to Render Queue; the export moved to Ctrl+Alt+M.
+    ("Ctrl+M", "e.key === 'm'", "$('addtoqueue')"),
+    ("Ctrl+Alt+M", "e.code === 'KeyM'", "$('export')"),
     ("Ctrl+I", "e.key === 'i'", "$('import')"),
     ("Ctrl+N", "e.key === 'n'", "$('newcomp')"),
     ("Ctrl+Alt+L", "e.key === 'l'", "$('addlayer')"),

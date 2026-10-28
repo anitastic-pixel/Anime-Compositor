@@ -1906,8 +1906,8 @@
     <button data-run="Duplicate the composition"></button>
     <button data-run="Delete the composition"></button>
     <hr>
-    <button id="export" data-line="Export PNG sequence" data-key="Ctrl+M">Export&hellip;</button>
-    <button id="addtoqueue" title="Keep this composition, as it is now, in the Render panel's queue, to be written later with the others">Add to Render queue&hellip;</button>
+    <button id="export" data-line="Export PNG sequence" data-key="Ctrl+Alt+M">Export&hellip;</button>
+    <button id="addtoqueue" data-key="Ctrl+M" title="Keep this composition, as it is now, in the Render panel's queue, to be written later with the others">Add to Render queue&hellip;</button>
     <div class="opts" data-stay>
     <select id="exportformat" title="What the export is written as: a file a frame, or one animated file. Lossless: the file keeps every value it is given, so there is no quality to choose">
       <option value="png">PNG, 8-bit, lossless</option>
@@ -2359,7 +2359,7 @@
     <button id="renderpause" hidden title="Wait after the frame being written; press again to go on. What is written does not change">Pause</button>
     <button id="renderstop" hidden title="Stop the render. The frames already written are kept">Stop</button>
     <button id="renderadd" title="Add the open composition to the queue, written as the Output choices below say: asks which folder">Add to queue</button>
-    <button id="renderstart" class="pri" title="Render the open composition: asks where, then writes it (Ctrl+M)">&#9655; Render</button>
+    <button id="renderstart" class="pri" title="Render the open composition: asks where, then writes it">&#9655; Render</button>
   </div>
   <!-- D-252: the frames as they are written: the last one large, the four before it small, and the
     job's frames as a bar, written ones blue and those whose drawing was missing orange. -->
@@ -5641,7 +5641,8 @@ function paletteLines() {
     ['Increment and save', 'Ctrl+Alt+Shift+S', { key: 'S', ctrlKey: true, altKey: true, shiftKey: true }],
     ['New composition', 'Ctrl+N', { key: 'n', ctrlKey: true }],
     ['Import drawings', 'Ctrl+I', { key: 'i', ctrlKey: true }],
-    ['Export PNG sequence', 'Ctrl+M', { key: 'm', ctrlKey: true }],
+    ['Export PNG sequence', 'Ctrl+Alt+M', { key: 'm', code: 'KeyM', ctrlKey: true, altKey: true }],
+    ['Add to Render queue', 'Ctrl+M', { key: 'm', code: 'KeyM', ctrlKey: true }],
     ['Print the Sheet', 'Ctrl+P', { key: 'p', ctrlKey: true }],
     ['Undo', 'Ctrl+Z', { key: 'z', ctrlKey: true }],
     ['Redo', 'Ctrl+Shift+Z', { key: 'Z', ctrlKey: true, shiftKey: true }],
@@ -5692,6 +5693,8 @@ function paletteLines() {
     ['Copy keys', 'Ctrl+C', { key: 'c', ctrlKey: true }],
     ['Paste keys', 'Ctrl+V', { key: 'v', ctrlKey: true }],
     ['Easy ease', 'F9', { key: 'F9' }],
+    ['Easy ease in', 'Shift+F9', { key: 'F9', shiftKey: true }],
+    ['Easy ease out', 'Ctrl+Shift+F9', { key: 'F9', ctrlKey: true, shiftKey: true }],
     ['Hold keys', 'Ctrl+Alt+G', { key: 'g', code: 'KeyG', ctrlKey: true, altKey: true }],
     ['Time-reverse keys', '', () => reverseKeys()],
     ['Freeze frame', '', () => freezeFrame()],
@@ -6184,7 +6187,7 @@ function keyMenu(x, y, first = []) {
     ['Key speed and influence\u2026', '', velocityDialog, some],
     ['Easy ease', 'F9', () => easeKeys('both'), some],
     ['Easy ease in', 'Shift+F9', () => easeKeys('in'), some],
-    ['Easy ease out', 'Ctrl+F9', () => easeKeys('out'), some],
+    ['Easy ease out', 'Ctrl+Shift+F9', () => easeKeys('out'), some],
     ['Linear', '', () => holdKeys('linear'), some],
     ['Hold or release', 'Ctrl+Alt+G', () => holdKeys(), some],
     ['Bezier: each handle on its own', '', () => kindKeys('bezier'), some],
@@ -6231,6 +6234,33 @@ function popMenu(x, y, lines, extra) {
   (menu.querySelector('button:not(:disabled)') || menu.firstChild).focus();
 }
 
+// ---- B-825 begin
+// D-945: After Effects' F9 family read in one place. Shift alone is the side a key is reached
+// from; Ctrl+Shift, the side it leaves by (Ctrl alone too, as before); plain F9, both.
+function easeSide(e) {
+  return e.ctrlKey ? 'out' : e.shiftKey ? 'in' : 'both';
+}
+// D-945: After Effects' Ctrl+click on a key: a plain linear key becomes auto bezier, and any other
+// key (eased, held, continuous or auto) goes back to plain linear.
+function ctrlClickTo(key) {
+  const linear = !key.interp || key.interp === 'linear';
+  const plain = !key.kind || key.kind === 'bezier';
+  return linear && plain ? 'auto' : 'linear';
+}
+// ---- B-825 end
+// One entry to undo: the key alone is chosen, its kind set and, going to linear, its interpolation.
+function ctrlClickKey(layer, prop, key) {
+  const id = keyId(layer, prop, key.frame);
+  pickKey(id, false);
+  const to = ctrlClickTo(key);
+  const sends = ['/keyframe.set_kind?kind=' + (to === 'auto' ? 'auto' : 'bezier') + '&key=' + encodeURIComponent(id) + '&drag=1'];
+  if (to === 'linear') sends.push('/keyframe.set_interp?' + whose(layer) + '&prop=' + prop + '&frame=' + key.frame + '&mode=linear&drag=1');
+  nudge = nudge.then(async () => {
+    for (const request of sends) await command(request);
+    await command('/property.drag_end');
+  });
+}
+
 // W-11: a key taken hold of and put down on another frame. The mark follows the pointer here
 // on the page and nothing is sent until it is let go, because a move names the frame it starts
 // from: an intermediate one would name a frame the key had already left, and redo replays a drag
@@ -6274,7 +6304,9 @@ function grabKey(comp, layer, prop, key, mark) {
     e.preventDefault();
     e.stopPropagation();
     let to = key.frame;
-    const add = e.shiftKey || e.ctrlKey;
+    // D-945: Shift adds a key to the chosen ones; Ctrl alone is After Effects' linear/auto toggle.
+    const add = e.shiftKey;
+    const toggle = e.ctrlKey && !e.shiftKey && !isPath(prop);
     // Pressing a key that is not chosen chooses it alone, as After Effects does, so what is
     // dragged is what is lit.
     if (!add && !pickedKeys.has(id)) pickKey(id, false);
@@ -6292,6 +6324,7 @@ function grabKey(comp, layer, prop, key, mark) {
       if (cancelled) shift(group, 0);
       // A press that did not move is a click: it chooses the key, for F9, and puts the playhead
       // on it, where the inspector's ease button acts.
+      else if (to === key.frame && toggle) ctrlClickKey(layer, prop, key);
       else if (to === key.frame) { pickKey(id, add); seek(key.frame); }
       else moveKeys(group, Math.round(to - key.frame));
     };
@@ -20676,7 +20709,7 @@ function drawRender() {
   $('renderstart').disabled = exporting || !doc;
   $('renderadd').disabled = !doc;
   $('renderstart').title = queued ? 'Write the ticked rows in turn, each into its own folder'
-    : 'Render the open composition: asks where, then writes it (Ctrl+M)';
+    : 'Render the open composition: asks where, then writes it';
   $('renderleft').textContent = exporting ? $('exportleft').textContent
     : queued ? 'Render writes the ticked rows in turn. Drag a row to change the order.'
     : 'Render asks which folder to write into, then writes there. Add to queue keeps it for later instead.';
@@ -20864,10 +20897,10 @@ addEventListener('keydown', (e) => {
   // Document 24 names Ctrl+M for the export and Ctrl+I for the import. Both were unbound until
   // B-12b read this file against that table; an accelerator a document promises and a window
   // does not answer is a promise, not a shortcut.
-  else if (e.ctrlKey && (e.key === 'm' || e.key === 'M')) {
-    e.preventDefault();
-    $('export').click();
-  }
+  // D-945: After Effects' Ctrl+M is Add to Render Queue, and its Ctrl+Alt+M (Add to Adobe Media
+  // Encoder Queue) is the nearest thing it has to our straight export, so they are those here.
+  else if (e.ctrlKey && e.altKey && e.code === 'KeyM') { e.preventDefault(); $('export').click(); }
+  else if (e.ctrlKey && (e.key === 'm' || e.key === 'M')) { e.preventDefault(); $('addtoqueue').click(); }
   else if (e.ctrlKey && (e.key === 'i' || e.key === 'I')) {
     e.preventDefault();
     $('import').click();
@@ -20915,7 +20948,7 @@ addEventListener('keydown', (e) => {
   // Document 24: Ctrl+1 is `viewer.zoom_100` and Shift+/ is `viewer.fit`, both After Effects'.
   else if (e.ctrlKey && e.key === '1') { e.preventDefault(); zoomTo(1, ...stageCentre()); }
   // After Effects' easing presets on the keys under the playhead: see `easeKeys`.
-  else if (e.key === 'F9') { e.preventDefault(); easeKeys(e.ctrlKey ? 'out' : e.shiftKey ? 'in' : 'both'); }
+  else if (e.key === 'F9') { e.preventDefault(); easeKeys(easeSide(e)); }
   // W-20: After Effects' keys for keys and layers. Copy and paste stay out of a field being typed
   // in, where Ctrl+C and Ctrl+V mean the text.
   else if (e.ctrlKey && e.altKey && e.code === 'KeyG') { e.preventDefault(); holdKeys(); }

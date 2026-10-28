@@ -229,8 +229,8 @@ Whether document 24's shortcuts conflict with Windows or with the web view, whic
 | and Shift+/ is bound | yes | yes | pass |
 | document 24 gives `viewer.zoom_100` the shortcut | Ctrl+1 | Ctrl+1 | pass |
 | and Ctrl+1 is bound | yes | yes | pass |
-| document 24 gives `export.sequence` the shortcut | Ctrl+M | Ctrl+M | pass |
-| and Ctrl+M is bound | yes | yes | pass |
+| document 24 gives `export.sequence` the shortcut | Ctrl+Alt+M | Ctrl+Alt+M | pass |
+| and Ctrl+Alt+M is bound | yes | yes | pass |
 | document 24 gives `app.command_palette` the shortcut | Ctrl+Shift+P | Ctrl+Shift+P | pass |
 | and Ctrl+Shift+P is bound | yes | yes | pass |
 | document 24 gives `sheet.print` the shortcut | Ctrl+P | Ctrl+P | pass |
@@ -253,7 +253,8 @@ Whether document 24's shortcuts conflict with Windows or with the web view, whic
 | and Ctrl+Alt+V is bound | yes | yes | pass |
 | document 24 gives `mask.add` the shortcut | G for the pen, Q for the rectangle and the ellipse | G for the pen, Q for the rectangle and the ellipse | pass |
 | and G for the pen, Q for the rectangle and the ellipse is bound | yes | yes | pass |
-| and Ctrl+M presses | $('export') | $('export') | pass |
+| and Ctrl+M presses | $('addtoqueue') | $('addtoqueue') | pass |
+| and Ctrl+Alt+M presses | $('export') | $('export') | pass |
 | and Ctrl+I presses | $('import') | $('import') | pass |
 | and Ctrl+N presses | $('newcomp') | $('newcomp') | pass |
 | and Ctrl+Alt+L presses | $('addlayer') | $('addlayer') | pass |

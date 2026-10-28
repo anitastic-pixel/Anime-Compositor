@@ -19766,3 +19766,6 @@ mod in_motion;
 #[cfg(test)]
 #[path = "tests/shown_size.rs"]
 mod shown_size;
+#[cfg(test)]
+#[path = "tests/w12r.rs"]
+mod w12r;
