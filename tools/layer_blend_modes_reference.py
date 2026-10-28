@@ -16,6 +16,29 @@ After Effects publishes no formula; D-730 took the same for Turbulent Noise):
 - hue: SetLum(SetSat(s, Sat(b)), Lum(b)); saturation: SetLum(SetSat(b, Sat(s)), Lum(b));
 - color: SetLum(s, Lum(b)); luminosity: SetLum(b, Lum(s)).
 
+D-921 adds fourteen more (FX-LBLEND-010 to 023), on the same encoded colours and the same 0..1 hold:
+- color_dodge: 0 where b = 0, else 1 where s = 1, else min(1, b / (1 - s)) (the W3C's; Adobe:
+  "if the original layer color is pure black, the result color is the underlying color");
+- color_burn: 1 where b = 1, else 0 where s = 0, else 1 - min(1, (1 - b) / s) (the W3C's);
+- linear_burn: max(0, b + s - 1); linear_light: b + 2 s - 1 held to 0..1;
+- vivid_light: color_burn(b, 2 s) where s <= 0.5, else color_dodge(b, 2 s - 1);
+- pin_light: min(b, 2 s) where s <= 0.5, else max(b, 2 s - 1);
+- hard_mix: 1 where b + s >= 1, else 0; exclusion: b + s - 2 b s; subtract: max(0, b - s);
+- divide: min(1, b / s), and where s = 0, 1 if b > 0 else 0;
+- darker_color, lighter_color: the whole colour of whichever of the two has the lower (higher)
+  Lum, the backdrop's on a tie.
+The two Classic modes (our basis; Adobe says only that they are After Effects 5.0's): the layer's
+encoded colour is first scaled by its alpha As, s' = s As, the mode is worked on (b, s') and laid
+with full weight where there is a backdrop:
+
+    Co = (1-Ad) Cs + Ad B',   Ao = As + Ad - As Ad,
+
+classic_color_dodge's f the color_dodge above, classic_color_burn's the color_burn above except
+that s' = 0 leaves b as it is. So a faded Classic layer dodges or burns as a darker layer rather
+than mixing towards the backdrop, and a black layer in Classic Color Burn changes nothing.
+The new cases use the colours TOP_NEW, chosen so that no b + s is within 0.01 of 1 (Hard Mix's
+edge) and no s is 0 or 0.5, and only the yellow row's red is 1.
+
 Nothing here is read from the program. Writes Fixtures/layer_blend_modes/.
 
 The composition, 10 by 8: four opaque backdrop strips 2 pixels wide in columns 0..7, columns 8
@@ -88,6 +111,45 @@ WHOLE = {
 }
 
 
+def dodge(b, s):
+    if b <= 0:
+        return 0.0
+    if s >= 1:
+        return 1.0
+    return min(1.0, b / (1 - s))
+
+
+def burn(b, s):
+    if b >= 1:
+        return 1.0
+    if s <= 0:
+        return 0.0
+    return 1 - min(1.0, (1 - b) / s)
+
+
+PER_CHANNEL.update({
+    "color_dodge": dodge,
+    "color_burn": burn,
+    "classic_color_dodge": dodge,
+    "classic_color_burn": lambda b, s: b if s <= 0 else burn(b, s),
+    "linear_burn": lambda b, s: max(0.0, b + s - 1),
+    "linear_light": lambda b, s: min(1.0, max(0.0, b + 2 * s - 1)),
+    "vivid_light": lambda b, s: burn(b, 2 * s) if s <= 0.5 else dodge(b, 2 * s - 1),
+    "pin_light": lambda b, s: min(b, 2 * s) if s <= 0.5 else max(b, 2 * s - 1),
+    "hard_mix": lambda b, s: 1.0 if b + s >= 1 else 0.0,
+    "exclusion": lambda b, s: b + s - 2 * b * s,
+    "subtract": lambda b, s: max(0.0, b - s),
+    "divide": lambda b, s: (1.0 if b > 0 else 0.0) if s <= 0 else min(1.0, b / s),
+})
+WHOLE.update({
+    "darker_color": lambda b, s: list(s) if lum(s) < lum(b) else list(b),
+    "lighter_color": lambda b, s: list(s) if lum(s) > lum(b) else list(b),
+})
+CLASSIC = ("classic_color_dodge", "classic_color_burn")
+TOP_NEW = [((0.85, 0.35, 0.6), 100), ((0.15, 0.95, 0.42), 100), ((1.0, 0.62, 0.07), 100),
+           ((0.33, 0.12, 0.71), 50)]
+
+
 def mix(mode, b, s):
     """Encoded b beneath, encoded s the layer, both straight; the encoded result."""
     if mode in PER_CHANNEL:
@@ -95,17 +157,25 @@ def mix(mode, b, s):
     return WHOLE[mode](b, s)
 
 
+def top(mode):
+    return TOP_NEW if mode in NEW_MODES else TOP
+
+
 def pixel(mode, x, y):
     """The expected pixel, linear and premultiplied."""
     dst = [0.0, 0.0, 0.0, 0.0]
     if x < 8:
         dst = [lin(v) for v in BACK[x // 2]] + [1.0]
-    color, opacity = TOP[y // 2]
+    color, opacity = top(mode)[y // 2]
     a_s = opacity / 100
     cs = [lin(v) for v in color]
     src = [v * a_s for v in cs] + [a_s]
     a_d = dst[3]
     cd = dst[:3]  # opaque or clear, so straight equals premultiplied
+    if mode in CLASSIC:
+        bm = [lin(v) for v in mix(mode, [enc(v) for v in cd], [enc(v) * a_s for v in cs])]
+        out = [(1 - a_d) * src[c] + a_d * bm[c] for c in range(3)]
+        return out + [a_s + a_d - a_s * a_d]
     bm = [lin(v) for v in mix(mode, [enc(v) for v in cd], [enc(v) for v in cs])]
     out = [(1 - a_s) * dst[c] + (1 - a_d) * src[c] + a_s * a_d * bm[c] for c in range(3)]
     return out + [a_s + a_d - a_s * a_d]
@@ -128,7 +198,7 @@ def solid(lid, color, x, y, w, h, opacity, blend):
 
 def project(mode, pid):
     layers = [solid(f"back-{i}", c, 2 * i, 0, 2, H, 100, "normal") for i, c in enumerate(BACK)]
-    layers += [solid(f"top-{j}", c, 0, 2 * j, W, 2, o, mode) for j, (c, o) in enumerate(TOP)]
+    layers += [solid(f"top-{j}", c, 0, 2 * j, W, 2, o, mode) for j, (c, o) in enumerate(top(mode))]
     return {
         "schema_version": 0, "project_id": pid,
         "color_settings": {"working_space": "linear-srgb", "alpha_mode": "premultiplied"},
@@ -156,10 +226,39 @@ CASES = [
     ("color", "Color: the layer's hue and saturation at the backdrop's lightness."),
     ("luminosity", "Luminosity: the backdrop's hue and saturation at the layer's lightness."),
 ]
-REFUSED = ("FX-LBLEND-009", "color_dodge",
-           "A mode After Effects has and this program does not, Color Dodge: the file is refused "
-           "with the reason, which names the sixteen modes it knows; nothing is drawn as another "
-           "mode (document 28).")
+NEW_CASES = [
+    ("color_burn", "Color Burn: the backdrop darkened by the layer, (1 - b) / s taken off white; a "
+                   "white layer would leave it as it is."),
+    ("classic_color_burn", "Classic Color Burn: Color Burn worked with the layer's colour scaled by "
+                           "its opacity, so the 50% row burns as a darker colour at full weight."),
+    ("linear_burn", "Linear Burn: b + s - 1, held at 0; darker than Multiply."),
+    ("darker_color", "Darker Color: the whole colour of whichever is darker by Lum, never a mix "
+                     "of channels."),
+    ("color_dodge", "Color Dodge: the backdrop brightened by the layer, b / (1 - s), held at 1; "
+                    "the yellow row's full red turns every red to 1."),
+    ("classic_color_dodge", "Classic Color Dodge: Color Dodge worked with the layer's colour "
+                            "scaled by its opacity, so the 50% row dodges as a darker colour."),
+    ("lighter_color", "Lighter Color: the whole colour of whichever is lighter by Lum."),
+    ("linear_light", "Linear Light: b + 2 s - 1, held to 0..1."),
+    ("vivid_light", "Vivid Light: Color Burn by 2 s below a half, Color Dodge by 2 s - 1 above."),
+    ("pin_light", "Pin Light: the darker of b and 2 s below a half, the lighter of b and 2 s - 1 "
+                  "above."),
+    ("hard_mix", "Hard Mix: each channel 0 or 1, 1 where b + s reaches 1."),
+    ("exclusion", "Exclusion: b + s - 2 b s, a softer Difference."),
+    ("subtract", "Subtract: b - s, held at 0."),
+    ("divide", "Divide: b / s, held at 1; the yellow row's 0.07 blue turns most blues to 1."),
+]
+NEW_MODES = [m for m, _ in NEW_CASES]
+REFUSED = ("FX-LBLEND-009", "dissolve",
+           "A mode After Effects has and this program does not, Dissolve (D-920; before D-921 "
+           "this case was Color Dodge): the file is refused with the reason, which names the "
+           "thirty modes it knows; nothing is drawn as another mode (document 28).")
+ALL_MODES = ["normal", "darken", "multiply", "color_burn", "classic_color_burn", "linear_burn",
+             "darker_color", "add", "lighten", "screen", "color_dodge", "classic_color_dodge",
+             "lighter_color", "overlay", "soft_light", "hard_light", "linear_light",
+             "vivid_light", "pin_light", "hard_mix", "difference", "exclusion", "subtract",
+             "divide", "hue", "saturation", "color", "luminosity", "stencil_alpha",
+             "stencil_luma"]
 
 
 def main():
@@ -172,19 +271,28 @@ def main():
                                 encoding="utf-8", newline="\n")
         frame = [pixel(mode, x, y) for y in range(H) for x in range(W)]
         cases[fid] = {"says": says, "mode": mode, "project": name, "frames": {"0": frame}}
+    for n, (mode, says) in enumerate(NEW_CASES, 10):
+        fid = f"FX-LBLEND-{n:03d}"
+        name = f"fx_lblend_{n:03d}.json"
+        (OUT / name).write_text(json.dumps(project(mode, fid.lower()), indent=1) + "\n",
+                                encoding="utf-8", newline="\n")
+        frame = [pixel(mode, x, y) for y in range(H) for x in range(W)]
+        cases[fid] = {"says": says, "mode": mode, "project": name, "frames": {"0": frame}}
     fid, mode, says = REFUSED
     name = "fx_lblend_009.json"
     (OUT / name).write_text(json.dumps(project(mode, fid.lower()), indent=1) + "\n",
                             encoding="utf-8", newline="\n")
     refused = {fid: {"says": says, "mode": mode, "project": name,
-                     "reason": "layers/4/blend_mode: expected one of normal, darken, multiply, "
-                               "add, lighten, screen, overlay, soft_light, hard_light, "
-                               "difference, hue, saturation, color, luminosity, stencil_alpha, "
-                               "stencil_luma."}}
+                     "reason": "layers/4/blend_mode: expected one of "
+                               + ", ".join(ALL_MODES) + "."}}
     out = {"tolerance": TOLERANCE, "width": W, "height": H, "cases": cases, "refused": refused}
     (OUT / "expected_layer_blend_modes.json").write_text(json.dumps(out, indent=1) + "\n",
                                                           encoding="utf-8", newline="\n")
     print(f"wrote {len(cases)} drawn cases and 1 refused case to {OUT}")
+    # Hard Mix's edge: no channel sum of the new colours within 0.01 of 1.
+    for color, _ in TOP_NEW:
+        for back in BACK:
+            assert all(abs(b + s - 1) > 0.01 for b, s in zip(back, color)), (back, color)
 
 
 if __name__ == "__main__":

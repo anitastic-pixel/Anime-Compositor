@@ -224074,7 +224074,39 @@ FX-LBLEND-007 (`fx_lblend_007.json`): Color: the layer's hue and saturation at t
 
 FX-LBLEND-008 (`fx_lblend_008.json`): Luminosity: the backdrop's hue and saturation at the layer's lightness. Frames 0.
 
-FX-LBLEND-009 (`fx_lblend_009.json`): A mode After Effects has and this program does not, Color Dodge: the file is refused with the reason, which names the sixteen modes it knows; nothing is drawn as another mode (document 28). Error contains `layers/4/blend_mode: expected one of normal, darken, multiply, add, lighten, screen, overlay, soft_light, hard_light, difference, hue, saturation, color, luminosity, stencil_alpha, stencil_luma.`.
+FX-LBLEND-009 (`fx_lblend_009.json`): A mode After Effects has and this program does not, Dissolve (D-920; before D-921 this case was Color Dodge): the file is refused with the reason, which names the thirty modes it knows; nothing is drawn as another mode (document 28). Error contains `layers/4/blend_mode: expected one of normal, darken, multiply, color_burn, classic_color_burn, linear_burn, darker_color, add, lighten, screen, color_dodge, classic_color_dodge, lighter_color, overlay, soft_light, hard_light, linear_light, vivid_light, pin_light, hard_mix, difference, exclusion, subtract, divide, hue, saturation, color, luminosity, stencil_alpha, stencil_luma.`.
+
+### A layer's fourteen more blend modes (D-921)
+
+Color Burn, Classic Color Burn, Linear Burn, Darker Color, Color Dodge, Classic Color Dodge, Lighter Color, Linear Light, Vivid Light, Pin Light, Hard Mix, Exclusion, Subtract and Divide (B-800): `tools/layer_blend_modes_reference.py` writes them into the same `expected_layer_blend_modes.json`, `fx_lblend_010.json` to `fx_lblend_023.json`. The frame is D-748's, with the four upper strips encoded (0.85, 0.35, 0.6), (0.15, 0.95, 0.42), (1, 0.62, 0.07) and (0.33, 0.12, 0.71) at 50 percent, chosen so no channel sits on Hard Mix's edge. Every pixel of frame 0, linear premultiplied, tolerance 2e-5. The rule is in document 21 (D-921). Checked by `tests/b800_more_blend_modes.rs`.
+
+FX-LBLEND-010 (`fx_lblend_010.json`): Color Burn: the backdrop darkened by the layer, (1 - b) / s taken off white; a white layer would leave it as it is. Frames 0.
+
+FX-LBLEND-011 (`fx_lblend_011.json`): Classic Color Burn: Color Burn worked with the layer's colour scaled by its opacity, so the 50% row burns as a darker colour at full weight. Frames 0.
+
+FX-LBLEND-012 (`fx_lblend_012.json`): Linear Burn: b + s - 1, held at 0; darker than Multiply. Frames 0.
+
+FX-LBLEND-013 (`fx_lblend_013.json`): Darker Color: the whole colour of whichever is darker by Lum, never a mix of channels. Frames 0.
+
+FX-LBLEND-014 (`fx_lblend_014.json`): Color Dodge: the backdrop brightened by the layer, b / (1 - s), held at 1; the yellow row's full red turns every red to 1. Frames 0.
+
+FX-LBLEND-015 (`fx_lblend_015.json`): Classic Color Dodge: Color Dodge worked with the layer's colour scaled by its opacity, so the 50% row dodges as a darker colour. Frames 0.
+
+FX-LBLEND-016 (`fx_lblend_016.json`): Lighter Color: the whole colour of whichever is lighter by Lum. Frames 0.
+
+FX-LBLEND-017 (`fx_lblend_017.json`): Linear Light: b + 2 s - 1, held to 0..1. Frames 0.
+
+FX-LBLEND-018 (`fx_lblend_018.json`): Vivid Light: Color Burn by 2 s below a half, Color Dodge by 2 s - 1 above. Frames 0.
+
+FX-LBLEND-019 (`fx_lblend_019.json`): Pin Light: the darker of b and 2 s below a half, the lighter of b and 2 s - 1 above. Frames 0.
+
+FX-LBLEND-020 (`fx_lblend_020.json`): Hard Mix: each channel 0 or 1, 1 where b + s reaches 1. Frames 0.
+
+FX-LBLEND-021 (`fx_lblend_021.json`): Exclusion: b + s - 2 b s, a softer Difference. Frames 0.
+
+FX-LBLEND-022 (`fx_lblend_022.json`): Subtract: b - s, held at 0. Frames 0.
+
+FX-LBLEND-023 (`fx_lblend_023.json`): Divide: b / s, held at 1; the yellow row's 0.07 blue turns most blues to 1. Frames 0.
 
 ### Layer markers (D-765)
 

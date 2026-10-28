@@ -296,7 +296,7 @@
      },
      "masks": [],
      "matte": null,
-     "blend_mode": "color_dodge",
+     "blend_mode": "dissolve",
      "effects": []
     },
     {
@@ -349,7 +349,7 @@
      },
      "masks": [],
      "matte": null,
-     "blend_mode": "color_dodge",
+     "blend_mode": "dissolve",
      "effects": []
     },
     {
@@ -402,7 +402,7 @@
      },
      "masks": [],
      "matte": null,
-     "blend_mode": "color_dodge",
+     "blend_mode": "dissolve",
      "effects": []
     },
     {
@@ -455,7 +455,7 @@
      },
      "masks": [],
      "matte": null,
-     "blend_mode": "color_dodge",
+     "blend_mode": "dissolve",
      "effects": []
     }
    ]
