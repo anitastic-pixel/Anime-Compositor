@@ -30,3 +30,5 @@ Pass if every "Expect" holds. If anything looks different, say which step.
 
 Checked by `cargo test --test b810_minimax` (65 of 65, `B-810_minimax_table.md`): every
 pixel of FX-MINIMAX-001 to 020 against `tools/minimax_reference.py`.
+
+Tutorial sheet: `verification/B-810 pictures/minimax_vs_tutorial.png`, MN518F3vOvE at 6:32 and 6:40 (F's Max, value 3, RGB+Alpha, filling the gaps the keyed-out lines leave in the magenta shadow) beside ours rendered by the release app (Maximum, radius 3, Alpha and Color): the gaps close and the edge grows by 3 pixels in square steps, as in the tutorial.
