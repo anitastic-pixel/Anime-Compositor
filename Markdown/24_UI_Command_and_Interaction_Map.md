@@ -138,7 +138,7 @@ Every state-changing UI action invokes a stable command ID through the command l
 | viewer.toggle_checkerboard | Toggle transparency grid | none | no |
 | viewer.toggle_alpha | Toggle alpha-only inspection | none | no |
 | render.preview_current | Render current frame | none | no |
-| export.sequence | Open image-sequence export: PNG, or EXR by D-62 | Ctrl+M | no |
+| export.sequence | Open image-sequence export: PNG, or EXR by D-62 | Ctrl+Alt+M | no |
 | app.command_palette | Search commands | Ctrl+Shift+P | no |
 | app.effects_console | Find an effect or preset and add it to the selected layers (W-30) | Ctrl+Space | no |
 
