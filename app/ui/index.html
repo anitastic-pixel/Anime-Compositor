@@ -557,6 +557,13 @@
   #layers li.prop .value label { display: inline-flex; align-items: center; gap: 3px; font-size: 11px; color: #909096; }
   #timeline.narrow .layerhead { grid-template-columns: 22px 22px 22px 0 24px 18px minmax(0, 1fr) 22px 22px 60px 18px 22px; }
   #timeline.narrow .pname { display: none; }
+  /* D-953: F4 shows the switches (shy, motion blur) or the modes (mode, T) alone. */
+  #timeline.noswitches .layerhead > :nth-child(8), #timeline.noswitches .layerhead > :nth-child(9),
+  #timeline.nomodes .layerhead > :nth-child(10), #timeline.nomodes .layerhead > :nth-child(11) { display: none; }
+  #timeline.noswitches .layerhead { grid-template-columns: 22px 22px 22px 0 24px 18px minmax(0, 1fr) 64px 18px 84px; }
+  #timeline.nomodes .layerhead { grid-template-columns: 22px 22px 22px 0 24px 18px minmax(0, 1fr) 22px 22px 84px; }
+  #timeline.narrow.noswitches .layerhead { grid-template-columns: 22px 22px 22px 0 24px 18px minmax(0, 1fr) 60px 18px 22px; }
+  #timeline.narrow.nomodes .layerhead { grid-template-columns: 22px 22px 22px 0 24px 18px minmax(0, 1fr) 22px 22px 22px; }
   /* An empty composition says so and offers the two ways to start. */
   #nolayers { display: grid; place-items: center; gap: 10px; padding: 32px 16px; text-align: center; color: #909096; }
   #nolayers[hidden], #colheads[hidden] { display: none; }
@@ -1981,6 +1988,7 @@
     <button data-run="Easy ease"></button>
     <button data-run="Hold keys"></button>
     <button data-run="Key speed and influence"></button>
+    <button data-run="Wiggle position"></button>
     <hr>
     <button data-run="Copy keys"></button>
     <button data-run="Paste keys"></button>
@@ -5695,6 +5703,8 @@ function paletteLines() {
     ['New null', 'Ctrl+Alt+Shift+Y', { key: 'Y', ctrlKey: true, altKey: true, shiftKey: true }],
     ['Pre-compose', 'Ctrl+Shift+C', { key: 'C', code: 'KeyC', ctrlKey: true, shiftKey: true }],
     ['Rename layer', 'F2', { key: 'F2' }],
+    ['Solid settings', 'Ctrl+Shift+Y', { key: 'Y', ctrlKey: true, shiftKey: true }],
+    ['Switches or modes', 'F4', { key: 'F4' }],
     ['Replace layer source', 'Ctrl+Alt+/', { key: '/', code: 'Slash', ctrlKey: true, altKey: true }],
     ['Delete layer or keys', 'Delete', { key: 'Delete' }],
     ['Duplicate layers', 'Ctrl+D', { key: 'd', code: 'KeyD', ctrlKey: true }],
@@ -5739,6 +5749,7 @@ function paletteLines() {
     ['Hold keys', 'Ctrl+Alt+G', { key: 'g', code: 'KeyG', ctrlKey: true, altKey: true }],
     ['Time-reverse keys', '', () => reverseKeys()],
     ['Freeze frame', '', () => freezeFrame()],
+    ['Wiggle position', '', () => wigglePosition()],
     ['Enable or remove time remapping', 'Ctrl+Alt+T', { key: 't', code: 'KeyT', ctrlKey: true, altKey: true }],
     ['Show position', 'P', { key: 'p' }],
     ['Show animated properties', 'U', { key: 'u' }],
@@ -9151,6 +9162,21 @@ function typedSum(text, now) {
 // D-266: `min` and `max` are the range the core takes. A drag, a typed number or a key step past
 // an end stops at that end, as After Effects' numbers do, where before the core refused it and
 // the drag was lost. Pulled back from past an end, the number moves at once.
+// ---- B-833 begin
+// D-953: an angle as After Effects shows one, whole turns and the degrees left over: 390 is
+// "1x+30°", -30 is "0x-30°". The file keeps degrees. Typed, "1x+30" is read back as 390.
+function angleText(n) {
+  const turns = Math.trunc(n / 360);
+  const left = Math.round((n - turns * 360) * 100) / 100;
+  return (turns === 0 ? '0' : turns) + 'x' + (left < 0 ? '-' : '+') + String(Math.abs(left)) + '°';
+}
+function typedTurns(text) {
+  const m = /^\s*(-?\d+)\s*x\s*([+-]?\d*\.?\d+)\s*°?\s*$/i.exec(String(text));
+  if (!m) return null;
+  const turns = Number(m[1]), left = Number(m[2]);
+  return turns * 360 + (m[1].startsWith('-') && !/^[+-]/.test(m[2]) ? -left : left);
+}
+// ---- B-833 end
 function scrubValue({ value, suffix = '', title, label, step = 1, whole = false, min = -Infinity, max = Infinity, live, done, commit }) {
   const handle = document.createElement('span');
   handle.className = 'scrub';
@@ -9168,7 +9194,7 @@ function scrubValue({ value, suffix = '', title, label, step = 1, whole = false,
   // Shift for big steps and Ctrl for fine ones, as in After Effects.
   const pace = (m) => (m.shiftKey ? 10 : m.ctrlKey ? 0.1 : 1);
   const show = () => {
-    handle.textContent = number(round(held)) + suffix;
+    handle.textContent = suffix === '°' ? angleText(round(held)) : number(round(held)) + suffix; // D-953
     handle.setAttribute('aria-valuenow', number(round(held)));
   };
   show();
@@ -9193,7 +9219,7 @@ function scrubValue({ value, suffix = '', title, label, step = 1, whole = false,
     box.select();
     const leave = (cancelled, back) => {
       if (!box) return;
-      const said = typedSum(box.value, held); // D-947
+      const said = suffix === '°' && typedTurns(box.value) !== null ? typedTurns(box.value) : typedSum(box.value, held); // D-947, D-953
       const take = !cancelled && box.value.trim() !== '' && Number.isFinite(said);
       box = null;
       dragging = false;
@@ -18530,6 +18556,7 @@ $('addsolid').onclick = () => {
   const comp = composition();
   if (!comp) return;
   solidAt = layers().findIndex((l) => l.id === selectedLayer);
+  solidEditing = null; // D-953
   const taken = new Set(layers().map((l) => l.name));
   let n = 1;
   while (taken.has('Solid ' + n)) n++;
@@ -18548,6 +18575,15 @@ $('makesolid').onclick = () => {
   const name = $('solidname').value.trim();
   if (!name) { $('solidname').focus(); return; }
   $('soliddialog').close();
+  // D-953: Ctrl+Shift+Y opened it on a solid, so OK changes that one.
+  const editing = solidEditing && layerById(solidEditing);
+  solidEditing = null;
+  if (editing) {
+    nudge = nudge.then(async () => {
+      for (const step of solidSteps(editing, name, $('solidwidth').value, $('solidheight').value, linearOf($('solidcolour').value))) await command(step);
+    });
+    return;
+  }
   const at = solidAt;
   command('/layer.add_solid?' + (at < 0 ? '' : 'to=' + (at + 1) + '&') + 'name=' + encodeURIComponent(name)
     + '&width=' + encodeURIComponent($('solidwidth').value) + '&height=' + encodeURIComponent($('solidheight').value)
@@ -18556,6 +18592,76 @@ $('makesolid').onclick = () => {
 $('soliddialog').addEventListener('keydown', (k) => {
   if (k.key === 'Enter' && !k.isComposing && k.target.tagName !== 'BUTTON') { k.preventDefault(); $('makesolid').click(); }
 });
+// ---- B-833b begin
+// D-953: Ctrl+Shift+Y, After Effects' Solid Settings for the selected solid: the dialog Ctrl+Y
+// opens, filled with the solid's name, size and colour. OK sends the changes as one drag, so one
+// Ctrl+Z puts the solid back.
+let solidEditing = null;
+function solidSettings() {
+  const layer = layerById(selectedLayer);
+  if (!layer || layer.kind !== 'solid' || !layer.solid) {
+    $('status').textContent = 'Select a solid layer first: Ctrl+Shift+Y changes its settings.';
+    return;
+  }
+  solidEditing = layer.id;
+  $('solidname').value = layer.name;
+  $('solidwidth').value = layer.solid.width;
+  $('solidheight').value = layer.solid.height;
+  $('solidcolour').value = hexOf(layer.solid.color);
+  $('soliddialog').showModal();
+  $('solidname').select();
+}
+function solidSteps(layer, name, width, height, linear) {
+  const id = encodeURIComponent(layer.id);
+  const steps = ['/solid.set?layer=' + id + '&drag=1&width=' + encodeURIComponent(width)
+    + '&height=' + encodeURIComponent(height) + '&color=' + linear.join(',')];
+  if (name !== layer.name) steps.push('/layer.rename?layer=' + id + '&name=' + encodeURIComponent(name) + '&drag=1');
+  return [...steps, '/property.drag_end'];
+}
+// D-953: After Effects' F4. The columns beside the layer names go round: the switches and the
+// modes, the switches alone, the modes alone. Kept with the window.
+const PANES = ['both', 'switches', 'modes'];
+let panesShown = 'both';
+try { if (PANES.includes(localStorage.getItem('panesShown'))) panesShown = localStorage.getItem('panesShown'); } catch (e) { /* both */ }
+function showPanes(which) {
+  panesShown = which;
+  $('timeline').classList.toggle('nomodes', which === 'switches');
+  $('timeline').classList.toggle('noswitches', which === 'modes');
+  try { localStorage.setItem('panesShown', which); } catch (e) { /* kept for this run only */ }
+}
+function cyclePanes() {
+  showPanes(PANES[(PANES.indexOf(panesShown) + 1) % PANES.length]);
+  $('status').textContent = { both: 'Switches and modes shown.', switches: 'Switches shown; F4 again shows the modes.',
+    modes: 'Modes shown; F4 again shows both.' }[panesShown];
+}
+// D-953: After Effects' wiggle on Position, driven by two sliders on the layer, as the tutorials
+// set it up by hand: Speed (wiggles a second) and Amount (pixels). Applied as an animation
+// preset, so one Ctrl+Z takes off the sliders and the expression. Sliders already on the layer
+// keep their names; the new ones are numbered after them.
+function wigglePreset(layer) {
+  const had = (layer.effects || []).filter((fx) => fx.type_id === 'core.slider_control').length;
+  const named = (n) => 'Slider Control' + (n === 1 ? '' : ' ' + n);
+  const speed = named(had + 1), amount = named(had + 2);
+  const slider = (id, v) => ({ instance_id: id, type_id: 'core.slider_control', enabled: true, parameters: { slider: v } });
+  return {
+    name: 'Wiggle position', kind: 'animation',
+    transform: { position: { base: [0, 0], keyframes: [], expression: { enabled: true,
+      text: '// Speed is ' + speed + ' (wiggles a second), Amount is ' + amount + ' (pixels)\n'
+        + 'wiggle(effect("' + speed + '")("Slider"), effect("' + amount + '")("Slider"))' } } },
+    effects: [slider('wiggle-speed', 2), slider('wiggle-amount', 30)],
+  };
+}
+function wigglePosition() {
+  const layer = layerById(selectedLayer);
+  if (!layer || !takesEffects(layer)) {
+    $('status').textContent = 'Select a layer first: Wiggle position shakes the selected layer.';
+    return undefined;
+  }
+  return command('/preset.apply?layer=' + encodeURIComponent(layer.id) + '&frame=' + frame
+    + '&preset=' + encodeURIComponent(JSON.stringify(wigglePreset(layer))));
+}
+// ---- B-833b end
+showPanes(panesShown); // D-953: as the window was left
 // B-25c: D-78's shape layer, placed as the solid is, and empty: its shapes are drawn on the
 // picture with the pen, the rectangle and the ellipse, so the pen is put in hand.
 $('addshape').onclick = async () => {
@@ -21178,6 +21284,13 @@ addEventListener('keydown', (e) => {
     e.preventDefault();
     $('addnull').click();
   }
+  // D-953: After Effects' Ctrl+Shift+Y, the selected solid's Solid Settings.
+  else if (e.ctrlKey && !e.altKey && e.shiftKey && (e.key === 'y' || e.key === 'Y')) {
+    e.preventDefault();
+    solidSettings();
+  }
+  // D-953: After Effects' F4, the switches or the modes beside the layer names.
+  else if (e.key === 'F4' && !e.ctrlKey && !e.altKey && !e.shiftKey) { e.preventDefault(); cyclePanes(); }
   // B-23c: After Effects' Ctrl+Y, after Ctrl+Alt+Y so that one still reaches its own layer.
   else if (e.ctrlKey && !e.altKey && !e.shiftKey && (e.key === 'y' || e.key === 'Y')) {
     e.preventDefault();

@@ -799,3 +799,179 @@ fn b832_resolution_list() {
         &rows,
     );
 }
+
+/// D-953 / B-833: the small shortcuts: F4 for the switches or the modes, Ctrl+Shift+Y for the
+/// selected solid's settings, angles as turns and degrees, and a wiggle on Position driven by
+/// Speed and Amount sliders.
+#[test]
+fn b833_small_shortcuts() {
+    let mut rows: Rows = Vec::new();
+    let angles = node(
+        "B-833",
+        "angleText, typedTurns",
+        "out({\n\
+           shown: [390, -30, -390, 0, 720, 45.5].map(angleText).join(', '),\n\
+           typed: ['1x+30', '-1x-30', '-1x30', '2x0', '0x+45.5\u{b0}', '45'].map(typedTurns).join(', '),\n\
+         });",
+    );
+    rows.push((
+        "angles shown as turns and degrees: 390, -30, -390, 0, 720, 45.5".into(),
+        "1x+30\u{b0}, 0x-30\u{b0}, -1x-30\u{b0}, 0x+0\u{b0}, 2x+0\u{b0}, 0x+45.5\u{b0}".into(),
+        angles["shown"].as_str().unwrap_or("?").into(),
+    ));
+    rows.push((
+        "typed as turns and degrees: 1x+30, -1x-30, -1x30, 2x0, 0x+45.5\u{b0}; a plain 45 is left to the sum reader".into(),
+        "390, -390, -390, 720, 45.5, ".into(),
+        angles["typed"].as_str().unwrap_or("?").into(),
+    ));
+    let said = node(
+        "B-833b",
+        "cyclePanes, solidSteps, wigglePreset",
+        "const cls = new Set();\n\
+         const el = { textContent: '', classList: { toggle: (c, on) => (on ? cls.add(c) : cls.delete(c)) } };\n\
+         globalThis.$ = () => el;\n\
+         const panes = [];\n\
+         for (let i = 0; i < 3; i++) { cyclePanes(); panes.push([...cls].join('+') || 'none'); }\n\
+         const solid = { id: 's1', name: 'Red' };\n\
+         const none = wigglePreset({ effects: [] }), one = wigglePreset({ effects: [{ type_id: 'core.slider_control' }] });\n\
+         out({\n\
+           panes: panes.join(', '),\n\
+           same: solidSteps(solid, 'Red', 640, 360, [1, 0, 0]).join(' then '),\n\
+           renamed: solidSteps(solid, 'Sky', 640, 360, [0, 0, 1]).join(' then '),\n\
+           none: none.transform.position.expression.text.split('\\n')[1],\n\
+           one: one.transform.position.expression.text.split('\\n')[1],\n\
+           sliders: none.effects.map((e) => e.parameters.slider).join(', '),\n\
+           query: encodeURIComponent(JSON.stringify(none)),\n\
+         });",
+    );
+    for (what, field, want) in [
+        ("F4 three times: the switches alone, the modes alone, both", "panes", "nomodes, noswitches, none"),
+        (
+            "Solid Settings OK on a solid: its size and colour as one drag",
+            "same",
+            "/solid.set?layer=s1&drag=1&width=640&height=360&color=1,0,0 then /property.drag_end",
+        ),
+        (
+            "and a new name in the same drag",
+            "renamed",
+            "/solid.set?layer=s1&drag=1&width=640&height=360&color=0,0,1 then /layer.rename?layer=s1&name=Sky&drag=1 then /property.drag_end",
+        ),
+        (
+            "Wiggle position: the expression reads the two new sliders",
+            "none",
+            "wiggle(effect(\"Slider Control\")(\"Slider\"), effect(\"Slider Control 2\")(\"Slider\"))",
+        ),
+        (
+            "on a layer that already has a slider, the new ones are numbered after it",
+            "one",
+            "wiggle(effect(\"Slider Control 2\")(\"Slider\"), effect(\"Slider Control 3\")(\"Slider\"))",
+        ),
+        ("Speed and Amount start at 2 wiggles a second and 30 pixels", "sliders", "2, 30"),
+    ] {
+        rows.push((what.into(), want.into(), said[field].as_str().unwrap_or("?").into()));
+    }
+
+    // The window: the page's preset on the reference shot's front drawn layer.
+    use anime_compositor::expr::Target;
+    use anime_compositor::model::Prop;
+    let viewer = Mutex::new(demo());
+    let (id, before, depth) = {
+        let held = viewer.lock().expect("lock");
+        let comp = held.document.project().composition(&held.composition).expect("comp");
+        let id = comp.layers_in_order().find(|l| l.kind == LayerKind::Raster).expect("a drawn layer").id.clone();
+        let out = (id, held.document.project().clone(), held.document.undo_depth());
+        out
+    };
+    let query = said["query"].as_str().expect("the preset");
+    let refused = edit_command(&viewer, "preset.apply", Some(&format!("layer={}&frame=0&preset={query}", id.as_str())));
+    let positions = |viewer: &Mutex<Viewer>| -> (Vec<(f64, f64)>, (f64, f64)) {
+        let held = viewer.lock().expect("lock");
+        let comp = held.document.project().composition(&held.composition).expect("comp");
+        let layer = comp.layer(&id).expect("the layer");
+        let base = layer.transform.position.value_at(0).as_vec2().expect("a 2D position");
+        let out = (
+            (0..48)
+                .map(|f| {
+                    anime_compositor::expr::evaluate(comp, &Target::Layer(id.clone()), Prop::Position, f)
+                        .expect("the expression runs")
+                        .as_vec2()
+                        .expect("2D")
+                })
+                .collect(),
+            base,
+        );
+        out
+    };
+    let (moved, base) = positions(&viewer);
+    let furthest = moved.iter().map(|(x, y)| (x - base.0).abs().max((y - base.1).abs())).fold(0.0, f64::max);
+    let (sliders, entries) = {
+        let held = viewer.lock().expect("lock");
+        let comp = held.document.project().composition(&held.composition).expect("comp");
+        let out = (
+            comp.layer(&id)
+                .expect("the layer")
+                .effects
+                .iter()
+                .filter_map(|e| match e.effect {
+                    Effect::SliderControl { slider } => Some(slider.to_string()),
+                    _ => None,
+                })
+                .collect::<Vec<_>>()
+                .join(", "),
+            held.document.undo_depth() - depth,
+        );
+        out
+    };
+    rows.push((
+        "the window: Wiggle position on the front drawn layer".into(),
+        "Set the position expression and 2 more, sliders 2, 30, 1 entry".into(),
+        format!("{}, sliders {sliders}, {entries} entry", refused.unwrap_or_default()),
+    ));
+    rows.push((
+        "over 48 frames Position wanders, never more than 30 pixels from where it was".into(),
+        "true, true".into(),
+        format!("{}, {}", furthest > 1.0, furthest <= 30.0),
+    ));
+    let amount = {
+        let held = viewer.lock().expect("lock");
+        let comp = held.document.project().composition(&held.composition).expect("comp");
+        let out = comp.layer(&id).expect("the layer").effects.last().expect("Amount").instance_id.clone();
+        out
+    };
+    edit_command(&viewer, "effect.set_parameters", Some(&format!("layer={}&effect={}&slider=0", id.as_str(), amount.as_str())));
+    let (still, _) = positions(&viewer);
+    rows.push((
+        "Amount set to 0: Position stays where it was".into(),
+        "true".into(),
+        still.iter().all(|p| *p == base).to_string(),
+    ));
+    viewer.lock().expect("lock").document.undo();
+    viewer.lock().expect("lock").document.undo();
+    let back = {
+        let held = viewer.lock().expect("lock");
+        let out = held.document.project().clone() == before;
+        out
+    };
+    rows.push(("two Ctrl+Z (the Amount, then the preset) put the layer back".into(), "true".into(), back.to_string()));
+    pins(
+        &mut rows,
+        &[
+            ("every degree number shows turns and degrees", "handle.textContent = suffix === '\u{b0}' ? angleText(round(held)) : number(round(held)) + suffix; // D-953"),
+            ("F4 on the keyboard", "else if (e.key === 'F4' && !e.ctrlKey && !e.altKey && !e.shiftKey) { e.preventDefault(); cyclePanes(); }"),
+            ("Ctrl+Shift+Y on the keyboard", "    solidSettings();\n"),
+            ("the columns F4 hides", "#timeline.nomodes .layerhead > :nth-child(10), #timeline.nomodes .layerhead > :nth-child(11) { display: none; }"),
+            ("Wiggle position in the Animation menu", "<button data-run=\"Wiggle position\"></button>"),
+            ("the command finder's lines", "['Solid settings', 'Ctrl+Shift+Y', { key: 'Y', ctrlKey: true, shiftKey: true }],\n    ['Switches or modes', 'F4', { key: 'F4' }],"),
+        ],
+    );
+    table(
+        "B-833_small_shortcuts_table.md",
+        "B-833: F4, Ctrl+Shift+Y, angles in turns, and a wiggle with sliders (D-953)",
+        "b833_small_shortcuts",
+        "The first rows run the page's own code under Node; the window rows apply the page's own \
+         Wiggle position preset to the reference shot's front drawn layer and read Position after \
+         the expression on frames 0 to 47; the rest pin the wiring. The private-app check is \
+         `verification/B-833_private_app_table.md`.",
+        &rows,
+    );
+}
