@@ -882,6 +882,7 @@ fn cases() -> Vec<(&'static str, Effect)> {
                 edge_thickness: 1.0,
                 light_color: "#ffffff".into(),
                 light_reception: "add".into(),
+                edge_look: "rim".into(),
             },
         ),
         (

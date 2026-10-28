@@ -5436,6 +5436,8 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             edge_thickness: 1.0,
             light_color: "#ffffff".to_string(),
             light_reception: "add".to_string(),
+            // D-933: a new one lights the soft rim all round, as After Effects' does.
+            edge_look: "rim".to_string(),
         }),
         // D-200: After Effects' own: a white circle from the middle every 24 frames, growing 5
         // pixels a frame for 96 frames and fading over the last 48. D-761: `effect.add` sets the
@@ -8792,6 +8794,12 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             edge_thickness: number("edge_thickness")?,
             light_color: word("light_color")?,
             light_reception: word("light_reception")?,
+            // D-933: D-199's band when the page does not say.
+            edge_look: if parameter(query, "edge_look").is_some() {
+                word("edge_look")?
+            } else {
+                "band".to_string()
+            },
         }),
         RADIO_WAVES => Ok(Effect::RadioWaves {
             producer_point: pair("producer_point")?,

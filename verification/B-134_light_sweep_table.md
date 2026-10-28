@@ -74,8 +74,8 @@ D-199, accepted on 2026-09-28 with the After Effects picks (A9). Every expected 
 | Check | The build's answer | Matches |
 | --- | --- | --- |
 | it grows the drawing's bounds by nothing | 0 | yes |
-| a half-size draft preview halves the width, 50 to 25, and the edge thickness, 6 to 3, and keeps the rest | LightSweep { center: [50.0, 50.0], direction: -30.0, shape: "smooth", width: 25.0, sweep_intensity: 50.0, edge_intensity: 100.0, edge_thickness: 3.0, light_color: "#ffffff", light_reception: "add" } | yes |
-| and an edge thickness of 1 stays 1, the least it can be | LightSweep { center: [50.0, 50.0], direction: -30.0, shape: "smooth", width: 25.0, sweep_intensity: 50.0, edge_intensity: 100.0, edge_thickness: 1.0, light_color: "#ffffff", light_reception: "add" } | yes |
+| a half-size draft preview halves the width, 50 to 25, and the edge thickness, 6 to 3, and keeps the rest | LightSweep { center: [50.0, 50.0], direction: -30.0, shape: "smooth", width: 25.0, sweep_intensity: 50.0, edge_intensity: 100.0, edge_thickness: 3.0, light_color: "#ffffff", light_reception: "add", edge_look: "band" } | yes |
+| and an edge thickness of 1 stays 1, the least it can be | LightSweep { center: [50.0, 50.0], direction: -30.0, shape: "smooth", width: 25.0, sweep_intensity: 50.0, edge_intensity: 100.0, edge_thickness: 1.0, light_color: "#ffffff", light_reception: "add", edge_look: "band" } | yes |
 
 ## The file
 

@@ -1449,6 +1449,10 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
                 | crate::effects::Effect::ColorGrade { .. }
                 | crate::effects::Effect::ColorLink { map: Some(_), .. }
         )
+        // D-933: Light Sweep's rim has no card pass yet.
+        // ponytail: processor only; a card pass when a timing asks for it.
+        && !matches!(&instance.effect, crate::effects::Effect::LightSweep { edge_look, edge_intensity, .. }
+            if edge_look == "rim" && *edge_intensity > 0.0)
         // D-932: Lens Blur's fringe, and a saturation of lit highlights, have no card pass yet.
         // ponytail: processor only; a card pass when a timing asks for it.
         && !matches!(&instance.effect, crate::effects::Effect::LensBlur { diffraction_fringe, highlight_gain, highlight_saturation, .. }
@@ -2365,11 +2369,16 @@ fn card_effect(
                     sweep_intensity,
                     edge_intensity,
                     light_reception,
+                    edge_look,
                     ..
                 } => {
                     light_reception != "cutout"
-                        && (*width / 2.0 == 0.0
-                            || *sweep_intensity == 0.0 && *edge_intensity == 0.0)
+                        && if edge_look == "rim" {
+                            // D-933: the rim is lit whatever the band.
+                            (*width / 2.0 == 0.0 || *sweep_intensity == 0.0) && *edge_intensity == 0.0
+                        } else {
+                            *width / 2.0 == 0.0 || *sweep_intensity == 0.0 && *edge_intensity == 0.0
+                        }
                 }
                 E::LightningBolt {
                     opacity,

@@ -13138,6 +13138,8 @@ pub(crate) struct LightSweep<'a> {
     pub thickness: f64,
     pub color: [f64; 3],
     pub reception: &'a str,
+    /// D-933: the edge look "rim", lit all round the drawing whatever the band.
+    pub rim: bool,
 }
 
 /// D-199: a band of light laid across the drawing, whose corner is at `origin` in the buffer,
@@ -13147,9 +13149,15 @@ pub(crate) struct LightSweep<'a> {
 pub(crate) fn light_sweep(source: &mut WorkingBuffer, s: &LightSweep, origin: (usize, usize)) {
     let cutout = s.reception == "cutout";
     let r = s.width / 2.0;
-    if !cutout && (r == 0.0 || s.sweep == 0.0 && s.edge == 0.0) {
+    let off = if s.rim {
+        (r == 0.0 || s.sweep == 0.0) && s.edge == 0.0
+    } else {
+        r == 0.0 || s.sweep == 0.0 && s.edge == 0.0
+    };
+    if !cutout && off {
         return;
     }
+    let rim = s.rim && s.edge > 0.0;
     let w = source.width();
     let (dw, dh) = (
         (w - 2 * origin.0) as f64,
@@ -13160,7 +13168,9 @@ pub(crate) fn light_sweep(source: &mut WorkingBuffer, s: &LightSweep, origin: (u
         origin.1 as f64 + s.center[1] / 100.0 * dh,
     );
     let (nx, ny) = crate::blurs::along(s.direction + 90.0);
-    let least = if s.edge > 0.0 && r > 0.0 {
+    let facing = crate::blurs::along(s.direction);
+    let sums = rim.then(|| mean_covering(source, s.thickness.floor() as usize));
+    let least = if !s.rim && s.edge > 0.0 && r > 0.0 {
         least_covering(source, s.thickness.floor() as usize)
     } else {
         Vec::new()
@@ -13189,7 +13199,24 @@ pub(crate) fn light_sweep(source: &mut WorkingBuffer, s: &LightSweep, origin: (u
             } else {
                 0.0
             };
-            let l = p * (s.sweep / 100.0 + edge);
+            let l = if let Some(sums) = &sums {
+                // D-933: the rim, `e` how far the pixel stands above its square's mean, `f` how
+                // much the outward way faces the light, from 1/2 to 1.
+                let (x, y) = ((i % w) as isize, (i / w) as isize);
+                let m = |dx: isize, dy: isize| mean(sums, x + dx, y + dy);
+                let e = (2.0 * (a - m(0, 0))).clamp(0.0, a);
+                let (gx, gy) = (m(1, 0) - m(-1, 0), m(0, 1) - m(0, -1));
+                let g = gx.hypot(gy);
+                // A flat square's sums can leave a crumb of rounding, so that is flat too.
+                let f = if g < 1e-9 {
+                    0.75
+                } else {
+                    (3.0 - (gx * facing.0 + gy * facing.1) / g) / 4.0
+                };
+                p * s.sweep / 100.0 + s.edge / 100.0 * f * e / a
+            } else {
+                p * (s.sweep / 100.0 + edge)
+            };
             if l == 0.0 && !cutout {
                 return;
             }
@@ -13205,6 +13232,31 @@ pub(crate) fn light_sweep(source: &mut WorkingBuffer, s: &LightSweep, origin: (u
                 }
             }
         });
+}
+
+/// D-933: the summed covering of the buffer, `(w + 1)` by `(h + 1)`, row and column 0 empty, for
+/// [`mean`].
+fn mean_covering(source: &WorkingBuffer, k: usize) -> (Vec<f64>, usize, usize, isize) {
+    let (w, h) = (source.width(), source.height());
+    let mut sums = vec![0.0f64; (w + 1) * (h + 1)];
+    for y in 0..h {
+        let mut row = 0.0;
+        for x in 0..w {
+            row += source.data()[(y * w + x) * 4 + 3] as f64;
+            sums[(y + 1) * (w + 1) + x + 1] = sums[y * (w + 1) + x + 1] + row;
+        }
+    }
+    (sums, w, h, k as isize)
+}
+
+/// D-933: the mean covering in the square `2k + 1` on a side round `(x, y)`, which may be just
+/// outside the buffer, the outside counting as uncovered.
+fn mean((sums, w, h, k): &(Vec<f64>, usize, usize, isize), x: isize, y: isize) -> f64 {
+    let clip = |v: isize, n: usize| v.clamp(0, n as isize) as usize;
+    let (x0, x1) = (clip(x - k, *w), clip(x + k + 1, *w));
+    let (y0, y1) = (clip(y - k, *h), clip(y + k + 1, *h));
+    let at = |x: usize, y: usize| sums[y * (w + 1) + x];
+    (at(x1, y1) - at(x0, y1) - at(x1, y0) + at(x0, y0)) / ((2 * k + 1) * (2 * k + 1)) as f64
 }
 
 /// The least covering in the square `2k + 1` on a side round each pixel, outside the buffer

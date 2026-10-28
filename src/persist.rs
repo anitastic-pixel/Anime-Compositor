@@ -3443,6 +3443,7 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             edge_thickness,
             light_color,
             light_reception,
+            edge_look,
         } => {
             params.insert(
                 "center".into(),
@@ -3456,6 +3457,10 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("edge_thickness".into(), num(*edge_thickness));
             params.insert("light_color".into(), J::from(light_color.as_str()));
             params.insert("light_reception".into(), J::from(light_reception.as_str()));
+            // D-933: written only when it is not D-199's band, so older files save as they were.
+            if edge_look != "band" {
+                params.insert("edge_look".into(), J::from(edge_look.as_str()));
+            }
         }
         Effect::RadioWaves {
             producer_point,
@@ -10420,6 +10425,8 @@ fn parse_effect(
             edge_thickness: effect_number(params, "edge_thickness", at)?,
             light_color: effect_word(params, "light_color", at)?.to_ascii_lowercase(),
             light_reception: effect_word(params, "light_reception", at)?,
+            // D-933: a file without it draws D-199's band.
+            edge_look: effect_word_or(params, "edge_look", at, "band")?,
         }),
         crate::effects::RADIO_WAVES => Some(crate::effects::Effect::RadioWaves {
             producer_point: effect_array(params, "producer_point", "two numbers, x then y", at)?,

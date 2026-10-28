@@ -13828,7 +13828,10 @@ const EFFECT_WORDS = {
   // D-199.
   'core.light_sweep': {
     choices: [['shape', 'Shape', [['linear', 'Linear'], ['smooth', 'Smooth'], ['sharp', 'Sharp']]],
-      ['light_reception', 'Light Reception', [['add', 'Add'], ['composite', 'Composite'], ['cutout', 'Cutout']]]],
+      ['light_reception', 'Light Reception', [['add', 'Add'], ['composite', 'Composite'], ['cutout', 'Cutout']]],
+      // D-933: Rim lights a soft edge all round, as After Effects' does; Band, D-199's, only inside the band, first
+      // because a file without the word draws it.
+      ['edge_look', 'Edge Look', [['band', 'Band'], ['rim', 'Rim']]]],
     colours: [['light_color', 'Light Color']],
   },
   // D-200.

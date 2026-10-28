@@ -2048,7 +2048,9 @@ pub enum Effect {
     /// way that line runs; `shape`, "linear", "smooth" or "sharp"; `width`, 0 to 10000 pixels;
     /// `sweep_intensity` and `edge_intensity`, 0 to 100; `edge_thickness`, 1 to 50 pixels;
     /// `light_color`, `#rrggbb`; and `light_reception`, "add", "composite" or "cutout". The
-    /// words and colour are kept as written, so a wrong one is reported.
+    /// words and colour are kept as written, so a wrong one is reported. D-933: `edge_look`,
+    /// "band" (D-199's edges, inside the band; a file without it) or "rim" (a soft rim all round
+    /// the drawing, brightest facing `direction`).
     LightSweep {
         center: [f64; 2],
         direction: f64,
@@ -2059,6 +2061,7 @@ pub enum Effect {
         edge_thickness: f64,
         light_color: String,
         light_reception: String,
+        edge_look: String,
     },
     /// D-200: `producer_point`, x then y, -1000 to 1000 per cent of the drawing's width and
     /// height, where the waves start; `sides`, 3 to 128 (D-777), its whole part counted; `interval` and
@@ -14563,6 +14566,9 @@ impl Effect {
                     format!("Radio Waves' parameters are set at \"birth\" or \"each_frame\", and this is \"{parameters_at}\".")
                 })
             }),
+            Effect::LightSweep { edge_look, .. } if !["band", "rim"].contains(&edge_look.as_str()) => Some(format!(
+                "Light Sweep's edge look is \"band\" or \"rim\", and this is \"{edge_look}\"."
+            )),
             Effect::LightSweep { shape, light_color, light_reception, .. } => {
                 hex_fault("Light Sweep", "light colour", light_color)
                     .or_else(|| {
@@ -19996,6 +20002,7 @@ pub(crate) fn apply_stack_at(
                 edge_thickness,
                 light_color,
                 light_reception,
+                edge_look,
             } => crate::perf::time(crate::perf::Stage::EffectLightSweep, || {
                 let s = crate::layer_fx::LightSweep {
                     center: *center,
@@ -20007,6 +20014,7 @@ pub(crate) fn apply_stack_at(
                     thickness: *edge_thickness,
                     color: encoded(light_color),
                     reception: light_reception,
+                    rim: edge_look == "rim",
                 };
                 crate::layer_fx::light_sweep(source, &s, (ox, oy))
             }),

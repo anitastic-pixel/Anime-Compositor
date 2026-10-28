@@ -36,6 +36,7 @@ fn sweep(center: [f64; 2], n: [f64; 5], words: [&str; 3]) -> Effect {
         edge_thickness: n[4],
         light_color: words[1].to_string(),
         light_reception: words[2].to_string(),
+        edge_look: "band".to_string(),
     }
 }
 

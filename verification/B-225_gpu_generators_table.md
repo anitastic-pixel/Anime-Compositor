@@ -4,15 +4,15 @@ Written by `tests/b225_gpu_generators.rs`. The card: NVIDIA GeForce RTX 4070 Ti 
 
 Beam, 4-Color Gradient, CC Light Sweep, Advanced Lightning and Bevel Edges (D-344) and Radio Waves (D-345), each the CPU's rule on the card. The bolt's segments and the waves are worked out by the CPU and handed to the card as a list, so their seeds stay the CPU's (P0-23).
 
-The cases: every fixture naming one of the six (229 files), at every frame it has; and the reference shot with each effect on its first three layers (the second after a Drop Shadow), 22 settings, at frames 0, 100 and 239. Each at Full and Draft.
+The cases: every fixture naming one of the six (239 files), at every frame it has; and the reference shot with each effect on its first three layers (the second after a Drop Shadow), 22 settings, at frames 0, 100 and 239. Each at Full and Draft.
 
 Each row compares the eight-bit picture the page receives, drawn by the CPU and by the GPU. **The rule: no channel of any pixel more than 1 level of 255 apart** (ADR-006, D-100), except that a pixel 0 of 255 visible on both sides counts as equal whatever its hidden colour (D-345, the owner's choice), the same warnings on both, and on a reference shot row the effect in fact on the card, at Full the first layer's. 8 bpc and After Effects 32 bpc compositions give the card no effect (D-330, D-333); a few frames the card refuses whole (Float depth, an adjustment layer): those must be the CPU's picture exactly, with the card's message `GPU_PREVIEW_ON_CPU` its only extra warning.
 
-**2466 of 2466 checks pass.**
+**2566 of 2566 checks pass.**
 
 The CPU drawing each plan made for the card draws the plan made for the CPU byte for byte in 44 of 44.
 
-The worst comparison is "the reference shot with CC Light Sweep (4) frame 0, Full": largest difference 1 of 255, pixels differing: 3847. Its pictures are in `verification/B-225 pictures/`: `cpu.png`, `gpu.png`, and `difference.png`, black where the two agree and a white 7 by 7 square around every pixel where they do not.
+The worst comparison is "the reference shot with CC Light Sweep (4) frame 0, Full": largest difference 1 of 255, pixels differing: 3845. Its pictures are in `verification/B-225 pictures/`: `cpu.png`, `gpu.png`, and `difference.png`, black where the two agree and a white 7 by 7 square around every pixel where they do not.
 
 ## Each effect
 
@@ -20,7 +20,7 @@ The worst comparison is "the reference shot with CC Light Sweep (4) frame 0, Ful
 |---|---:|---:|---:|---:|---|
 | Beam | 308 | 208 | 0 | 1 | 308 of 308 |
 | 4-Color Gradient | 394 | 196 | 0 | 1 | 394 of 394 |
-| CC Light Sweep | 284 | 192 | 0 | 1 | 284 of 284 |
+| CC Light Sweep | 384 | 212 | 0 | 1 | 384 of 384 |
 | Advanced Lightning | 940 | 688 | 0 | 1 | 940 of 940 |
 | Bevel Edges | 128 | 88 | 0 | 1 | 128 of 128 |
 | Radio Waves | 368 | 278 | 0 | 1 | 368 of 368 |
@@ -1061,6 +1061,106 @@ Effects left to the card on the first three layers.
 | light_sweep/fx_sweep_026 frame 2, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
 | light_sweep/fx_sweep_026 frame 3, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
 | light_sweep/fx_sweep_026 frame 4, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| light_sweep/fx_sweep_027 frame 0, Full | 0 | 0 | 0 | none | PASS |
+| light_sweep/fx_sweep_027 frame 1, Full | 0 | 0 | 0 | none | PASS |
+| light_sweep/fx_sweep_027 frame 2, Full | 0 | 0 | 0 | none | PASS |
+| light_sweep/fx_sweep_027 frame 3, Full | 0 | 0 | 0 | none | PASS |
+| light_sweep/fx_sweep_027 frame 4, Full | 0 | 0 | 0 | none | PASS |
+| light_sweep/fx_sweep_027 frame 0, Draft | 0 | 0 | 0 | none | PASS |
+| light_sweep/fx_sweep_027 frame 1, Draft | 0 | 0 | 0 | none | PASS |
+| light_sweep/fx_sweep_027 frame 2, Draft | 0 | 0 | 0 | none | PASS |
+| light_sweep/fx_sweep_027 frame 3, Draft | 0 | 0 | 0 | none | PASS |
+| light_sweep/fx_sweep_027 frame 4, Draft | 0 | 0 | 0 | none | PASS |
+| light_sweep/fx_sweep_028 frame 0, Full | 0 | 0 | 0 | none | PASS |
+| light_sweep/fx_sweep_028 frame 1, Full | 0 | 0 | 0 | none | PASS |
+| light_sweep/fx_sweep_028 frame 2, Full | 0 | 0 | 0 | none | PASS |
+| light_sweep/fx_sweep_028 frame 3, Full | 0 | 0 | 0 | none | PASS |
+| light_sweep/fx_sweep_028 frame 4, Full | 0 | 0 | 0 | none | PASS |
+| light_sweep/fx_sweep_028 frame 0, Draft | 0 | 0 | 0 | none | PASS |
+| light_sweep/fx_sweep_028 frame 1, Draft | 0 | 0 | 0 | none | PASS |
+| light_sweep/fx_sweep_028 frame 2, Draft | 0 | 0 | 0 | none | PASS |
+| light_sweep/fx_sweep_028 frame 3, Draft | 0 | 0 | 0 | none | PASS |
+| light_sweep/fx_sweep_028 frame 4, Draft | 0 | 0 | 0 | none | PASS |
+| light_sweep/fx_sweep_029 frame 0, Full | 0 | 0 | 0 | none | PASS |
+| light_sweep/fx_sweep_029 frame 1, Full | 0 | 0 | 0 | none | PASS |
+| light_sweep/fx_sweep_029 frame 2, Full | 0 | 0 | 0 | none | PASS |
+| light_sweep/fx_sweep_029 frame 3, Full | 0 | 0 | 0 | none | PASS |
+| light_sweep/fx_sweep_029 frame 4, Full | 0 | 0 | 0 | none | PASS |
+| light_sweep/fx_sweep_029 frame 0, Draft | 0 | 0 | 0 | none | PASS |
+| light_sweep/fx_sweep_029 frame 1, Draft | 0 | 0 | 0 | none | PASS |
+| light_sweep/fx_sweep_029 frame 2, Draft | 0 | 0 | 0 | none | PASS |
+| light_sweep/fx_sweep_029 frame 3, Draft | 0 | 0 | 0 | none | PASS |
+| light_sweep/fx_sweep_029 frame 4, Draft | 0 | 0 | 0 | none | PASS |
+| light_sweep/fx_sweep_030 frame 0, Full | 0 | 0 | 0 | none | PASS |
+| light_sweep/fx_sweep_030 frame 1, Full | 0 | 0 | 0 | none | PASS |
+| light_sweep/fx_sweep_030 frame 2, Full | 0 | 0 | 0 | none | PASS |
+| light_sweep/fx_sweep_030 frame 3, Full | 0 | 0 | 0 | none | PASS |
+| light_sweep/fx_sweep_030 frame 4, Full | 0 | 0 | 0 | none | PASS |
+| light_sweep/fx_sweep_030 frame 0, Draft | 0 | 0 | 0 | none | PASS |
+| light_sweep/fx_sweep_030 frame 1, Draft | 0 | 0 | 0 | none | PASS |
+| light_sweep/fx_sweep_030 frame 2, Draft | 0 | 0 | 0 | none | PASS |
+| light_sweep/fx_sweep_030 frame 3, Draft | 0 | 0 | 0 | none | PASS |
+| light_sweep/fx_sweep_030 frame 4, Draft | 0 | 0 | 0 | none | PASS |
+| light_sweep/fx_sweep_031 frame 0, Full | 0 | 1 | 2 | none | PASS |
+| light_sweep/fx_sweep_031 frame 1, Full | 0 | 1 | 2 | none | PASS |
+| light_sweep/fx_sweep_031 frame 2, Full | 0 | 1 | 2 | none | PASS |
+| light_sweep/fx_sweep_031 frame 3, Full | 0 | 1 | 2 | none | PASS |
+| light_sweep/fx_sweep_031 frame 4, Full | 0 | 1 | 2 | none | PASS |
+| light_sweep/fx_sweep_031 frame 0, Draft | 0 | 0 | 0 | none | PASS |
+| light_sweep/fx_sweep_031 frame 1, Draft | 0 | 0 | 0 | none | PASS |
+| light_sweep/fx_sweep_031 frame 2, Draft | 0 | 0 | 0 | none | PASS |
+| light_sweep/fx_sweep_031 frame 3, Draft | 0 | 0 | 0 | none | PASS |
+| light_sweep/fx_sweep_031 frame 4, Draft | 0 | 0 | 0 | none | PASS |
+| light_sweep/fx_sweep_032 frame 0, Full | 1 | 0 | 0 | none | PASS |
+| light_sweep/fx_sweep_032 frame 1, Full | 1 | 0 | 0 | none | PASS |
+| light_sweep/fx_sweep_032 frame 2, Full | 1 | 0 | 0 | none | PASS |
+| light_sweep/fx_sweep_032 frame 3, Full | 1 | 0 | 0 | none | PASS |
+| light_sweep/fx_sweep_032 frame 4, Full | 1 | 0 | 0 | none | PASS |
+| light_sweep/fx_sweep_032 frame 0, Draft | 1 | 0 | 0 | none | PASS |
+| light_sweep/fx_sweep_032 frame 1, Draft | 1 | 0 | 0 | none | PASS |
+| light_sweep/fx_sweep_032 frame 2, Draft | 1 | 0 | 0 | none | PASS |
+| light_sweep/fx_sweep_032 frame 3, Draft | 1 | 0 | 0 | none | PASS |
+| light_sweep/fx_sweep_032 frame 4, Draft | 1 | 0 | 0 | none | PASS |
+| light_sweep/fx_sweep_033 frame 0, Full | 1 | 0 | 0 | none | PASS |
+| light_sweep/fx_sweep_033 frame 1, Full | 1 | 0 | 0 | none | PASS |
+| light_sweep/fx_sweep_033 frame 2, Full | 1 | 0 | 0 | none | PASS |
+| light_sweep/fx_sweep_033 frame 3, Full | 1 | 0 | 0 | none | PASS |
+| light_sweep/fx_sweep_033 frame 4, Full | 1 | 0 | 0 | none | PASS |
+| light_sweep/fx_sweep_033 frame 0, Draft | 1 | 0 | 0 | none | PASS |
+| light_sweep/fx_sweep_033 frame 1, Draft | 1 | 0 | 0 | none | PASS |
+| light_sweep/fx_sweep_033 frame 2, Draft | 1 | 0 | 0 | none | PASS |
+| light_sweep/fx_sweep_033 frame 3, Draft | 1 | 0 | 0 | none | PASS |
+| light_sweep/fx_sweep_033 frame 4, Draft | 1 | 0 | 0 | none | PASS |
+| light_sweep/fx_sweep_034 frame 0, Full | 0 | 1 | 2 | none | PASS |
+| light_sweep/fx_sweep_034 frame 1, Full | 0 | 0 | 0 | none | PASS |
+| light_sweep/fx_sweep_034 frame 2, Full | 0 | 1 | 2 | none | PASS |
+| light_sweep/fx_sweep_034 frame 3, Full | 0 | 0 | 0 | none | PASS |
+| light_sweep/fx_sweep_034 frame 4, Full | 0 | 1 | 2 | none | PASS |
+| light_sweep/fx_sweep_034 frame 0, Draft | 0 | 0 | 0 | none | PASS |
+| light_sweep/fx_sweep_034 frame 1, Draft | 0 | 0 | 0 | none | PASS |
+| light_sweep/fx_sweep_034 frame 2, Draft | 0 | 0 | 0 | none | PASS |
+| light_sweep/fx_sweep_034 frame 3, Draft | 0 | 1 | 1 | none | PASS |
+| light_sweep/fx_sweep_034 frame 4, Draft | 0 | 0 | 0 | none | PASS |
+| light_sweep/fx_sweep_035 frame 0, Full | 0 | 1 | 2 | none | PASS |
+| light_sweep/fx_sweep_035 frame 1, Full | 0 | 1 | 2 | none | PASS |
+| light_sweep/fx_sweep_035 frame 2, Full | 0 | 1 | 2 | none | PASS |
+| light_sweep/fx_sweep_035 frame 3, Full | 0 | 1 | 2 | none | PASS |
+| light_sweep/fx_sweep_035 frame 4, Full | 0 | 1 | 2 | none | PASS |
+| light_sweep/fx_sweep_035 frame 0, Draft | 0 | 0 | 0 | none | PASS |
+| light_sweep/fx_sweep_035 frame 1, Draft | 0 | 0 | 0 | none | PASS |
+| light_sweep/fx_sweep_035 frame 2, Draft | 0 | 0 | 0 | none | PASS |
+| light_sweep/fx_sweep_035 frame 3, Draft | 0 | 0 | 0 | none | PASS |
+| light_sweep/fx_sweep_035 frame 4, Draft | 0 | 0 | 0 | none | PASS |
+| light_sweep/fx_sweep_036 frame 0, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| light_sweep/fx_sweep_036 frame 1, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| light_sweep/fx_sweep_036 frame 2, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| light_sweep/fx_sweep_036 frame 3, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| light_sweep/fx_sweep_036 frame 4, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| light_sweep/fx_sweep_036 frame 0, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| light_sweep/fx_sweep_036 frame 1, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| light_sweep/fx_sweep_036 frame 2, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| light_sweep/fx_sweep_036 frame 3, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| light_sweep/fx_sweep_036 frame 4, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
 | lightning_around/fx_lighta_001 frame 0, Full | 1 | 0 | 0 | none | PASS |
 | lightning_around/fx_lighta_001 frame 1, Full | 1 | 0 | 0 | none | PASS |
 | lightning_around/fx_lighta_001 frame 2, Full | 1 | 0 | 0 | none | PASS |
@@ -2321,9 +2421,9 @@ Effects left to the card on the first three layers.
 | radio_waves/fx_rwave_035 frame 2, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
 | radio_waves/fx_rwave_035 frame 3, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
 | radio_waves/fx_rwave_035 frame 4, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
-| the reference shot with Beam (1) frame 0, Full | 1 / 2 / 1 | 1 | 3642 | none | PASS |
+| the reference shot with Beam (1) frame 0, Full | 1 / 2 / 1 | 1 | 3640 | none | PASS |
 | the reference shot with Beam (1) frame 100, Full | 1 / 2 / 1 | 1 | 1368 | none | PASS |
-| the reference shot with Beam (1) frame 239, Full | 1 / 2 / 1 | 1 | 1694 | none | PASS |
+| the reference shot with Beam (1) frame 239, Full | 1 / 2 / 1 | 1 | 1696 | none | PASS |
 | the reference shot with Beam (1) frame 0, Draft | 1 / 2 / 1 | 1 | 121 | none | PASS |
 | the reference shot with Beam (1) frame 100, Draft | 1 / 2 / 1 | 1 | 29 | none | PASS |
 | the reference shot with Beam (1) frame 239, Draft | 1 / 2 / 1 | 1 | 44 | none | PASS |
@@ -2333,45 +2433,45 @@ Effects left to the card on the first three layers.
 | the reference shot with Beam (2) frame 0, Draft | 1 / 2 / 1 | 1 | 7 | none | PASS |
 | the reference shot with Beam (2) frame 100, Draft | 1 / 2 / 1 | 1 | 7 | none | PASS |
 | the reference shot with Beam (2) frame 239, Draft | 1 / 2 / 1 | 1 | 5 | none | PASS |
-| the reference shot with Beam (3) frame 0, Full | 1 / 2 / 1 | 1 | 3771 | none | PASS |
+| the reference shot with Beam (3) frame 0, Full | 1 / 2 / 1 | 1 | 3769 | none | PASS |
 | the reference shot with Beam (3) frame 100, Full | 1 / 2 / 1 | 1 | 1417 | none | PASS |
-| the reference shot with Beam (3) frame 239, Full | 1 / 2 / 1 | 1 | 1760 | none | PASS |
+| the reference shot with Beam (3) frame 239, Full | 1 / 2 / 1 | 1 | 1762 | none | PASS |
 | the reference shot with Beam (3) frame 0, Draft | 1 / 2 / 1 | 1 | 128 | none | PASS |
 | the reference shot with Beam (3) frame 100, Draft | 1 / 2 / 1 | 1 | 32 | none | PASS |
 | the reference shot with Beam (3) frame 239, Draft | 1 / 2 / 1 | 1 | 47 | none | PASS |
 | the reference shot with 4-Color Gradient (1) frame 0, Full | 1 / 2 / 1 | 1 | 1051 | none | PASS |
-| the reference shot with 4-Color Gradient (1) frame 100, Full | 1 / 2 / 1 | 1 | 1126 | none | PASS |
-| the reference shot with 4-Color Gradient (1) frame 239, Full | 1 / 2 / 1 | 1 | 1129 | none | PASS |
+| the reference shot with 4-Color Gradient (1) frame 100, Full | 1 / 2 / 1 | 1 | 1125 | none | PASS |
+| the reference shot with 4-Color Gradient (1) frame 239, Full | 1 / 2 / 1 | 1 | 1128 | none | PASS |
 | the reference shot with 4-Color Gradient (1) frame 0, Draft | 1 / 2 / 1 | 1 | 72 | none | PASS |
 | the reference shot with 4-Color Gradient (1) frame 100, Draft | 1 / 2 / 1 | 1 | 73 | none | PASS |
 | the reference shot with 4-Color Gradient (1) frame 239, Draft | 1 / 2 / 1 | 1 | 76 | none | PASS |
-| the reference shot with 4-Color Gradient (2) frame 0, Full | 1 / 2 / 1 | 1 | 1155 | none | PASS |
-| the reference shot with 4-Color Gradient (2) frame 100, Full | 1 / 2 / 1 | 1 | 1224 | none | PASS |
-| the reference shot with 4-Color Gradient (2) frame 239, Full | 1 / 2 / 1 | 1 | 1064 | none | PASS |
+| the reference shot with 4-Color Gradient (2) frame 0, Full | 1 / 2 / 1 | 1 | 1153 | none | PASS |
+| the reference shot with 4-Color Gradient (2) frame 100, Full | 1 / 2 / 1 | 1 | 1223 | none | PASS |
+| the reference shot with 4-Color Gradient (2) frame 239, Full | 1 / 2 / 1 | 1 | 1065 | none | PASS |
 | the reference shot with 4-Color Gradient (2) frame 0, Draft | 1 / 2 / 1 | 1 | 71 | none | PASS |
 | the reference shot with 4-Color Gradient (2) frame 100, Draft | 1 / 2 / 1 | 1 | 70 | none | PASS |
-| the reference shot with 4-Color Gradient (2) frame 239, Draft | 1 / 2 / 1 | 1 | 69 | none | PASS |
-| the reference shot with 4-Color Gradient (3) frame 0, Full | 1 / 2 / 1 | 1 | 786 | none | PASS |
-| the reference shot with 4-Color Gradient (3) frame 100, Full | 1 / 2 / 1 | 1 | 993 | none | PASS |
-| the reference shot with 4-Color Gradient (3) frame 239, Full | 1 / 2 / 1 | 1 | 759 | none | PASS |
+| the reference shot with 4-Color Gradient (2) frame 239, Draft | 1 / 2 / 1 | 1 | 70 | none | PASS |
+| the reference shot with 4-Color Gradient (3) frame 0, Full | 1 / 2 / 1 | 1 | 785 | none | PASS |
+| the reference shot with 4-Color Gradient (3) frame 100, Full | 1 / 2 / 1 | 1 | 994 | none | PASS |
+| the reference shot with 4-Color Gradient (3) frame 239, Full | 1 / 2 / 1 | 1 | 758 | none | PASS |
 | the reference shot with 4-Color Gradient (3) frame 0, Draft | 1 / 2 / 1 | 1 | 51 | none | PASS |
-| the reference shot with 4-Color Gradient (3) frame 100, Draft | 1 / 2 / 1 | 1 | 67 | none | PASS |
-| the reference shot with 4-Color Gradient (3) frame 239, Draft | 1 / 2 / 1 | 1 | 47 | none | PASS |
+| the reference shot with 4-Color Gradient (3) frame 100, Draft | 1 / 2 / 1 | 1 | 68 | none | PASS |
+| the reference shot with 4-Color Gradient (3) frame 239, Draft | 1 / 2 / 1 | 1 | 48 | none | PASS |
 | the reference shot with 4-Color Gradient (4) frame 0, Full | 1 / 2 / 1 | 1 | 840 | none | PASS |
-| the reference shot with 4-Color Gradient (4) frame 100, Full | 1 / 2 / 1 | 1 | 979 | none | PASS |
+| the reference shot with 4-Color Gradient (4) frame 100, Full | 1 / 2 / 1 | 1 | 980 | none | PASS |
 | the reference shot with 4-Color Gradient (4) frame 239, Full | 1 / 2 / 1 | 1 | 920 | none | PASS |
 | the reference shot with 4-Color Gradient (4) frame 0, Draft | 1 / 2 / 1 | 1 | 49 | none | PASS |
 | the reference shot with 4-Color Gradient (4) frame 100, Draft | 1 / 2 / 1 | 1 | 68 | none | PASS |
 | the reference shot with 4-Color Gradient (4) frame 239, Draft | 1 / 2 / 1 | 1 | 58 | none | PASS |
-| the reference shot with CC Light Sweep (1) frame 0, Full | 1 / 2 / 1 | 1 | 3762 | none | PASS |
+| the reference shot with CC Light Sweep (1) frame 0, Full | 1 / 2 / 1 | 1 | 3760 | none | PASS |
 | the reference shot with CC Light Sweep (1) frame 100, Full | 1 / 2 / 1 | 1 | 1358 | none | PASS |
-| the reference shot with CC Light Sweep (1) frame 239, Full | 1 / 2 / 1 | 1 | 1753 | none | PASS |
+| the reference shot with CC Light Sweep (1) frame 239, Full | 1 / 2 / 1 | 1 | 1755 | none | PASS |
 | the reference shot with CC Light Sweep (1) frame 0, Draft | 1 / 2 / 1 | 1 | 132 | none | PASS |
 | the reference shot with CC Light Sweep (1) frame 100, Draft | 1 / 2 / 1 | 1 | 36 | none | PASS |
 | the reference shot with CC Light Sweep (1) frame 239, Draft | 1 / 2 / 1 | 1 | 52 | none | PASS |
-| the reference shot with CC Light Sweep (2) frame 0, Full | 1 / 2 / 1 | 1 | 3393 | none | PASS |
+| the reference shot with CC Light Sweep (2) frame 0, Full | 1 / 2 / 1 | 1 | 3391 | none | PASS |
 | the reference shot with CC Light Sweep (2) frame 100, Full | 1 / 2 / 1 | 1 | 1346 | none | PASS |
-| the reference shot with CC Light Sweep (2) frame 239, Full | 1 / 2 / 1 | 1 | 1335 | none | PASS |
+| the reference shot with CC Light Sweep (2) frame 239, Full | 1 / 2 / 1 | 1 | 1337 | none | PASS |
 | the reference shot with CC Light Sweep (2) frame 0, Draft | 1 / 2 / 1 | 1 | 117 | none | PASS |
 | the reference shot with CC Light Sweep (2) frame 100, Draft | 1 / 2 / 1 | 1 | 69 | none | PASS |
 | the reference shot with CC Light Sweep (2) frame 239, Draft | 1 / 2 / 1 | 1 | 40 | none | PASS |
@@ -2381,21 +2481,21 @@ Effects left to the card on the first three layers.
 | the reference shot with CC Light Sweep (3) frame 0, Draft | 1 / 2 / 1 | 1 | 2 | none | PASS |
 | the reference shot with CC Light Sweep (3) frame 100, Draft | 1 / 2 / 1 | 1 | 2 | none | PASS |
 | the reference shot with CC Light Sweep (3) frame 239, Draft | 1 / 2 / 1 | 1 | 2 | none | PASS |
-| the reference shot with CC Light Sweep (4) frame 0, Full | 1 / 2 / 1 | 1 | 3847 | none | PASS |
+| the reference shot with CC Light Sweep (4) frame 0, Full | 1 / 2 / 1 | 1 | 3845 | none | PASS |
 | the reference shot with CC Light Sweep (4) frame 100, Full | 1 / 2 / 1 | 1 | 1115 | none | PASS |
-| the reference shot with CC Light Sweep (4) frame 239, Full | 1 / 2 / 1 | 1 | 1886 | none | PASS |
+| the reference shot with CC Light Sweep (4) frame 239, Full | 1 / 2 / 1 | 1 | 1888 | none | PASS |
 | the reference shot with CC Light Sweep (4) frame 0, Draft | 1 / 2 / 1 | 1 | 159 | none | PASS |
 | the reference shot with CC Light Sweep (4) frame 100, Draft | 1 / 2 / 1 | 1 | 41 | none | PASS |
 | the reference shot with CC Light Sweep (4) frame 239, Draft | 1 / 2 / 1 | 1 | 122 | none | PASS |
-| the reference shot with Advanced Lightning (1) frame 0, Full | 1 / 2 / 1 | 1 | 3741 | none | PASS |
+| the reference shot with Advanced Lightning (1) frame 0, Full | 1 / 2 / 1 | 1 | 3739 | none | PASS |
 | the reference shot with Advanced Lightning (1) frame 100, Full | 1 / 2 / 1 | 1 | 1417 | none | PASS |
-| the reference shot with Advanced Lightning (1) frame 239, Full | 1 / 2 / 1 | 1 | 1768 | none | PASS |
+| the reference shot with Advanced Lightning (1) frame 239, Full | 1 / 2 / 1 | 1 | 1770 | none | PASS |
 | the reference shot with Advanced Lightning (1) frame 0, Draft | 1 / 2 / 1 | 1 | 125 | none | PASS |
 | the reference shot with Advanced Lightning (1) frame 100, Draft | 1 / 2 / 1 | 1 | 32 | none | PASS |
 | the reference shot with Advanced Lightning (1) frame 239, Draft | 1 / 2 / 1 | 1 | 48 | none | PASS |
-| the reference shot with Advanced Lightning (2) frame 0, Full | 1 / 2 / 1 | 1 | 3480 | none | PASS |
-| the reference shot with Advanced Lightning (2) frame 100, Full | 1 / 2 / 1 | 1 | 1416 | none | PASS |
-| the reference shot with Advanced Lightning (2) frame 239, Full | 1 / 2 / 1 | 1 | 1524 | none | PASS |
+| the reference shot with Advanced Lightning (2) frame 0, Full | 1 / 2 / 1 | 1 | 3479 | none | PASS |
+| the reference shot with Advanced Lightning (2) frame 100, Full | 1 / 2 / 1 | 1 | 1415 | none | PASS |
+| the reference shot with Advanced Lightning (2) frame 239, Full | 1 / 2 / 1 | 1 | 1525 | none | PASS |
 | the reference shot with Advanced Lightning (2) frame 0, Draft | 1 / 2 / 1 | 1 | 121 | none | PASS |
 | the reference shot with Advanced Lightning (2) frame 100, Draft | 1 / 2 / 1 | 1 | 32 | none | PASS |
 | the reference shot with Advanced Lightning (2) frame 239, Draft | 1 / 2 / 1 | 1 | 48 | none | PASS |
@@ -2405,51 +2505,51 @@ Effects left to the card on the first three layers.
 | the reference shot with Advanced Lightning (3) frame 0, Draft | 1 / 2 / 1 | 1 | 38 | none | PASS |
 | the reference shot with Advanced Lightning (3) frame 100, Draft | 1 / 2 / 1 | 1 | 36 | none | PASS |
 | the reference shot with Advanced Lightning (3) frame 239, Draft | 1 / 2 / 1 | 1 | 31 | none | PASS |
-| the reference shot with Advanced Lightning (4) frame 0, Full | 1 / 2 / 1 | 1 | 3611 | none | PASS |
+| the reference shot with Advanced Lightning (4) frame 0, Full | 1 / 2 / 1 | 1 | 3609 | none | PASS |
 | the reference shot with Advanced Lightning (4) frame 100, Full | 1 / 2 / 1 | 1 | 1418 | none | PASS |
-| the reference shot with Advanced Lightning (4) frame 239, Full | 1 / 2 / 1 | 1 | 1768 | none | PASS |
+| the reference shot with Advanced Lightning (4) frame 239, Full | 1 / 2 / 1 | 1 | 1770 | none | PASS |
 | the reference shot with Advanced Lightning (4) frame 0, Draft | 1 / 2 / 1 | 1 | 124 | none | PASS |
 | the reference shot with Advanced Lightning (4) frame 100, Draft | 1 / 2 / 1 | 1 | 32 | none | PASS |
 | the reference shot with Advanced Lightning (4) frame 239, Draft | 1 / 2 / 1 | 1 | 47 | none | PASS |
-| the reference shot with Advanced Lightning (5) frame 0, Full | 1 / 1 / 1 | 1 | 3584 | none | PASS |
+| the reference shot with Advanced Lightning (5) frame 0, Full | 1 / 1 / 1 | 1 | 3582 | none | PASS |
 | the reference shot with Advanced Lightning (5) frame 100, Full | 1 / 1 / 1 | 1 | 1287 | none | PASS |
-| the reference shot with Advanced Lightning (5) frame 239, Full | 1 / 1 / 1 | 1 | 1630 | none | PASS |
+| the reference shot with Advanced Lightning (5) frame 239, Full | 1 / 1 / 1 | 1 | 1631 | none | PASS |
 | the reference shot with Advanced Lightning (5) frame 0, Draft | 1 / 1 / 1 | 1 | 122 | none | PASS |
 | the reference shot with Advanced Lightning (5) frame 100, Draft | 1 / 1 / 1 | 1 | 32 | none | PASS |
 | the reference shot with Advanced Lightning (5) frame 239, Draft | 1 / 1 / 1 | 1 | 43 | none | PASS |
-| the reference shot with Bevel Edges (1) frame 0, Full | 1 / 2 / 1 | 1 | 3783 | none | PASS |
+| the reference shot with Bevel Edges (1) frame 0, Full | 1 / 2 / 1 | 1 | 3781 | none | PASS |
 | the reference shot with Bevel Edges (1) frame 100, Full | 1 / 2 / 1 | 1 | 1417 | none | PASS |
-| the reference shot with Bevel Edges (1) frame 239, Full | 1 / 2 / 1 | 1 | 1772 | none | PASS |
+| the reference shot with Bevel Edges (1) frame 239, Full | 1 / 2 / 1 | 1 | 1774 | none | PASS |
 | the reference shot with Bevel Edges (1) frame 0, Draft | 1 / 2 / 1 | 1 | 128 | none | PASS |
 | the reference shot with Bevel Edges (1) frame 100, Draft | 1 / 2 / 1 | 1 | 32 | none | PASS |
 | the reference shot with Bevel Edges (1) frame 239, Draft | 1 / 2 / 1 | 1 | 47 | none | PASS |
-| the reference shot with Bevel Edges (2) frame 0, Full | 1 / 2 / 1 | 1 | 3783 | none | PASS |
-| the reference shot with Bevel Edges (2) frame 100, Full | 1 / 2 / 1 | 1 | 1433 | none | PASS |
-| the reference shot with Bevel Edges (2) frame 239, Full | 1 / 2 / 1 | 1 | 1772 | none | PASS |
+| the reference shot with Bevel Edges (2) frame 0, Full | 1 / 2 / 1 | 1 | 3781 | none | PASS |
+| the reference shot with Bevel Edges (2) frame 100, Full | 1 / 2 / 1 | 1 | 1434 | none | PASS |
+| the reference shot with Bevel Edges (2) frame 239, Full | 1 / 2 / 1 | 1 | 1774 | none | PASS |
 | the reference shot with Bevel Edges (2) frame 0, Draft | 1 / 2 / 1 | 1 | 127 | none | PASS |
 | the reference shot with Bevel Edges (2) frame 100, Draft | 1 / 2 / 1 | 1 | 32 | none | PASS |
 | the reference shot with Bevel Edges (2) frame 239, Draft | 1 / 2 / 1 | 1 | 47 | none | PASS |
-| the reference shot with Bevel Edges (3) frame 0, Full | 1 / 2 / 1 | 1 | 3783 | none | PASS |
+| the reference shot with Bevel Edges (3) frame 0, Full | 1 / 2 / 1 | 1 | 3781 | none | PASS |
 | the reference shot with Bevel Edges (3) frame 100, Full | 1 / 2 / 1 | 1 | 1417 | none | PASS |
-| the reference shot with Bevel Edges (3) frame 239, Full | 1 / 2 / 1 | 1 | 1772 | none | PASS |
+| the reference shot with Bevel Edges (3) frame 239, Full | 1 / 2 / 1 | 1 | 1774 | none | PASS |
 | the reference shot with Bevel Edges (3) frame 0, Draft | 1 / 2 / 1 | 1 | 128 | none | PASS |
 | the reference shot with Bevel Edges (3) frame 100, Draft | 1 / 2 / 1 | 1 | 32 | none | PASS |
 | the reference shot with Bevel Edges (3) frame 239, Draft | 1 / 2 / 1 | 1 | 47 | none | PASS |
-| the reference shot with Radio Waves (1) frame 0, Full | 1 / 2 / 1 | 1 | 3783 | none | PASS |
+| the reference shot with Radio Waves (1) frame 0, Full | 1 / 2 / 1 | 1 | 3781 | none | PASS |
 | the reference shot with Radio Waves (1) frame 100, Full | 1 / 2 / 1 | 1 | 1423 | none | PASS |
-| the reference shot with Radio Waves (1) frame 239, Full | 1 / 2 / 1 | 1 | 1716 | none | PASS |
+| the reference shot with Radio Waves (1) frame 239, Full | 1 / 2 / 1 | 1 | 1718 | none | PASS |
 | the reference shot with Radio Waves (1) frame 0, Draft | 1 / 2 / 1 | 1 | 128 | none | PASS |
 | the reference shot with Radio Waves (1) frame 100, Draft | 1 / 2 / 1 | 1 | 34 | none | PASS |
 | the reference shot with Radio Waves (1) frame 239, Draft | 1 / 2 / 1 | 1 | 48 | none | PASS |
-| the reference shot with Radio Waves (2) frame 0, Full | 1 / 2 / 1 | 1 | 3783 | none | PASS |
-| the reference shot with Radio Waves (2) frame 100, Full | 1 / 2 / 1 | 1 | 1380 | none | PASS |
-| the reference shot with Radio Waves (2) frame 239, Full | 1 / 2 / 1 | 1 | 1724 | none | PASS |
+| the reference shot with Radio Waves (2) frame 0, Full | 1 / 2 / 1 | 1 | 3781 | none | PASS |
+| the reference shot with Radio Waves (2) frame 100, Full | 1 / 2 / 1 | 1 | 1382 | none | PASS |
+| the reference shot with Radio Waves (2) frame 239, Full | 1 / 2 / 1 | 1 | 1726 | none | PASS |
 | the reference shot with Radio Waves (2) frame 0, Draft | 1 / 2 / 1 | 1 | 128 | none | PASS |
 | the reference shot with Radio Waves (2) frame 100, Draft | 1 / 2 / 1 | 1 | 40 | none | PASS |
 | the reference shot with Radio Waves (2) frame 239, Draft | 1 / 2 / 1 | 1 | 47 | none | PASS |
-| the reference shot with Radio Waves (3) frame 0, Full | 1 / 2 / 1 | 1 | 3783 | none | PASS |
+| the reference shot with Radio Waves (3) frame 0, Full | 1 / 2 / 1 | 1 | 3781 | none | PASS |
 | the reference shot with Radio Waves (3) frame 100, Full | 1 / 2 / 1 | 1 | 1404 | none | PASS |
-| the reference shot with Radio Waves (3) frame 239, Full | 1 / 2 / 1 | 1 | 1683 | none | PASS |
+| the reference shot with Radio Waves (3) frame 239, Full | 1 / 2 / 1 | 1 | 1685 | none | PASS |
 | the reference shot with Radio Waves (3) frame 0, Draft | 1 / 2 / 1 | 1 | 128 | none | PASS |
 | the reference shot with Radio Waves (3) frame 100, Draft | 1 / 2 / 1 | 1 | 32 | none | PASS |
 | the reference shot with Radio Waves (3) frame 239, Draft | 1 / 2 / 1 | 1 | 48 | none | PASS |

@@ -22978,6 +22978,8 @@ impl Gpu {
                 edge_thickness,
                 light_color,
                 light_reception,
+                // D-933: a rim stays on the processor (compose's card_can).
+                ..
             } => {
                 let r = width / 2.0;
                 let (cx, cy) = crate::effects::radial_center(*center, (w, h), f.origin);
