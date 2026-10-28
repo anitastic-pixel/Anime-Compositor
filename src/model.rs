@@ -964,7 +964,7 @@ pub struct Layer {
     /// first, and its output is what index 1 reads.
     pub effects: Vec<crate::effects::EffectInstance>,
     pub blend_mode: BlendMode,
-    /// W-24: After Effects' label colour, 0 for none and 1 to 8 for the page's eight colours.
+    /// W-24: After Effects' label colour, 0 for none and 1 to 16 (D-948).
     /// Saved as `label` only when set, so a file that never had one is written back unchanged.
     pub label: u8,
     /// W-26: After Effects' shy switch. Saved as `shy` only when set, as the label is.
@@ -1417,7 +1417,7 @@ pub struct Composition {
     /// D-216: the composition's frame-blending switch, which a layer's Frame Mix waits on.
     /// Saved as `frame_blending` only when on.
     pub frame_blending: bool,
-    /// D-254: the label colour a layer has (W-24), 1 to 8, 0 for none. Saved as `label` only
+    /// D-254: the label colour a layer has (W-24), 1 to 16, 0 for none. Saved as `label` only
     /// when set or when the file already had the key.
     pub label: u8,
     /// D-261: notes drawn over the cut, in the order the Sketch workspace lists them. Nothing
@@ -1880,7 +1880,7 @@ pub struct Asset {
     /// D-61: whether collecting copies this asset's files. False for media the project may use
     /// but may not pass on; its files are then listed in the package but not copied.
     pub redistribute: bool,
-    /// D-254: the label colour a layer has (W-24), 1 to 8, 0 for none.
+    /// D-254: the label colour a layer has (W-24), 1 to 16, 0 for none.
     pub label: u8,
 }
 

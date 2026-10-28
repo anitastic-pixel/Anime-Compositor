@@ -14207,10 +14207,10 @@ fn parse_label(v: &J, pointer: &str) -> Result<u8, Diagnostic> {
     match v.get("label") {
         None => Ok(0),
         Some(label) => match as_u32(label, &format!("{pointer}/label"))? {
-            n @ 0..=8 => Ok(n as u8),
+            n @ 0..=16 => Ok(n as u8),
             _ => Err(invalid(
                 &format!("{pointer}/label"),
-                "a label colour from 0, none, to 8",
+                "a label colour from 0, none, to 16",
             )),
         },
     }

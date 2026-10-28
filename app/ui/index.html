@@ -606,7 +606,8 @@
   .track input.naming { position: absolute; top: -2px; width: 140px; font-size: 11px; z-index: 3; }
   /* W-24: a layer's label colour, a square before its name and a tint on its bar. */
   .rowhead .swatch { display: inline-block; width: 8px; height: 8px; border-radius: 2px; flex: none; }
-  .menu .swatches { display: flex; gap: 4px; padding: 4px 8px; }
+  /* D-948: nine to a row, none and After Effects' first eight, then its other eight. */
+  .menu .swatches { display: grid; grid-template-columns: repeat(9, 16px); gap: 4px; padding: 4px 8px; }
   .menu .swatches button {
     width: 16px; min-width: 0; height: 16px; padding: 0; border: 1px solid #55555b; border-radius: 3px;
   }
@@ -5463,9 +5464,14 @@ function shiftLayers(by) {
 
 // W-23: the menu a right click on a layer's row opens, as After Effects' has one. Every line on
 // it is a key the window already answers, and the key is written beside it.
-// W-24: After Effects' eight label colours, 0 for none.
-const LABELS = [null, '#c8554f', '#d9c75b', '#79b8b0', '#d99bb5', '#9f96c9', '#d9a878', '#8fb58f', '#6d86d9'];
-const LABEL_NAMES = ['none', 'red', 'yellow', 'aqua', 'pink', 'lavender', 'peach', 'sea foam', 'blue'];
+// W-24: After Effects' label colours, 0 for none. D-948: all sixteen, in its order and with its
+// names; the first eight keep their colours, so a saved label shows as it did.
+// ---- B-828 begin
+const LABELS = [null, '#c8554f', '#d9c75b', '#79b8b0', '#d99bb5', '#9f96c9', '#d9a878', '#8fb58f', '#6d86d9',
+  '#4aa44c', '#8e2c9a', '#e8920d', '#7f452a', '#f46dd6', '#3da2a5', '#a89677', '#1e401e'];
+const LABEL_NAMES = ['none', 'red', 'yellow', 'aqua', 'pink', 'lavender', 'peach', 'sea foam', 'blue',
+  'green', 'purple', 'orange', 'brown', 'fuchsia', 'cyan', 'sandstone', 'dark green'];
+// ---- B-828 end
 
 // W-24's row of label squares under a right-click menu; `pick` is given the colour's number.
 function labelSwatches(pick) {

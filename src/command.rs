@@ -166,7 +166,7 @@ pub enum Command {
         layer_id: Id,
         asset: Id,
     },
-    /// W-24: After Effects' label colour, 0 for none and 1 to 8.
+    /// W-24: After Effects' label colour, 0 for none and 1 to 16 (D-948).
     SetLayerLabel {
         composition: Id,
         layer_id: Id,
@@ -2321,10 +2321,10 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
     }
 
     if let Command::SetItemLabel { item, label } = command {
-        if *label > 8 {
+        if *label > 16 {
             return Err(reject(
-                &format!("There is no label colour {label}; the colours are 1 to 8."),
-                "D-254: a label is 0 for none or one of eight colours, as a layer's.",
+                &format!("There is no label colour {label}; the colours are 1 to 16."),
+                "D-254: a label is 0 for none or one of sixteen colours (D-948), as a layer's.",
             ));
         }
         if let Some(comp) = project.compositions.iter_mut().find(|c| c.id == *item) {
@@ -2996,10 +2996,10 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
         Command::SetLayerLabel {
             layer_id, label, ..
         } => {
-            if *label > 8 {
+            if *label > 16 {
                 return Err(reject(
-                    &format!("There is no label colour {label}; the colours are 1 to 8."),
-                    "W-24: a label is 0 for none or one of eight colours.",
+                    &format!("There is no label colour {label}; the colours are 1 to 16."),
+                    "W-24: a label is 0 for none or one of sixteen colours (D-948).",
                 ));
             }
             layer_mut(project, &comp_id, layer_id)?.label = *label;

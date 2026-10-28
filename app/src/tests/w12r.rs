@@ -286,3 +286,95 @@ fn b827_sums_in_number_fields() {
         &rows,
     );
 }
+
+/// D-948 / B-828: After Effects' sixteen label colours, in its order with its names; the first
+/// eight unchanged so a saved label shows as it did.
+#[test]
+fn b828_sixteen_label_colours() {
+    let mut rows: Rows = Vec::new();
+    let said = node(
+        "B-828",
+        "LABELS, LABEL_NAMES",
+        "out({ n: LABELS.length, names: LABEL_NAMES.slice(1).join(', '), first: LABELS.slice(1, 9).join(' '), \
+           rest: LABELS.slice(9).join(' ') });",
+    );
+    rows.push(("label colours besides none".into(), "16".into(), (said["n"].as_i64().unwrap_or(0) - 1).to_string()));
+    rows.push((
+        "their names, in After Effects' order".into(),
+        "red, yellow, aqua, pink, lavender, peach, sea foam, blue, green, purple, orange, brown, \
+         fuchsia, cyan, sandstone, dark green"
+            .into(),
+        said["names"].as_str().unwrap_or("?").into(),
+    ));
+    rows.push((
+        "the first eight keep the colours they had (a saved 1 to 8 looks as before)".into(),
+        "#c8554f #d9c75b #79b8b0 #d99bb5 #9f96c9 #d9a878 #8fb58f #6d86d9".into(),
+        said["first"].as_str().unwrap_or("?").into(),
+    ));
+    rows.push((
+        "the new eight, After Effects' 9 to 16".into(),
+        "#4aa44c #8e2c9a #e8920d #7f452a #f46dd6 #3da2a5 #a89677 #1e401e".into(),
+        said["rest"].as_str().unwrap_or("?").into(),
+    ));
+
+    // The window and the file.
+    let viewer = Mutex::new(demo());
+    let first = {
+        let held = viewer.lock().expect("lock");
+        let comp = held.document.project().composition(&held.composition).expect("comp");
+        let id = comp.layers_in_order().next().expect("a layer").id.as_str().to_string();
+        id
+    };
+    let label = |v: &Mutex<Viewer>| {
+        let held = v.lock().expect("lock");
+        let comp = held.document.project().composition(&held.composition).expect("comp");
+        let n = comp.layer(&Id::new(first.as_str())).expect("layer").label;
+        n
+    };
+    let _ = edit_command(&viewer, "layer.set_label", Some(&format!("layer={first}&label=16")));
+    rows.push((
+        "the window: layer.set_label label=16 (dark green)".into(),
+        "label 16".into(),
+        format!("label {}", label(&viewer)),
+    ));
+    let seventeen = edit_command(&viewer, "layer.set_label", Some(&format!("layer={first}&label=17")));
+    rows.push((
+        "the window: label=17 is refused and the label stays".into(),
+        "refused (1 to 16), label 16".into(),
+        format!("{}, label {}", if seventeen.as_deref().unwrap_or("").contains("1 to 16") { "refused (1 to 16)" } else { "taken" }, label(&viewer)),
+    ));
+    let saved = {
+        let held = viewer.lock().expect("lock");
+        persist::to_json(held.document.project(), &held.preserved)
+    };
+    let reopened = persist::load_str(&saved).expect("the saved project reads");
+    let comp_id = viewer.lock().expect("lock").composition.clone();
+    let read = |l: &persist::Loaded| {
+        l.document
+            .project()
+            .composition(&comp_id)
+            .and_then(|c| c.layer(&Id::new(first.as_str())))
+            .map(|l| l.label)
+            .unwrap_or(0)
+    };
+    rows.push(("saved and opened again, the layer's label".into(), "16".into(), read(&reopened).to_string()));
+    let swap = |to: &str| saved.replace("\"label\": 16", &format!("\"label\": {to}")).replace("\"label\":16", &format!("\"label\":{to}"));
+    let old = persist::load_str(&swap("8")).map(|l| read(&l).to_string()).unwrap_or_else(|d| d.message);
+    rows.push(("an older file's label 8 (blue) opens as 8".into(), "8".into(), old));
+    let past = persist::load_str(&swap("17")).is_err();
+    rows.push(("a file with label 17 is refused, not quietly changed".into(), "true".into(), past.to_string()));
+
+    pins(
+        &mut rows,
+        &[("the label squares sit nine to a row", ".menu .swatches { display: grid; grid-template-columns: repeat(9, 16px);")],
+    );
+    table(
+        "B-828_label_colours_table.md",
+        "B-828: After Effects' sixteen label colours (D-948)",
+        "b828_sixteen_label_colours",
+        "The first rows run the page's own `LABELS` and `LABEL_NAMES` under Node; then the real \
+         window sets and refuses labels and the project is saved and opened again; the last row \
+         pins the menu's layout. The private-app check is `verification/B-828_private_app_table.md`.",
+        &rows,
+    );
+}

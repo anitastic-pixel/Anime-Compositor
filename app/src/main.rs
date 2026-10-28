@@ -14194,7 +14194,7 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                     },
                     Err(said) => return Some(said),
                 },
-                // W-24: After Effects' label colours, 0 for none and 1 to 8.
+                // W-24: After Effects' label colours, 0 for none and 1 to 16 (D-948).
                 "layer.set_label" => {
                     match parameter(query, "label").and_then(|l| l.parse::<u8>().ok()) {
                         Some(label) => Command::SetLayerLabel {
@@ -14204,7 +14204,7 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                         },
                         None => {
                             return Some(
-                                "Which colour? Send label=0 for none, or 1 to 8.".to_string(),
+                                "Which colour? Send label=0 for none, or 1 to 16.".to_string(),
                             )
                         }
                     }
