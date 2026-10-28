@@ -224203,3 +224203,47 @@ FX-LSTYLE-021 (`fx_lstyle_021.json`): Use Global Light written "yes". The file i
 FX-LSTYLE-022 (`fx_lstyle_022.json`): Blend mode "dissolve", which this program does not draw. The file is read, the style is kept as written and left out of every frame, with a warning. Frames 0, 4. Warning `EFFECT_PARAMETER_INVALID`.
 
 FX-LSTYLE-023 (`fx_lstyle_023.json`): Blend mode "stencil_alpha", a stencil, not a style's mode. The file is read, the style is kept as written and left out of every frame, with a warning. Frames 0, 4. Warning `EFFECT_PARAMETER_INVALID`.
+
+### Minimax (D-930)
+
+Minimax (`core.minimax`), after After Effects' Minimax (B-810), the edge and colour rules ours. Every case is a project of one composition 16 by 10, five frames, holding the layer `art`, the still `media/colours.png` (16 by 10): a block of colours in columns 0 to 4 on every row (red falling 22 a row, green rising 45 a column, blue 40), so it touches the layer's left, top and bottom edges; a blue (40, 60, 230) column at half covering in column 6, rows 3 to 6; a white box in columns 8 to 12, rows 2 to 7, with one black pixel at (10, 4); and one yellow (255, 230, 0) pixel alone at (14, 1). `tools/minimax_reference.py` works the expected frames, `expected_minimax.json`, every window searched in full. Tolerance 2e-5.
+
+FX-MINIMAX-001 (`fx_minimax_001.json`): The settings as they start: Maximum, radius 0, Color, Horizontal & Vertical: nothing changes. Frames 0.
+
+FX-MINIMAX-002 (`fx_minimax_002.json`): Maximum, radius 1, Color: each colour channel becomes the largest of the 3 by 3 square's showing pixels; the covering is untouched, so the white box's black pixel turns white and the shapes keep their outline. Frames 0.
+
+FX-MINIMAX-003 (`fx_minimax_003.json`): Minimum, radius 1, Color: the smallest of each channel; the white box's black pixel spreads to a 3 by 3 black square. Frames 0.
+
+FX-MINIMAX-004 (`fx_minimax_004.json`): Maximum, radius 2, Alpha and Color: every shape grows two pixels each way in a square, the new pixels taking the largest showing colour (F's Max, w12b video 1 at 6:25). Frames 0.
+
+FX-MINIMAX-005 (`fx_minimax_005.json`): Minimum, radius 1, Alpha: every shape's covering shrinks a pixel each side, the lone yellow pixel and the half-covered column go, and the block on the left loses its pixels along the layer's edges too, since past the edge counts as clear. Frames 0.
+
+FX-MINIMAX-006 (`fx_minimax_006.json`): FX-MINIMAX-005 with Don't Shrink Edges on: the same, but the block keeps its pixels along the layer's left, top and bottom edges. Frames 0.
+
+FX-MINIMAX-007 (`fx_minimax_007.json`): Minimum Then Maximum, radius 1, Alpha and Color: the lone yellow pixel and the half-covered column are taken away and the big shapes come back to their size. Frames 0.
+
+FX-MINIMAX-008 (`fx_minimax_008.json`): Maximum Then Minimum, radius 1, Alpha and Color: the white box's black pixel is filled in and the shapes come back to their size. Frames 0.
+
+FX-MINIMAX-009 (`fx_minimax_009.json`): Maximum, radius 2, Red, Just Horizontal: only red changes, the largest of five along the row. Frames 0.
+
+FX-MINIMAX-010 (`fx_minimax_010.json`): Minimum, radius 1, Green, Just Vertical: only green changes, the smallest of three down the column. Frames 0.
+
+FX-MINIMAX-011 (`fx_minimax_011.json`): Maximum, radius 1, Blue: only blue changes, so the blue column's blue spills into its showing neighbours. Frames 0.
+
+FX-MINIMAX-012 (`fx_minimax_012.json`): Radius keyed from 0 at frame 0 to 4 at frame 4, linear, Maximum, Alpha and Color: the shapes grow a pixel a frame. Frames 0, 2, 4.
+
+FX-MINIMAX-013 (`fx_minimax_013.json`): FX-MINIMAX-005 with the layer moved three pixels right: the same, moved; the layer's own edges still count. Frames 0.
+
+FX-MINIMAX-014 (`fx_minimax_014.json`): Radius 1.5 is used as 2 (whole pixels, half up), radius 2.4 as 2: both frames equal FX-MINIMAX-004's. Frames 0, 4.
+
+FX-MINIMAX-015 (`fx_minimax_015.json`): Radius 501, above 500. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-MINIMAX-016 (`fx_minimax_016.json`): Radius -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-MINIMAX-017 (`fx_minimax_017.json`): Operation "max": not one of the four words. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-MINIMAX-018 (`fx_minimax_018.json`): Channel "rgb": not one of the six words. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-MINIMAX-019 (`fx_minimax_019.json`): Direction "Horizontal": the word is exact, so a capital is not it. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-MINIMAX-020 (`fx_minimax_020.json`): Don't Shrink Edges "yes": not on or off. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
