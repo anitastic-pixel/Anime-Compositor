@@ -51,7 +51,7 @@ fn b779_below_100_percent_the_viewer_draws_at_the_size_shown() {
     let said: serde_json::Value = serde_json::from_slice(&out.stdout).expect("JSON");
     let want = [
         "/frame/7?q=full", "/frame/7?q=full", "/frame/7?q=full", "/frame/7?q=half",
-        "/frame/7?q=half", "/frame/7?q=draft", "/frame/7?q=draft", "/frame/7?q=half",
+        "/frame/7?q=third", "/frame/7?q=draft", "/frame/7?q=draft", "/frame/7?q=half",
         "/frame/7?q=draft", "/frame/7?q=draft", "/frame/7?q=full",
         "/at/400?q=full", "/play/7?q=full",
     ];

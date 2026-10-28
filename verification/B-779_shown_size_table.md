@@ -12,7 +12,7 @@ Below 100% zoom a still frame, or a drag's, is asked for at the coarsest quality
 | `/frame/7?q=full` shown at 200% | /frame/7?q=full | /frame/7?q=full | pass |
 | `/frame/7?q=full` shown at 60% | /frame/7?q=full | /frame/7?q=full | pass |
 | `/frame/7?q=full` shown at 50% | /frame/7?q=half | /frame/7?q=half | pass |
-| `/frame/7?q=full` shown at 30% | /frame/7?q=half | /frame/7?q=half | pass |
+| `/frame/7?q=full` shown at 30% | /frame/7?q=third | /frame/7?q=third | pass |
 | `/frame/7?q=full` shown at 25% | /frame/7?q=draft | /frame/7?q=draft | pass |
 | `/frame/7?q=full` shown at 10% | /frame/7?q=draft | /frame/7?q=draft | pass |
 | `/frame/7?q=half` shown at 50% | /frame/7?q=half | /frame/7?q=half | pass |
