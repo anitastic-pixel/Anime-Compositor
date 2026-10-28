@@ -224247,3 +224247,55 @@ FX-MINIMAX-018 (`fx_minimax_018.json`): Channel "rgb": not one of the six words.
 FX-MINIMAX-019 (`fx_minimax_019.json`): Direction "Horizontal": the word is exact, so a capital is not it. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-MINIMAX-020 (`fx_minimax_020.json`): Don't Shrink Edges "yes": not on or off. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Set Matte (D-931)
+
+Set Matte (`core.set_matte`), after After Effects' Set Matte (B-811), Premultiply Matte Layer's reading and the uncovered pixels ours. Every case is a project of one composition 16 by 10, five frames: the matte layers `key` (the still `media/key.png`, 16 by 10: red falling 16 a column, green rising 25 a row, blue (7 x y) mod 256; solid in columns 0 to 11, covering 160 in 12 and 13, clear in 14 and 15), `patch` (its middle 8 by 6, columns 4 to 11, rows 2 to 7) and `late` (the key from frame 4), every one switched off, and on top of them the layer `holder` showing `media/shot.png` (red, blue and cream squares, the bottom right 4 by 3 clear) with the effect. `tools/set_matte_reference.py` works the expected frames, `expected_set_matte.json`. `cycle_two.json`, two layers each matting the other, is refused on opening with EFFECT_LAYER_CYCLE. Tolerance 2e-5.
+
+FX-SETMATTE-001 (`fx_setmatte_001.json`): As added: no layer named, so nothing changes. Frames 0.
+
+FX-SETMATTE-002 (`fx_setmatte_002.json`): The key's alpha, composited with the original: solid left of x = 12, part covering to 14, clear after; the shot's clear corner stays clear. Frames 0.
+
+FX-SETMATTE-003 (`fx_setmatte_003.json`): FX-SETMATTE-002 without compositing: the key's alpha replaces the shot's, so the shot's clear corner shows black where the key covers. Frames 0.
+
+FX-SETMATTE-004 (`fx_setmatte_004.json`): The key's red, falling left to right. Frames 0.
+
+FX-SETMATTE-005 (`fx_setmatte_005.json`): The key's green, rising top to bottom. Frames 0.
+
+FX-SETMATTE-006 (`fx_setmatte_006.json`): The key's blue. Frames 0.
+
+FX-SETMATTE-007 (`fx_setmatte_007.json`): The key's luminance. Frames 0.
+
+FX-SETMATTE-008 (`fx_setmatte_008.json`): The key's hue. Frames 0.
+
+FX-SETMATTE-009 (`fx_setmatte_009.json`): The key's lightness. Frames 0.
+
+FX-SETMATTE-010 (`fx_setmatte_010.json`): The key's saturation. Frames 0.
+
+FX-SETMATTE-011 (`fx_setmatte_011.json`): The key's luminance not premultiplied: the part-covering columns read their full colour, so they keep more than in FX-SETMATTE-007. Frames 0.
+
+FX-SETMATTE-012 (`fx_setmatte_012.json`): The key's alpha inverted: only what the key leaves clear is kept. Frames 0.
+
+FX-SETMATTE-013 (`fx_setmatte_013.json`): The key's middle 8 by 6, not stretched: centred, it lies where it was cut, and outside it everything is clear. Frames 0.
+
+FX-SETMATTE-014 (`fx_setmatte_014.json`): The middle 8 by 6's red stretched to 16 by 10: nothing the shot covers turns clear, and the ramp is spread twice as wide. Frames 0.
+
+FX-SETMATTE-015 (`fx_setmatte_015.json`): A layer that is not in the composition, `gone`: nothing changes, and the warning every frame. Warning `EFFECT_LAYER_MISSING`. Frames 0, 4.
+
+FX-SETMATTE-016 (`fx_setmatte_016.json`): The key with its in point at frame 4: before it the key is empty, so at frame 0 everything is clear; at frame 4 it is FX-SETMATTE-002. Frames 0, 4.
+
+FX-SETMATTE-017 (`fx_setmatte_017.json`): FX-SETMATTE-004 on the holder moved 2 right and 1 down: the same picture moved, since the key lies on the layer. Frames 0.
+
+FX-SETMATTE-018 (`fx_setmatte_018.json`): The effect on an adjustment layer above the holder, the key's alpha: the frame below is the holder's own rectangle, so this is FX-SETMATTE-002. Frames 0.
+
+FX-SETMATTE-019 (`fx_setmatte_019.json`): A matte channel written "chroma". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SETMATTE-020 (`fx_setmatte_020.json`): Invert written "yes". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SETMATTE-021 (`fx_setmatte_021.json`): Stretch written "tile". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SETMATTE-022 (`fx_setmatte_022.json`): Composite written "1". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SETMATTE-023 (`fx_setmatte_023.json`): Premultiply written "maybe". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-SETMATTE-024 (`fx_setmatte_024.json`): A layer written as the number 3, not a word. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
