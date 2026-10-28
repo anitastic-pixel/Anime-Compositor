@@ -224153,3 +224153,53 @@ FX-PRESERVE-008 (`fx_preserve_008.json`): The same layers with the switch off, a
 FX-PRESERVE-020 (`fx_preserve_020.json`): An adjustment layer with T: refused with the reason, as a motion-blur switch on one is (D-188); nothing is drawn without it (document 28). Error `PROJECT_SCHEMA_INVALID`, reason "no preserve_transparency on a null or adjustment layer".
 
 FX-PRESERVE-021 (`fx_preserve_021.json`): A null with T: refused the same way. Error `PROJECT_SCHEMA_INVALID`, reason "no preserve_transparency on a null or adjustment layer".
+
+### Layer Styles: Inner Shadow and Drop Shadow (D-922)
+
+Inner Shadow and Drop Shadow as After Effects' layer styles, with the composition's Global Light (B-801): `tools/layer_styles_reference.py` writes `expected_layer_styles.json` and `fx_lstyle_001.json` to `fx_lstyle_023.json` in `Fixtures/layer_styles/`. A 16 by 10 frame holding a skin plate, columns 3 to 11 and rows 2 to 7, with skin at half covering at (12, 4). Every pixel of each frame, linear premultiplied, tolerance 2e-5. The rule is in document 21 (D-922). Checked by `tests/b801_layer_styles.rs`.
+
+FX-LSTYLE-001 (`fx_lstyle_001.json`): Inner Shadow at After Effects' defaults: Multiply, black, 75 per cent, Global Light on at the composition's 120 (the file has no angle of its own), distance 5, choke 0, size 5. The light comes from the upper left, so the plate darkens inside its upper and left edges, softly; its lower right corner stays near its own skin; its alpha never changes. Frames 0.
+
+FX-LSTYLE-002 (`fx_lstyle_002.json`): Normal, #ff8000 at 100, Global Light off, angle 0 (light from the right), distance 2, size 0: the plate's two right-hand columns, 10 and 11, are exactly orange; every other skin pixel is unchanged; the half-covered pixel at (12, 4) is orange at its own covering. Frames 0.
+
+FX-LSTYLE-003 (`fx_lstyle_003.json`): The tutorial's rim light (w12a 28:54): Linear Dodge (Add), #ff8000 at 50, Global Light off, angle 361 (1x+1.0), distance 2, size 2: an orange glow added inside the right-hand edge, brighter than the skin, held to 1. Frames 0.
+
+FX-LSTYLE-004 (`fx_lstyle_004.json`): w12c's (video 2, 5:23): Color Dodge, #ffff00 at 75, Global Light off, angle 178, distance 2, size 1: the skin brightened toward yellow inside its left edge, on the encoded colours. Frames 0.
+
+FX-LSTYLE-005 (`fx_lstyle_005.json`): Choke 50, size 4, distance 0, Normal black at 100: the covering is eroded by the disc of radius 2 and blurred at sigma 1, so a dark band runs inside every edge, darkest at the edge. Frames 0.
+
+FX-LSTYLE-006 (`fx_lstyle_006.json`): Noise 50, Normal black at 100, Global Light off, angle 90 (light from above), distance 1, size 0: the plate's top row is shadowed, each pixel by between half and all of it, the same grain every time. Frames 0.
+
+FX-LSTYLE-007 (`fx_lstyle_007.json`): Global Light on with the composition's angle 90 in the file, the style's own angle 0 left unused: FX-LSTYLE-008 exactly. Frames 0.
+
+FX-LSTYLE-008 (`fx_lstyle_008.json`): Global Light off, angle 90, distance 2, size 0, Normal black at 100: the plate's top two rows are black. Frames 0.
+
+FX-LSTYLE-009 (`fx_lstyle_009.json`): Distance keyed from 0 at frame 0 to 4 at frame 4, linear, angle 0, Normal black at 100, size 0: frame 0 is the plate unchanged but for its half-covered pixel's outside, frame 2 has two black right-hand columns, frame 4 four. Frames 0, 2, 4.
+
+FX-LSTYLE-010 (`fx_lstyle_010.json`): Opacity 0: the plate untouched. Frames 0.
+
+FX-LSTYLE-011 (`fx_lstyle_011.json`): Drop Shadow at After Effects' defaults: Multiply, black, 75, Global Light on at 120, distance 5, spread 0, size 5: a soft shadow down and to the right of the plate, behind it. Multiply with black is Normal's pixels exactly, so nothing is noted. Frames 0.
+
+FX-LSTYLE-012 (`fx_lstyle_012.json`): Drop Shadow, Normal, #2040a0 at 100, Global Light off, angle 90, distance 2, size 0: the plate's shape moved two pixels down, blue, in rows 8 and 9 below it; the plate itself unchanged. Frames 0.
+
+FX-LSTYLE-013 (`fx_lstyle_013.json`): Drop Shadow, spread 50, size 4, distance 0, Normal black at 100: the covering dilated by the disc of radius 2 and blurred at sigma 1, a dark halo round the plate. Frames 0.
+
+FX-LSTYLE-014 (`fx_lstyle_014.json`): Both, listed Drop Shadow first: the Inner Shadow is drawn first, from the plate's own covering, then the Drop Shadow behind the result. Frames 0.
+
+FX-LSTYLE-015 (`fx_lstyle_015.json`): Drop Shadow in Screen, white at 100: drawn as Normal's would be, behind the plate, with a note on each frame that its mode is not mixed with what is beneath. Frames 0. Note on each frame `PROJECT_FEATURE_UNSUPPORTED`.
+
+FX-LSTYLE-016 (`fx_lstyle_016.json`): Opacity 101, above 100. The file is read, the style is kept as written and left out of every frame, with a warning. Frames 0, 4. Warning `EFFECT_PARAMETER_INVALID`.
+
+FX-LSTYLE-017 (`fx_lstyle_017.json`): Size 251, above 250. The file is read, the style is kept as written and left out of every frame, with a warning. Frames 0, 4. Warning `EFFECT_PARAMETER_INVALID`.
+
+FX-LSTYLE-018 (`fx_lstyle_018.json`): Choke 101, above 100. The file is read, the style is kept as written and left out of every frame, with a warning. Frames 0, 4. Warning `EFFECT_PARAMETER_INVALID`.
+
+FX-LSTYLE-019 (`fx_lstyle_019.json`): Noise -1, below 0. The file is read, the style is kept as written and left out of every frame, with a warning. Frames 0, 4. Warning `EFFECT_PARAMETER_INVALID`.
+
+FX-LSTYLE-020 (`fx_lstyle_020.json`): A colour written "black". The file is read, the style is kept as written and left out of every frame, with a warning. Frames 0, 4. Warning `EFFECT_PARAMETER_INVALID`.
+
+FX-LSTYLE-021 (`fx_lstyle_021.json`): Use Global Light written "yes". The file is read, the style is kept as written and left out of every frame, with a warning. Frames 0, 4. Warning `EFFECT_PARAMETER_INVALID`.
+
+FX-LSTYLE-022 (`fx_lstyle_022.json`): Blend mode "dissolve", which this program does not draw. The file is read, the style is kept as written and left out of every frame, with a warning. Frames 0, 4. Warning `EFFECT_PARAMETER_INVALID`.
+
+FX-LSTYLE-023 (`fx_lstyle_023.json`): Blend mode "stencil_alpha", a stencil, not a style's mode. The file is read, the style is kept as written and left out of every frame, with a warning. Frames 0, 4. Warning `EFFECT_PARAMETER_INVALID`.
