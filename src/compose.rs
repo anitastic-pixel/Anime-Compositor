@@ -1449,6 +1449,10 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
                 | crate::effects::Effect::ColorGrade { .. }
                 | crate::effects::Effect::ColorLink { map: Some(_), .. }
         )
+        // D-932: Lens Blur's fringe, and a saturation of lit highlights, have no card pass yet.
+        // ponytail: processor only; a card pass when a timing asks for it.
+        && !matches!(&instance.effect, crate::effects::Effect::LensBlur { diffraction_fringe, highlight_gain, highlight_saturation, .. }
+            if *diffraction_fringe > 0.0 || (*highlight_gain > 0.0 && *highlight_saturation > 0.0))
         // D-353: a Soft Physical Glow's threshold with no smooth is a step, so it stays on the
         // CPU for D-122's reason.
         && !matches!(&instance.effect, crate::effects::Effect::SoftGlow { threshold, threshold_smooth, .. }

@@ -81,7 +81,7 @@ B-238, after After Effects' Camera Lens Blur Blur Map group: another layer's lum
 | Check | The build's answer | Matches |
 | --- | --- | --- |
 | with a map, the layer may grow as far as the full radius's iris reaches, 4 | 4 | yes |
-| a half-size draft halves the radius and keeps Blur Focal Distance, which is a map value, not a distance | LensBlur { radius: 2.0, edges: "transparent", iris: "circle", roundness: 0.0, rotation: 0.0, aspect: 1.0, highlight_gain: 0.0, highlight_threshold: 100.0, layer: String("ramp"), fit: "center", channel: "luminance", focal_distance: 128.0, invert: "off", map: None } | yes |
+| a half-size draft halves the radius and keeps Blur Focal Distance, which is a map value, not a distance | LensBlur { radius: 2.0, edges: "transparent", iris: "circle", roundness: 0.0, rotation: 0.0, aspect: 1.0, highlight_gain: 0.0, highlight_threshold: 100.0, layer: String("ramp"), fit: "center", channel: "luminance", focal_distance: 128.0, invert: "off", diffraction_fringe: 0.0, highlight_saturation: 0.0, map: None } | yes |
 
 ## The file
 

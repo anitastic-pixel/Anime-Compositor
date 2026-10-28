@@ -16184,6 +16184,9 @@ impl Gpu {
                         aspect: *aspect,
                         gain: *highlight_gain,
                         threshold: *highlight_threshold,
+                        // D-932: compose keeps a fringe or a saturation on the processor.
+                        fringe: 0.0,
+                        saturation: 0.0,
                     };
                     let levels = crate::layer_fx::lens_levels(*radius, &shape);
                     let (alpha, turned) = (

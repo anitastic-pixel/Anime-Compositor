@@ -495,6 +495,26 @@ pub(crate) struct Iris {
     pub aspect: f64,
     pub gain: f64,
     pub threshold: f64,
+    /// D-932: Diffraction Fringe, the rim's extra weight, and Highlight Saturation, 0 to 100.
+    pub fringe: f64,
+    pub saturation: f64,
+}
+
+/// D-932: the iris's inside at `radius`, the same iris at `radius` - 1, when the fringe is above
+/// 0 and the iris has a rim; its count; and the rim's weight 1 + fringe / 25.
+fn lens_inside(radius: f64, iris: &Iris) -> Option<(Vec<[isize; 3]>, f64, f64)> {
+    if iris.fringe <= 0.0 || radius < 1.0 {
+        return None;
+    }
+    let runs = iris_runs(
+        radius - 1.0,
+        iris.blades,
+        iris.roundness,
+        iris.rotation,
+        iris.aspect,
+    );
+    let n = runs.iter().map(|&[_, lo, hi]| hi - lo + 1).sum::<isize>() as f64;
+    Some((runs, n, 1.0 + iris.fringe / 25.0))
 }
 
 /// D-116 and D-121: each pixel spreads evenly over the iris, so each pixel is the plain mean of
@@ -523,6 +543,12 @@ pub(crate) fn lens_blur(
         iris.aspect,
     );
     let n = runs.iter().map(|&[_, lo, hi]| hi - lo + 1).sum::<isize>() as f64;
+    let inside = lens_inside(radius, iris);
+    // D-932: the rim counts k times, the inside once: k S - (k - 1) S_inside over the same.
+    let n = match &inside {
+        Some((_, ni, k)) => k * n - (k - 1.0) * ni,
+        None => n,
+    };
     let (w, h) = (source.width() as isize, source.height() as isize);
     let (src, sums, empty) = lens_rows(source, iris);
     let src = &src[..];
@@ -535,8 +561,8 @@ pub(crate) fn lens_blur(
             let y = oy as isize - g as isize;
             // P-21: an iris row at a time along the whole output row, each pixel still taking
             // the runs in order, so the bits are the pixel-at-a-time loop's.
-            let mut sum = vec![[0.0f64; 4]; ow];
-            for &[dy, lo, hi] in &runs {
+            let gather = |runs: &[[isize; 3]], sum: &mut Vec<[f64; 4]>| {
+            for &[dy, lo, hi] in runs {
                 let mut sy = y - dy;
                 if repeat {
                     sy = sy.clamp(0, h - 1);
@@ -580,6 +606,18 @@ pub(crate) fn lens_blur(
                     }
                 }
             }
+            };
+            let mut sum = vec![[0.0f64; 4]; ow];
+            gather(&runs, &mut sum);
+            if let Some((runs, _, k)) = &inside {
+                let mut core = vec![[0.0f64; 4]; ow];
+                gather(runs, &mut core);
+                for (a, c) in sum.iter_mut().zip(&core) {
+                    for i in 0..4 {
+                        a[i] = k * a[i] - (k - 1.0) * c[i];
+                    }
+                }
+            }
             for (px, acc) in line.chunks_exact_mut(4).zip(&mut sum) {
                 if iris.gain > 0.0 {
                     for i in 0..3 {
@@ -606,12 +644,20 @@ fn lens_rows<'a>(
     let w = source.width();
     let src = if iris.gain > 0.0 {
         let (m, at) = ((1.0 + iris.gain) as f32, (iris.threshold / 100.0) as f32);
+        let sat = (1.0 + iris.saturation / 100.0) as f32;
         let mut copy = source.data().to_vec();
         copy.par_chunks_exact_mut(4).for_each(|p| {
             let bright = p[3] > 0.0 && p[0].max(p[1]).max(p[2]) / p[3] >= at;
             let k = if bright { m } else { 1.0 };
             for c in &mut p[..3] {
                 *c *= k;
+            }
+            // D-932: a lit pixel's colour moved away from its luminance, held at 0 or above.
+            if bright && iris.saturation > 0.0 {
+                let y = 0.2126 * p[0] + 0.7152 * p[1] + 0.0722 * p[2];
+                for c in &mut p[..3] {
+                    *c = (y + (*c - y) * sat).max(0.0);
+                }
             }
         });
         std::borrow::Cow::Owned(copy)
@@ -702,12 +748,16 @@ pub(crate) fn lens_blur_map(
         .iter()
         .map(|runs| runs.iter().map(|&[_, lo, hi]| hi - lo + 1).sum::<isize>() as f64)
         .collect();
+    // D-932: each level's inside at its own radius, for the fringe.
+    let insides: Vec<_> = (0..levels.len())
+        .map(|j| lens_inside(radius * (j as f64 / big as f64), iris))
+        .collect();
     let (w, h) = (source.width() as isize, source.height() as isize);
     let (mw, mh) = (map.width() as isize, map.height() as isize);
     let (src, sums, empty) = lens_rows(source, iris);
     let src = &src[..];
     // One level's mean at the drawing's pixel (x, y), each run summed as `lens_blur` sums it.
-    let mean = |runs: &[[isize; 3]], n: f64, x: isize, y: isize| {
+    let mean = |runs: &[[isize; 3]], x: isize, y: isize| {
         let mut acc = [0.0f64; 4];
         for &[dy, lo, hi] in runs {
             let mut sy = y - dy;
@@ -734,7 +784,16 @@ pub(crate) fn lens_blur_map(
                 }
             }
         }
-        acc.map(|v| v / n)
+        acc
+    };
+    // One level's mean, its rim weighted by the fringe (D-932).
+    let level = |j: usize, x: isize, y: isize| match &insides[j] {
+        None => mean(&levels[j], x, y).map(|v| v / counts[j]),
+        Some((runs, ni, k)) => {
+            let (a, c) = (mean(&levels[j], x, y), mean(runs, x, y));
+            let n = k * counts[j] - (k - 1.0) * ni;
+            [0, 1, 2, 3].map(|i| (k * a[i] - (k - 1.0) * c[i]) / n)
+        }
     };
     let ow = (w + 2 * g) as usize;
     let mut out = WorkingBuffer::transparent(ow, (h + 2 * g) as usize);
@@ -754,9 +813,9 @@ pub(crate) fn lens_blur_map(
                 };
                 let j = (s.floor() as usize).min(big);
                 let t = s - j as f64;
-                let mut acc = mean(&levels[j], counts[j], x, y);
+                let mut acc = level(j, x, y);
                 if t > 0.0 {
-                    let next = mean(&levels[j + 1], counts[j + 1], x, y);
+                    let next = level(j + 1, x, y);
                     for i in 0..4 {
                         acc[i] += t * (next[i] - acc[i]);
                     }

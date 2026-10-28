@@ -88,7 +88,23 @@ Card: NVIDIA GeForce RTX 4070 Ti SUPER (DiscreteGpu), driver NVIDIA 610.88, Vulk
 | fx_lens_067 | 0 Lens Blurs by transform; 4 frames, 58 pixels seen: largest 0, 0 over 1, 0 over 2, 100.0000% within 1; 0 fully transparent pixels with different hidden colours not graded, largest difference over black or white 0 | yes |
 | fx_lens_068 | 0 Lens Blurs by transform; 4 frames, 58 pixels seen: largest 0, 0 over 1, 0 over 2, 100.0000% within 1; 0 fully transparent pixels with different hidden colours not graded, largest difference over black or white 0 | yes |
 | fx_lens_069 | 0 Lens Blurs by transform; 4 frames, 58 pixels seen: largest 0, 0 over 1, 0 over 2, 100.0000% within 1; 0 fully transparent pixels with different hidden colours not graded, largest difference over black or white 0 | yes |
-| all 69 fixtures together | 78 Lens Blurs by transform; 276 frames, 11845 pixels seen: largest 1, 0 over 1, 0 over 2, 100.0000% within 1; 1037 fully transparent pixels with different hidden colours not graded, largest difference over black or white 0 | yes |
+| fx_lens_070 | 4 Lens Blurs by transform; 4 frames, 312 pixels seen: largest 1, 0 over 1, 0 over 2, 100.0000% within 1; 22 fully transparent pixels with different hidden colours not graded, largest difference over black or white 0 | yes |
+| fx_lens_071 | 0 Lens Blurs by transform; 4 frames, 312 pixels seen: largest 1, 0 over 1, 0 over 2, 100.0000% within 1; 0 fully transparent pixels with different hidden colours not graded, largest difference over black or white 0 | yes |
+| fx_lens_072 | 0 Lens Blurs by transform; 4 frames, 296 pixels seen: largest 1, 0 over 1, 0 over 2, 100.0000% within 1; 0 fully transparent pixels with different hidden colours not graded, largest difference over black or white 0 | yes |
+| fx_lens_073 | 0 Lens Blurs by transform; 4 frames, 312 pixels seen: largest 1, 0 over 1, 0 over 2, 100.0000% within 1; 0 fully transparent pixels with different hidden colours not graded, largest difference over black or white 0 | yes |
+| fx_lens_074 | 0 Lens Blurs by transform; 4 frames, 312 pixels seen: largest 1, 0 over 1, 0 over 2, 100.0000% within 1; 0 fully transparent pixels with different hidden colours not graded, largest difference over black or white 0 | yes |
+| fx_lens_075 | 4 Lens Blurs by transform; 4 frames, 312 pixels seen: largest 1, 0 over 1, 0 over 2, 100.0000% within 1; 22 fully transparent pixels with different hidden colours not graded, largest difference over black or white 0 | yes |
+| fx_lens_076 | 2 Lens Blurs by transform; 4 frames, 312 pixels seen: largest 1, 0 over 1, 0 over 2, 100.0000% within 1; 11 fully transparent pixels with different hidden colours not graded, largest difference over black or white 0 | yes |
+| fx_lens_077 | 0 Lens Blurs by transform; 4 frames, 58 pixels seen: largest 0, 0 over 1, 0 over 2, 100.0000% within 1; 0 fully transparent pixels with different hidden colours not graded, largest difference over black or white 0 | yes |
+| fx_lens_078 | 0 Lens Blurs by transform; 4 frames, 344 pixels seen: largest 1, 0 over 1, 0 over 2, 100.0000% within 1; 0 fully transparent pixels with different hidden colours not graded, largest difference over black or white 0 | yes |
+| fx_lens_079 | 0 Lens Blurs by transform; 4 frames, 228 pixels seen: largest 1, 0 over 1, 0 over 2, 100.0000% within 1; 0 fully transparent pixels with different hidden colours not graded, largest difference over black or white 0 | yes |
+| fx_lens_080 | 0 Lens Blurs by transform; 4 frames, 312 pixels seen: largest 1, 0 over 1, 0 over 2, 100.0000% within 1; 0 fully transparent pixels with different hidden colours not graded, largest difference over black or white 0 | yes |
+| fx_lens_081 | 0 Lens Blurs by transform; 4 frames, 58 pixels seen: largest 0, 0 over 1, 0 over 2, 100.0000% within 1; 0 fully transparent pixels with different hidden colours not graded, largest difference over black or white 0 | yes |
+| fx_lens_082 | 0 Lens Blurs by transform; 4 frames, 58 pixels seen: largest 0, 0 over 1, 0 over 2, 100.0000% within 1; 0 fully transparent pixels with different hidden colours not graded, largest difference over black or white 0 | yes |
+| fx_lens_083 | 0 Lens Blurs by transform; 4 frames, 58 pixels seen: largest 0, 0 over 1, 0 over 2, 100.0000% within 1; 0 fully transparent pixels with different hidden colours not graded, largest difference over black or white 0 | yes |
+| fx_lens_084 | 0 Lens Blurs by transform; 4 frames, 58 pixels seen: largest 0, 0 over 1, 0 over 2, 100.0000% within 1; 0 fully transparent pixels with different hidden colours not graded, largest difference over black or white 0 | yes |
+| fx_lens_085 | 0 Lens Blurs by transform; 4 frames, 58 pixels seen: largest 0, 0 over 1, 0 over 2, 100.0000% within 1; 0 fully transparent pixels with different hidden colours not graded, largest difference over black or white 0 | yes |
+| all 85 fixtures together | 88 Lens Blurs by transform; 340 frames, 15245 pixels seen: largest 1, 0 over 1, 0 over 2, 100.0000% within 1; 1092 fully transparent pixels with different hidden colours not graded, largest difference over black or white 0 | yes |
 
 ## The switch
 
@@ -102,4 +118,4 @@ Card: NVIDIA GeForce RTX 4070 Ti SUPER (DiscreteGpu), driver NVIDIA 610.88, Vulk
 
 ## Result
 
-83 of 83 checks pass.
+99 of 99 checks pass.

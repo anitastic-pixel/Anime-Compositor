@@ -11685,7 +11685,11 @@ const EFFECT_PARAMS = {
     ['rotation', 'Rotation', 1, 1, 'degrees clockwise from up, -3600 to 3600', 'dial', 0],
     ['aspect', 'Aspect', 1, 0.05, 'width over height, 0.1 to 10', '', 1],
     ['highlight_gain', 'Brightness', 1, 0.1, 'highlight gain: how much brighter the highlights spread, 0 to 100', '', 0],
-    ['highlight_threshold', 'Threshold', 1, 1, 'highlight threshold: the brightness a highlight starts at, 0 to 100', '', 100],
+    // D-932: shown 0 to 255 as After Effects shows it, the file's 0 to 100 times 2.55.
+    ['highlight_threshold', 'Threshold', 1, 1, '0 to 255, highlight threshold: the brightness a highlight starts at', '', 100, 2.55],
+    // D-932: After Effects' Highlight Saturation and Diffraction Fringe.
+    ['highlight_saturation', 'Highlight Saturation', 1, 1, '0 to 100, how much more colourful a highlight is', '', 0],
+    ['diffraction_fringe', 'Diffraction Fringe', 1, 1, '0 to 100, how much brighter the rim of each bokeh disc is', '', 0],
     // D-359: the blur map's focus.
     ['focal_distance', 'Blur Focal Distance', 1, 1, 'the blur map value kept sharp, 0 to 255', '', 0]],
   // D-117.
@@ -15718,7 +15722,12 @@ function effectRow(layer, fx, at, of) {
   // B-19d: a setting with keys is sent alone, with the frame, and the window makes it a key on
   // that frame as it does for a transform's property (W-10). The others travel together as
   // before, a keyed one among them as the base it already has.
-  const typed = (name) => fields[name].map((f) => f.value.trim()).join(',');
+  // D-932: a setting shown on another scale is sent back on the file's.
+  const shownScale = Object.fromEntries(known.filter((p) => p[7]).map((p) => [p[0], p[7]]));
+  const typed = (name) => fields[name].map((f) => {
+    const v = f.value.trim();
+    return shownScale[name] && v !== '' && Number.isFinite(Number(v)) ? String(Number(v) / shownScale[name]) : v;
+  }).join(',');
   const keyed = (name) => keysOf(layer, fxName(fx, name)).length > 0;
   // The pictures on the card follow every change the hand makes, from whichever control.
   const redraws = [];
@@ -15756,7 +15765,7 @@ function effectRow(layer, fx, at, of) {
   };
   // D-383: Levels shows the set its Channel menu chooses.
   const channel = fx.type_id === 'core.levels' ? words.channel : null;
-  for (const [name, said, count, step, range, turn, start] of known) {
+  for (const [name, said, count, step, range, turn, start, scale] of known) {
     const words = blurriness(fx, name, said);
     const dt = document.createElement('dt');
     dt.title = words + ', ' + range;
@@ -15772,7 +15781,8 @@ function effectRow(layer, fx, at, of) {
     // D-304: a point or colour the file leaves out, at its start, still shows all its numbers.
     const held = transformValue(layer, fxName(fx, name));
     const values = (held.length < count && held[0] === undefined ? [].concat(start || Array(count).fill(0)) : held)
-      .map((v) => (v === undefined ? start || 0 : Number(v) || 0));
+      .map((v) => (v === undefined ? start || 0 : Number(v) || 0))
+      .map((v) => (scale ? Math.round(v * scale * 1000) / 1000 : v));
     fields[name] = [];
     if (name === 'color') {
       pick = document.createElement('input');

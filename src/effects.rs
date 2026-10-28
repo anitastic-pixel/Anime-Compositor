@@ -921,6 +921,7 @@ pub enum Effect {
     /// D-359, the blur map: `layer`, D-189's layer setting as written, "" for none; `fit`,
     /// `center` or `stretch`; `channel`, `luminance` or `alpha`; `focal_distance`, 0 to 255, the
     /// map value kept sharp; `invert`, `off` or `on`. `map` is not a setting and is never saved.
+    /// D-932: `diffraction_fringe` and `highlight_saturation`, 0 to 100, 0 when absent.
     LensBlur {
         radius: f64,
         edges: String,
@@ -935,6 +936,8 @@ pub enum Effect {
         channel: String,
         focal_distance: f64,
         invert: String,
+        diffraction_fringe: f64,
+        highlight_saturation: f64,
         map: Option<crate::layer_map::Map>,
     },
     /// D-117: `color`, `#rrggbb`; `direction`, -3600 to 3600 degrees clockwise from up, where
@@ -7793,9 +7796,13 @@ impl Effect {
                 highlight_gain,
                 highlight_threshold,
                 focal_distance,
+                diffraction_fringe,
+                highlight_saturation,
                 ..
             } => vec![
                 ("radius", vec![radius], 0.0, 200.0),
+                ("diffraction_fringe", vec![diffraction_fringe], 0.0, 100.0),
+                ("highlight_saturation", vec![highlight_saturation], 0.0, 100.0),
                 ("roundness", vec![roundness], 0.0, 100.0),
                 ("rotation", vec![rotation], -3600.0, 3600.0),
                 ("aspect", vec![aspect], 0.1, 10.0),
@@ -16736,6 +16743,8 @@ pub(crate) fn apply_stack_at(
                 channel,
                 focal_distance,
                 invert,
+                diffraction_fringe,
+                highlight_saturation,
                 map,
                 ..
             } => {
@@ -16750,6 +16759,8 @@ pub(crate) fn apply_stack_at(
                         aspect: *aspect,
                         gain: *highlight_gain,
                         threshold: *highlight_threshold,
+                        fringe: *diffraction_fringe,
+                        saturation: *highlight_saturation,
                     };
                     let r = crate::perf::time(crate::perf::Stage::EffectLensBlur, || match map {
                         Some(m) => {
@@ -21452,6 +21463,8 @@ pub(crate) fn depth_lens(e: &Effect) -> Option<Effect> {
         channel: "alpha".to_string(),
         focal_distance: 0.0,
         invert: "off".to_string(),
+        diffraction_fringe: 0.0,
+        highlight_saturation: 0.0,
         map: Some(map.clone()),
     })
 }

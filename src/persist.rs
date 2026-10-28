@@ -1900,6 +1900,8 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             channel,
             focal_distance,
             invert,
+            diffraction_fringe,
+            highlight_saturation,
             ..
         } => {
             params.insert("radius".into(), num(*radius));
@@ -1931,6 +1933,17 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
                     *focal_distance == 0.0,
                 ),
                 ("invert", J::from(invert.as_str()), invert == "off"),
+                // D-932.
+                (
+                    "diffraction_fringe",
+                    num(*diffraction_fringe),
+                    *diffraction_fringe == 0.0,
+                ),
+                (
+                    "highlight_saturation",
+                    num(*highlight_saturation),
+                    *highlight_saturation == 0.0,
+                ),
             ] {
                 if !start || instance.tracks.contains_key(key) || params.contains_key(key) {
                     params.insert(key.into(), value);
@@ -9461,6 +9474,9 @@ fn parse_effect(
             channel: effect_word_or(params, "channel", at, "luminance")?,
             focal_distance: effect_number_or(params, "focal_distance", at, 0.0)?,
             invert: effect_word_or(params, "invert", at, "off")?,
+            // D-932: 0 in a file without them, which draws as it did.
+            diffraction_fringe: effect_number_or(params, "diffraction_fringe", at, 0.0)?,
+            highlight_saturation: effect_number_or(params, "highlight_saturation", at, 0.0)?,
             map: None,
         }),
         crate::effects::RIM_LIGHT => Some(crate::effects::Effect::RimLight {

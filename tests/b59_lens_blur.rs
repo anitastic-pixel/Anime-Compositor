@@ -22,6 +22,8 @@ fn lens(radius: f64, edges: &str) -> Effect {
         aspect: 1.0,
         highlight_gain: 0.0,
         highlight_threshold: 100.0,
+        diffraction_fringe: 0.0,
+        highlight_saturation: 0.0,
         layer: "".into(),
         fit: "center".into(),
         channel: "luminance".into(),

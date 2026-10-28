@@ -6420,12 +6420,16 @@ fn a_setting_an_older_project_leaves_out_shows_its_as_added_value() {
                 continue;
             };
             let row = row.split(']').next().unwrap_or_default();
-            // What follows the row's last quoted text: nothing, or `, 100`, or `, null, 100`.
-            let start = row[row.rfind('\'').unwrap_or(0) + 1..]
-                .rsplit(',')
-                .next()
-                .unwrap_or_default()
-                .trim();
+            // What follows the row's last quoted text: nothing, or `, 100`, or `, null, 100`, or
+            // after a quoted turn `, 100, 2.55` (D-932: the start, then the scale it is shown on).
+            let quoted_turn = row.replace("\\'", "").matches('\'').count() >= 5;
+            let tokens: Vec<&str> = row[row.rfind('\'').unwrap_or(0) + 1..]
+                .split(',')
+                .map(str::trim)
+                .filter(|t| !t.is_empty())
+                .collect();
+            let start = if quoted_turn { tokens.first() } else { tokens.last() };
+            let start = start.copied().unwrap_or_default();
             let start = if start.is_empty() {
                 0.0
             } else {

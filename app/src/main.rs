@@ -4596,11 +4596,12 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             size: 5.0,
             noise: 0.0,
         }),
-        // D-116: a radius of 10, fading at the edges; D-121: a round iris, no highlights.
+        // D-116: a radius of 10, fading at the edges; D-121: no highlights; D-932: a hexagon
+        // iris, as After Effects' Camera Lens Blur starts.
         LENS_BLUR => Some(Effect::LensBlur {
             radius: 10.0,
             edges: "transparent".to_string(),
-            iris: "circle".to_string(),
+            iris: "hexagon".to_string(),
             roundness: 0.0,
             rotation: 0.0,
             aspect: 1.0,
@@ -4612,6 +4613,8 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             channel: "luminance".to_string(),
             focal_distance: 0.0,
             invert: "off".to_string(),
+            diffraction_fringe: 0.0,
+            highlight_saturation: 0.0,
             map: None,
         }),
         // D-117: white light from the upper right, three pixels deep.
@@ -7953,6 +7956,17 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             aspect: number("aspect")?,
             highlight_gain: number("highlight_gain")?,
             highlight_threshold: number("highlight_threshold")?,
+            // D-932: a window from before sends neither, read as 0.
+            diffraction_fringe: if parameter(query, "diffraction_fringe").is_some() {
+                number("diffraction_fringe")?
+            } else {
+                0.0
+            },
+            highlight_saturation: if parameter(query, "highlight_saturation").is_some() {
+                number("highlight_saturation")?
+            } else {
+                0.0
+            },
             // D-359: the blur map, travelling as `blur_layer` as Compound Blur's does; none, and
             // AE's start values, when the command does not say.
             layer: serde_json::Value::from(parameter(query, "blur_layer").unwrap_or_default().trim()),
