@@ -99,12 +99,12 @@ fn d253_d254_status_and_labels_round_trip() {
     })
     .unwrap_or_else(|d| panic!("{}", d.message));
     rows.push((
-        "There is no label colour 9".into(),
+        "There is no label colour 17".into(),
         "refused".into(),
         if doc
             .apply(Command::SetItemLabel {
                 item: asset,
-                label: 9,
+                label: 17,
             })
             .is_err()
         {

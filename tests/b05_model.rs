@@ -402,12 +402,12 @@ fn b05_model_and_undo() {
         layer_named(&doc, "layer-1").label.to_string(),
     );
     report.check(
-        "label: there is no colour 9",
+        "label: there is no colour 17",
         true,
         doc.apply(Command::SetLayerLabel {
             composition: id(COMP),
             layer_id: id("layer-1"),
-            label: 9,
+            label: 17,
         })
         .is_err(),
     );

@@ -48,7 +48,7 @@ The before file is 301 lines and the after file is 387 lines.
 | markers: one past the composition's last frame is refused | `true` | `true` | PASS |
 | markers undone: none | `` | `` | PASS |
 | label: layer 1 is colour 3 | `3` | `3` | PASS |
-| label: there is no colour 9 | `true` | `true` | PASS |
+| label: there is no colour 17 | `true` | `true` | PASS |
 | label undone: none | `0` | `0` | PASS |
 | shy: layer 1 is shy | `true` | `true` | PASS |
 | shy undone: not shy | `false` | `false` | PASS |
