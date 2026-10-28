@@ -398,6 +398,8 @@ pub enum Stage {
     EffectColorRange,
     /// D-501: Difference Matte.
     EffectDifferenceMatte,
+    /// D-931: Set Matte.
+    EffectSetMatte,
     EffectInnerOuterKey,
     /// D-503: Key Cleaner.
     EffectKeyCleaner,
@@ -545,7 +547,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 268] = [
+    pub const ALL: [Stage; 269] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -744,6 +746,7 @@ impl Stage {
         Stage::EffectColorDifferenceKey,
         Stage::EffectColorRange,
         Stage::EffectDifferenceMatte,
+        Stage::EffectSetMatte,
         Stage::EffectInnerOuterKey,
         Stage::EffectKeyCleaner,
         Stage::EffectLinearColorKey,
@@ -1017,6 +1020,7 @@ impl Stage {
             Stage::EffectColorDifferenceKey => "effect: color difference key",
             Stage::EffectColorRange => "effect: color range",
             Stage::EffectDifferenceMatte => "effect: difference matte",
+            Stage::EffectSetMatte => "effect: set matte",
             Stage::EffectInnerOuterKey => "effect: inner outer key",
             Stage::EffectKeyCleaner => "effect: key cleaner",
             Stage::EffectLinearColorKey => "effect: linear color key",

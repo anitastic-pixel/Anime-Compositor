@@ -3165,6 +3165,26 @@ pub(crate) fn extract(
 /// [`crate::effects::SHIFT_CHANNELS_FROM`] of the straight encoded colour: a channel, its luma,
 /// HSL hue (a turn as 0 to 1), lightness or saturation, or 1, 0.5 or 0. The new colour is
 /// multiplied by the new alpha; a clear pixel's colour is black.
+/// D-142's reading of one word at a pixel of encoded straight colour `e` and covering `a`; also
+/// Set Matte's (D-931).
+pub(crate) fn read_channel(w: &str, e: [f64; 3], a: f64) -> f64 {
+    let (mx, mn) = (e[0].max(e[1]).max(e[2]), e[0].min(e[1]).min(e[2]));
+    let l = (mx + mn) / 2.0;
+    match w {
+        "red" => e[0],
+        "green" => e[1],
+        "blue" => e[2],
+        "alpha" => a,
+        "luminance" => luma(e),
+        "hue" => hsv_hue(e).unwrap_or(0.0) / 360.0,
+        "lightness" => l,
+        "saturation" if mx > mn => (mx - mn) / (1.0 - (2.0 * l - 1.0).abs()),
+        "full" => 1.0,
+        "half" => 0.5,
+        _ => 0.0,
+    }
+}
+
 pub(crate) fn shift_channels(source: &mut WorkingBuffer, take: [&str; 4]) {
     if take == ["red", "green", "blue", "alpha"] {
         return;
@@ -3176,21 +3196,7 @@ pub(crate) fn shift_channels(source: &mut WorkingBuffer, take: [&str; 4]) {
         } else {
             [0.0; 3]
         };
-        let (mx, mn) = (e[0].max(e[1]).max(e[2]), e[0].min(e[1]).min(e[2]));
-        let l = (mx + mn) / 2.0;
-        let from = |w: &str| match w {
-            "red" => e[0],
-            "green" => e[1],
-            "blue" => e[2],
-            "alpha" => a,
-            "luminance" => luma(e),
-            "hue" => hsv_hue(e).unwrap_or(0.0) / 360.0,
-            "lightness" => l,
-            "saturation" if mx > mn => (mx - mn) / (1.0 - (2.0 * l - 1.0).abs()),
-            "full" => 1.0,
-            "half" => 0.5,
-            _ => 0.0,
-        };
+        let from = |w: &str| read_channel(w, e, a);
         let na = from(take[3]).clamp(0.0, 1.0);
         for c in 0..3 {
             px[c] = (to_linear(from(take[c]).clamp(0.0, 1.0)) * na) as f32;

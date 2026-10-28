@@ -2397,6 +2397,8 @@ fn card_effect(
                 } => *amount == 0.0 || (layer.as_str() != Some("") && map.is_none()),
                 // D-501: no plate read, none named or one named but not read.
                 E::DifferenceMatte { map, .. } => map.is_none(),
+                // D-931: no matte read, none named or one named but not read.
+                E::SetMatte { map, .. } => map.is_none(),
                 // D-506: a view named but not read.
                 E::ThreeDGlasses { .. } => crate::layer_fx::glasses_settings(&effect).is_none(),
                 // D-519: a gel named but not read.

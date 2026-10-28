@@ -3093,6 +3093,18 @@ const EFFECT_KINDS: &[(&str, &[(&str, &str)])] = &[
             ("blur_before_difference", "1.5"),
         ],
     ),
+    // D-931: a matte layer and every word.
+    (
+        "core.set_matte",
+        &[
+            ("map_layer", "layer-4"),
+            ("use_for_matte", "luminance"),
+            ("invert_matte", "on"),
+            ("stretch_matte_to_fit", "off"),
+            ("composite_matte_with_original", "off"),
+            ("premultiply_matte_layer", "off"),
+        ],
+    ),
     // D-502: the masks, the numbers and the word.
     (
         "core.inner_outer_key",

@@ -13416,6 +13416,8 @@ macro_rules! not_fx {
             | crate::effects::Effect::PosterizeTime { .. }
             // D-930: Minimax is drawn on the processor.
             | crate::effects::Effect::Minimax { .. }
+            // D-931: Set Matte is drawn on the processor.
+            | crate::effects::Effect::SetMatte { .. }
             | crate::effects::Effect::SliderControl { .. }
             | crate::effects::Effect::CheckboxControl { .. }
             | crate::effects::Effect::AngleControl { .. }

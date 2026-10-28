@@ -326,6 +326,8 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | and the settings it sends for it - color_space, fuzziness, min_1, max_1, min_2, max_2, min_3, max_3 - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.difference_matte` is an effect this build has | added | added | pass |
 | and the settings it sends for it - view, map_layer, fit, matching_tolerance, matching_softness, blur_before_difference - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.set_matte` is an effect this build has | added | added | pass |
+| and the settings it sends for it - map_layer, use_for_matte, invert_matte, stretch_matte_to_fit, composite_matte_with_original, premultiply_matte_layer - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.inner_outer_key` is an effect this build has | added | added | pass |
 | and the settings it sends for it - foreground, background, single_mask_highlight_radius, edge_thin, edge_feather, edge_threshold, invert_extraction, blend_with_original - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.key_cleaner` is an effect this build has | added | added | pass |

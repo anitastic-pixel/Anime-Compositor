@@ -3756,6 +3756,26 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
                 num(*blur_before_difference),
             );
         }
+        Effect::SetMatte {
+            layer,
+            use_for_matte,
+            invert_matte,
+            stretch_matte_to_fit,
+            composite_matte_with_original,
+            premultiply_matte_layer,
+            ..
+        } => {
+            params.insert("layer".into(), layer.clone());
+            for (k, v) in [
+                ("use_for_matte", use_for_matte),
+                ("invert_matte", invert_matte),
+                ("stretch_matte_to_fit", stretch_matte_to_fit),
+                ("composite_matte_with_original", composite_matte_with_original),
+                ("premultiply_matte_layer", premultiply_matte_layer),
+            ] {
+                params.insert(k.into(), J::from(v.as_str()));
+            }
+        }
         Effect::InnerOuterKey {
             foreground,
             background,
@@ -8924,6 +8944,7 @@ fn parse_effect(
         crate::effects::COLOR_DIFFERENCE_KEY,
         crate::effects::COLOR_RANGE,
         crate::effects::DIFFERENCE_MATTE,
+        crate::effects::SET_MATTE,
         crate::effects::INNER_OUTER_KEY,
         crate::effects::KEY_CLEANER,
         crate::effects::LINEAR_COLOR_KEY,
@@ -10540,6 +10561,21 @@ fn parse_effect(
                 range,
             })
         }
+        // D-931: the layer is kept as written, as Difference Matte's is.
+        crate::effects::SET_MATTE => Some(crate::effects::Effect::SetMatte {
+            layer: field(
+                effect_params(params, at)?,
+                &format!("{at}/parameters"),
+                "layer",
+            )?
+            .clone(),
+            use_for_matte: effect_word(params, "use_for_matte", at)?,
+            invert_matte: effect_word(params, "invert_matte", at)?,
+            stretch_matte_to_fit: effect_word(params, "stretch_matte_to_fit", at)?,
+            composite_matte_with_original: effect_word(params, "composite_matte_with_original", at)?,
+            premultiply_matte_layer: effect_word(params, "premultiply_matte_layer", at)?,
+            map: None,
+        }),
         // D-501: the layer is kept as written, as Aerial Haze's is.
         crate::effects::DIFFERENCE_MATTE => Some(crate::effects::Effect::DifferenceMatte {
             view: effect_word(params, "view", at)?,

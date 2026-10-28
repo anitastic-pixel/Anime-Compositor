@@ -3326,6 +3326,20 @@ pub enum Effect {
         blur_before_difference: f64,
         map: Option<crate::layer_map::Map>,
     },
+    /// D-931: after After Effects' Set Matte (`layer_fx::set_matte`, document 21). `layer`, D-189's
+    /// layer setting as written, "" for none (the layer is left as it is); `use_for_matte`, one
+    /// of [`SET_MATTE_CHANNELS`]; `invert_matte`, `stretch_matte_to_fit`,
+    /// `composite_matte_with_original` and `premultiply_matte_layer`, "off" or "on". `map` is
+    /// not a setting and is never saved.
+    SetMatte {
+        layer: serde_json::Value,
+        use_for_matte: String,
+        invert_matte: String,
+        stretch_matte_to_fit: String,
+        composite_matte_with_original: String,
+        premultiply_matte_layer: String,
+        map: Option<crate::layer_map::Map>,
+    },
     /// D-502: after After Effects' Inner/Outer Key, its rule, ranges and settings when added ours
     /// (`layer_fx::inner_outer_key`, document 21). `foreground` and `background`, 0 to 1000, the
     /// masks numbered so (their floors taken), 0 for none (no foreground keys nothing; no
@@ -5618,6 +5632,11 @@ pub const CRANGE_SPACES: [&str; 3] = ["lab", "yuv", "rgb"];
 /// the third's.
 pub const CRANGE_NAMES: [&str; 6] = ["min_1", "max_1", "min_2", "max_2", "min_3", "max_3"];
 pub const DIFFERENCE_MATTE: &str = "core.difference_matte";
+/// D-931.
+pub const SET_MATTE: &str = "core.set_matte";
+/// D-931: what Set Matte's Use For Matte reads.
+pub const SET_MATTE_CHANNELS: [&str; 8] =
+    ["alpha", "red", "green", "blue", "luminance", "hue", "lightness", "saturation"];
 pub const INNER_OUTER_KEY: &str = "core.inner_outer_key";
 pub const KEY_CLEANER: &str = "core.key_cleaner";
 pub const LINEAR_COLOR_KEY: &str = "core.linear_color_key";
@@ -11078,6 +11097,7 @@ impl Effect {
                 ("start_width", vec![start_width], 0.0, 1000.0),
                 ("end_width", vec![end_width], 0.0, 1000.0),
             ],
+            Effect::SetMatte { .. } => vec![],
             Effect::Cryptomatte { .. } => vec![],
             Effect::Unsupported { .. } => vec![],
         }
@@ -12218,6 +12238,7 @@ impl Effect {
             Effect::ColorDifferenceKey { .. } => "Color Difference Key",
             Effect::ColorRange { .. } => "Color Range",
             Effect::DifferenceMatte { .. } => "Difference Matte",
+            Effect::SetMatte { .. } => "Set Matte",
             Effect::InnerOuterKey { .. } => "Inner/Outer Key",
             Effect::KeyCleaner { .. } => "Key Cleaner",
             Effect::LinearColorKey { .. } => "Linear Color Key",
@@ -12510,6 +12531,7 @@ impl Effect {
             Effect::ColorDifferenceKey { .. } => COLOR_DIFFERENCE_KEY,
             Effect::ColorRange { .. } => COLOR_RANGE,
             Effect::DifferenceMatte { .. } => DIFFERENCE_MATTE,
+            Effect::SetMatte { .. } => SET_MATTE,
             Effect::InnerOuterKey { .. } => INNER_OUTER_KEY,
             Effect::KeyCleaner { .. } => KEY_CLEANER,
             Effect::LinearColorKey { .. } => LINEAR_COLOR_KEY,
@@ -13072,6 +13094,10 @@ impl Effect {
             | Effect::Blobbylize { layer: serde_json::Value::String(layer), fit, .. }
             | Effect::MomentMap { layer: serde_json::Value::String(layer), fit, .. }
             | Effect::LensBlur { layer: serde_json::Value::String(layer), fit, .. } => Some((layer, fit)),
+            // D-931: stretched to the drawing, or centred with Stretch Matte To Fit off.
+            Effect::SetMatte { layer: serde_json::Value::String(layer), stretch_matte_to_fit, .. } => {
+                Some((layer, if stretch_matte_to_fit == "off" { "center" } else { "stretch" }))
+            }
             // D-545: the dirt is read whole, and centred on the layer by the effect.
             Effect::SoftGlow { dirt: LensDirt { layer: serde_json::Value::String(layer), .. }, .. }
             | Effect::LensFlare { dirt: LensDirt { layer: serde_json::Value::String(layer), .. }, .. }
@@ -13221,6 +13247,7 @@ impl Effect {
             | Effect::ChannelWipe { layer, map, .. }
             | Effect::AerialHaze { layer, map, .. }
             | Effect::DifferenceMatte { layer, map, .. }
+            | Effect::SetMatte { layer, map, .. }
             | Effect::Glass { layer, map, .. }
             | Effect::VectorBlur { layer, map, .. }
             | Effect::MrSmoothie { layer, map, .. }
@@ -13697,6 +13724,32 @@ impl Effect {
                 .or_else(|| (!["center", "stretch"].contains(&fit.as_str())).then(|| format!(
                     "{name}'s fit is \"center\" or \"stretch\", and this is \"{fit}\"."
                 ))),
+            // D-931.
+            Effect::SetMatte {
+                layer,
+                use_for_matte,
+                invert_matte,
+                stretch_matte_to_fit,
+                composite_matte_with_original,
+                premultiply_matte_layer,
+                ..
+            } => (!layer.is_string())
+                .then(|| format!("{name}'s matte layer is the name of a layer of this composition, and this is {layer}."))
+                .or_else(|| (!SET_MATTE_CHANNELS.contains(&use_for_matte.as_str())).then(|| {
+                    let all = SET_MATTE_CHANNELS.map(|w| format!("\"{w}\"")).join(", ");
+                    format!("{name}'s use for matte is one of {all}, and this is \"{use_for_matte}\".")
+                }))
+                .or_else(|| {
+                    [
+                        ("invert matte", invert_matte),
+                        ("stretch matte to fit", stretch_matte_to_fit),
+                        ("composite matte with original", composite_matte_with_original),
+                        ("premultiply matte layer", premultiply_matte_layer),
+                    ]
+                    .into_iter()
+                    .find(|(_, v)| !["off", "on"].contains(&v.as_str()))
+                    .map(|(what, v)| format!("{name}'s {what} is \"off\" or \"on\", and this is \"{v}\"."))
+                }),
             Effect::InnerOuterKey { invert_extraction: v, .. } => (!["off", "on"].contains(&v.as_str()))
                 .then(|| format!("{name}'s invert extraction is \"off\" or \"on\", and this is \"{v}\".")),
             Effect::PhotoFilter { filter, color, preserve_luminosity, .. } => (filter != "custom"
@@ -18046,6 +18099,30 @@ pub(crate) fn apply_stack_at(
                             *matching_softness,
                             *blur_before_difference,
                             view == "matte",
+                        )
+                    })
+                }
+            }
+            // D-931: no matte read (none named, or named but not in the composition) leaves the
+            // layer as it is, the latter with D-189's warning. The layer never grows.
+            Effect::SetMatte {
+                use_for_matte,
+                invert_matte,
+                composite_matte_with_original,
+                premultiply_matte_layer,
+                map,
+                ..
+            } => {
+                if let Some(map) = map {
+                    crate::perf::time(crate::perf::Stage::EffectSetMatte, || {
+                        crate::layer_fx::set_matte(
+                            source,
+                            &map.0,
+                            (ox, oy),
+                            use_for_matte,
+                            invert_matte == "on",
+                            composite_matte_with_original == "on",
+                            premultiply_matte_layer == "on",
                         )
                     })
                 }

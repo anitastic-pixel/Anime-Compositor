@@ -9796,6 +9796,48 @@ pub(crate) fn difference_matte(
         });
 }
 
+/// D-931: Set Matte. The matte layer's `map` lies on the layer's own picture at `origin` in
+/// `source`, transparent outside it. At each pixel its straight encoded colour (over black first
+/// when `premultiply`) and covering are read by `word`, Shift Channels' reading, clamped and
+/// inverted when asked: m. The new covering is the old times m when `composite`, else m; the
+/// colour is the layer's straight colour times it.
+pub(crate) fn set_matte(
+    source: &mut WorkingBuffer,
+    map: &WorkingBuffer,
+    origin: (usize, usize),
+    word: &str,
+    invert: bool,
+    composite: bool,
+    premultiply: bool,
+) {
+    let w = source.width();
+    let (ox, oy) = (origin.0 as isize, origin.1 as isize);
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let q = at(map, (i % w) as isize - ox, (i / w) as isize - oy);
+            let a = q[3] as f64;
+            let mut e = if a > 0.0 {
+                [0, 1, 2].map(|c| crate::grade::to_srgb((q[c] as f64 / a).clamp(0.0, 1.0)))
+            } else {
+                [0.0; 3]
+            };
+            if premultiply {
+                e = e.map(|v| v * a);
+            }
+            let m = crate::grade::read_channel(word, e, a).clamp(0.0, 1.0);
+            let m = if invert { 1.0 - m } else { m };
+            let old = px[3] as f64;
+            let new = if composite { old * m } else { m };
+            for v in &mut px[..3] {
+                *v = if old > 0.0 { (*v as f64 / old * new) as f32 } else { 0.0 };
+            }
+            px[3] = new as f32;
+        });
+}
+
 /// D-521: Time Difference. Each pixel against the target `map` under it (the target lies on the
 /// layer's own picture, at `origin` in `source`, transparent outside it), both as straight
 /// encoded colour and alpha: the difference `d`, all four numbers, times the gain
