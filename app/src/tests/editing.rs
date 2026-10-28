@@ -1062,7 +1062,7 @@ fn the_shortcut_window_changes_keys_on_this_computer_only() {
     let keyed: Vec<&(String, String)> = lines.iter().filter(|(_, k)| !k.is_empty()).collect();
     report.check(
         "command finder lines the window lists",
-        "134 lines, 91 with keys of their own",
+        "138 lines, 94 with keys of their own",
         format!(
             "{} lines, {} with keys of their own",
             lines.len(),
@@ -7556,8 +7556,10 @@ fn the_pick_whip_links_and_parents_from_the_window() {
         format!(
             "{}: /layer.set_parent?layer=…&parent=…&frame=frame",
             match (
-                page.contains("'/layer.set_parent?layer=' + encodeURIComponent(layer.id)\n          + '&parent=' + encodeURIComponent(parent.id) + '&frame=' + frame"),
-                page.contains("'/layer.set_parent?layer=' + encodeURIComponent(layer.id)\n    + '&parent=' + encodeURIComponent(chooser.value) + '&frame=' + frame"),
+                // D-946: both go through `parentRequest`, which sends this for each chosen layer.
+                page.contains("() => sendMany(layer, (l) => parentRequest(l, parent.id, frame, layers()))"),
+                page.contains("chooser.onchange = () => sendMany(layer, (l) => parentRequest(l, chooser.value, frame, layers()));")
+                    && page.contains("'/layer.set_parent?layer=' + encodeURIComponent(l.id) + '&parent=' + encodeURIComponent(parentId) + '&frame=' + at"),
             ) {
                 (true, true) => "both",
                 (true, false) => "the whip only",
