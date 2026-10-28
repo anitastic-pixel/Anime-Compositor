@@ -1062,7 +1062,7 @@ fn the_shortcut_window_changes_keys_on_this_computer_only() {
     let keyed: Vec<&(String, String)> = lines.iter().filter(|(_, k)| !k.is_empty()).collect();
     report.check(
         "command finder lines the window lists",
-        "138 lines, 94 with keys of their own",
+        "141 lines, 96 with keys of their own",
         format!(
             "{} lines, {} with keys of their own",
             lines.len(),
