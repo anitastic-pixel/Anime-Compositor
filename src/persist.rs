@@ -3500,6 +3500,13 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
                 params.insert("shape".into(), J::from(shape.as_str()));
             }
         }
+        Effect::Minimax { operation, radius, channel, direction, dont_shrink_edges } => {
+            params.insert("operation".into(), J::from(operation.as_str()));
+            params.insert("radius".into(), num(*radius));
+            params.insert("channel".into(), J::from(channel.as_str()));
+            params.insert("direction".into(), J::from(direction.as_str()));
+            params.insert("dont_shrink_edges".into(), J::from(dont_shrink_edges.as_str()));
+        }
         Effect::Median {
             radius,
             operate_on_alpha,
@@ -8908,6 +8915,7 @@ fn parse_effect(
         crate::effects::RADIO_WAVES,
         crate::effects::POLAR_COORDINATES,
         crate::effects::MEDIAN,
+        crate::effects::MINIMAX,
         crate::effects::DUST_SCRATCHES,
         crate::effects::MATCH_GRAIN,
         crate::effects::REMOVE_GRAIN,
@@ -10402,6 +10410,13 @@ fn parse_effect(
             interpolation: effect_number(params, "interpolation", at)?,
             conversion: effect_word(params, "conversion", at)?,
             shape: effect_word_or(params, "shape", at, "ellipse")?,
+        }),
+        crate::effects::MINIMAX => Some(crate::effects::Effect::Minimax {
+            operation: effect_word(params, "operation", at)?,
+            radius: effect_number(params, "radius", at)?,
+            channel: effect_word(params, "channel", at)?,
+            direction: effect_word(params, "direction", at)?,
+            dont_shrink_edges: effect_word(params, "dont_shrink_edges", at)?,
         }),
         crate::effects::MEDIAN => Some(crate::effects::Effect::Median {
             radius: effect_number(params, "radius", at)?,

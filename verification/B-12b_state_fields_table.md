@@ -312,6 +312,8 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | and the settings it sends for it - interpolation, conversion - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.median` is an effect this build has | added | added | pass |
 | and the settings it sends for it - radius, operate_on_alpha - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.minimax` is an effect this build has | added | added | pass |
+| and the settings it sends for it - operation, radius, channel, direction, dont_shrink_edges - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.dust_scratches` is an effect this build has | added | added | pass |
 | and the settings it sends for it - radius, threshold, operate_on_alpha - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.remove_grain` is an effect this build has | added | added | pass |

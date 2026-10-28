@@ -3007,6 +3007,17 @@ const EFFECT_KINDS: &[(&str, &[(&str, &str)])] = &[
     ("core.polar_coordinates", &[("interpolation", "60"), ("conversion", "polar_to_rect")]),
     // D-203.
     ("core.median", &[("radius", "4"), ("operate_on_alpha", "on")]),
+    // D-930.
+    (
+        "core.minimax",
+        &[
+            ("operation", "min_then_max"),
+            ("radius", "3"),
+            ("channel", "alpha"),
+            ("direction", "vertical"),
+            ("dont_shrink_edges", "on"),
+        ],
+    ),
     // D-453.
     ("core.dust_scratches", &[("radius", "3"), ("threshold", "24"), ("operate_on_alpha", "on")]),
     // D-455.

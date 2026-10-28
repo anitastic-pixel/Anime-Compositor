@@ -624,3 +624,83 @@ pub(crate) fn cartoon(source: &mut WorkingBuffer, e: &crate::effects::Effect) {
         });
     *source = out;
 }
+
+/// D-930: After Effects' Minimax, document 21's rule (`tools/minimax_reference.py`). Each chosen
+/// channel of the straight colour becomes the largest (`max`) or smallest of that channel over
+/// the 2r + 1 square, row or column about it; colour over the window's pixels that show, the
+/// covering over every pixel, one past the layer's edge clear unless `keep_edges`. The square is
+/// a row pass then a column pass: a clear pixel's colour is the pass's own blank (-inf for a
+/// maximum, +inf for a minimum), which neither pass ever picks, and a pixel whose window shows
+/// nothing keeps its own. `chans` is red, green, blue, covering; `passes` the operations in
+/// turn, true for a maximum. The settings are already valid; the buffer keeps its size.
+// ponytail: each pass walks its 2r + 1 taps, fine for the tutorials' radius of a few pixels;
+// van Herk/Gil-Werman's running extreme is the upgrade if a large radius ever drags.
+pub(crate) fn minimax(
+    source: &mut WorkingBuffer,
+    radius: f64,
+    passes: &[bool],
+    chans: [bool; 4],
+    rows: bool,
+    columns: bool,
+    keep_edges: bool,
+) {
+    let r = (radius + 0.5).floor().max(0.0) as isize;
+    if r == 0 {
+        return;
+    }
+    let (w, h) = (source.width(), source.height());
+    let old: Vec<f32> = source.data().to_vec();
+    let mut st: Vec<[f32; 4]> = old
+        .chunks_exact(4)
+        .map(|p| if p[3] > 0.0 { [p[0] / p[3], p[1] / p[3], p[2] / p[3], p[3]] } else { [0.0; 4] })
+        .collect();
+    for &max in passes {
+        let blank = if max { f32::NEG_INFINITY } else { f32::INFINITY };
+        let pick = |a: f32, b: f32| if max { a.max(b) } else { a.min(b) };
+        let mut v: Vec<[f32; 4]> = st
+            .iter()
+            .map(|p| if p[3] > 0.0 { [p[0], p[1], p[2], p[3]] } else { [blank, blank, blank, 0.0] })
+            .collect();
+        for (on, step, len) in [(rows, 1usize, w), (columns, w, h)] {
+            if !on {
+                continue;
+            }
+            let src = v;
+            v = (0..w * h)
+                .into_par_iter()
+                .map(|i| {
+                    let at = (if step == 1 { i % w } else { i / w }) as isize;
+                    let mut e = [blank, blank, blank, blank];
+                    for d in -r..=r {
+                        let t = at + d;
+                        if t < 0 || t >= len as isize {
+                            if !keep_edges {
+                                e[3] = pick(e[3], 0.0);
+                            }
+                            continue;
+                        }
+                        let q = src[(i as isize + d * step as isize) as usize];
+                        e = std::array::from_fn(|c| pick(e[c], q[c]));
+                    }
+                    e
+                })
+                .collect();
+        }
+        st = st
+            .iter()
+            .zip(&v)
+            .map(|(own, e)| {
+                std::array::from_fn(|c| if chans[c] && e[c].is_finite() { e[c] } else { own[c] })
+            })
+            .collect();
+    }
+    for (px, (p, o)) in source.data_mut().chunks_exact_mut(4).zip(st.iter().zip(old.chunks_exact(4))) {
+        let a = if chans[3] { p[3] } else { o[3] };
+        if a > 0.0 {
+            (0..3).for_each(|c| px[c] = p[c] * a);
+            px[3] = a;
+        } else {
+            px.copy_from_slice(&[0.0; 4]);
+        }
+    }
+}

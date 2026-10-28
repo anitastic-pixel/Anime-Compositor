@@ -223,6 +223,8 @@ pub enum Stage {
     EffectRadioWaves,
     EffectPolarCoordinates,
     EffectMedian,
+    /// D-930: Minimax.
+    EffectMinimax,
     EffectSmartBlur,
     EffectBilateralBlur,
     EffectSnowfall,
@@ -543,7 +545,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 267] = [
+    pub const ALL: [Stage; 268] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -634,6 +636,7 @@ impl Stage {
         Stage::EffectRadioWaves,
         Stage::EffectPolarCoordinates,
         Stage::EffectMedian,
+        Stage::EffectMinimax,
         Stage::EffectSmartBlur,
         Stage::EffectBilateralBlur,
         Stage::EffectSnowfall,
@@ -906,6 +909,7 @@ impl Stage {
             Stage::EffectRadioWaves => "effect: radio waves",
             Stage::EffectPolarCoordinates => "effect: polar coordinates",
             Stage::EffectMedian => "effect: median",
+            Stage::EffectMinimax => "effect: minimax",
             Stage::EffectSmartBlur => "effect: smart blur",
             Stage::EffectBilateralBlur => "effect: bilateral blur",
             Stage::EffectSnowfall => "effect: snowfall",

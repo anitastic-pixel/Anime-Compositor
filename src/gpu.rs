@@ -13414,6 +13414,8 @@ macro_rules! not_fx {
             | crate::effects::Effect::NoiseGate { .. }
             | crate::effects::Effect::PixelMotionBlur { .. }
             | crate::effects::Effect::PosterizeTime { .. }
+            // D-930: Minimax is drawn on the processor.
+            | crate::effects::Effect::Minimax { .. }
             | crate::effects::Effect::SliderControl { .. }
             | crate::effects::Effect::CheckboxControl { .. }
             | crate::effects::Effect::AngleControl { .. }

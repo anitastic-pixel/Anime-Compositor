@@ -2021,6 +2021,8 @@ fn card_effect(
                 } => [*size, *density, *opacity].contains(&0.0),
                 // B-151: ten of the fourth batch, each as its own function returns at once.
                 E::Median { radius, .. } | E::SmartBlur { radius, .. } => *radius < 1.0,
+                // D-930: a radius under a half is no pixel at all.
+                E::Minimax { radius, .. } => *radius < 0.5,
                 // D-453: no two 8-bit values are more than 255 apart, so nothing is changed.
                 E::DustScratches {
                     radius, threshold, ..

@@ -2107,6 +2107,17 @@ pub enum Effect {
         radius: f64,
         operate_on_alpha: String,
     },
+    /// D-930: after After Effects' Minimax (`median::minimax`, document 21). `operation`, one of
+    /// [`MINIMAX_OPERATIONS`]; `radius`, 0 to 500 pixels; `channel`, one of [`MINIMAX_CHANNELS`];
+    /// `direction`, "both", "horizontal" or "vertical"; `dont_shrink_edges`, "off" or "on". The
+    /// words are kept as written, so a wrong one is reported.
+    Minimax {
+        operation: String,
+        radius: f64,
+        channel: String,
+        direction: String,
+        dont_shrink_edges: String,
+    },
     /// D-203: `radius`, 0 to 10 pixels; and `threshold`, 0 to 255 8-bit steps.
     SmartBlur { radius: f64, threshold: f64 },
     /// D-358: `radius`, 0 to 50 pixels; `threshold`, 0 to 255 steps of the sRGB curve; and
@@ -5062,6 +5073,10 @@ pub const LIGHT_SWEEP: &str = "core.light_sweep";
 pub const RADIO_WAVES: &str = "core.radio_waves";
 pub const POLAR_COORDINATES: &str = "core.polar_coordinates";
 pub const MEDIAN: &str = "core.median";
+pub const MINIMAX: &str = "core.minimax";
+/// D-930: Minimax's operations and channels.
+pub const MINIMAX_OPERATIONS: [&str; 4] = ["maximum", "minimum", "min_then_max", "max_then_min"];
+pub const MINIMAX_CHANNELS: [&str; 6] = ["color", "alpha_and_color", "alpha", "red", "green", "blue"];
 pub const SMART_BLUR: &str = "core.smart_blur";
 pub const BILATERAL_BLUR: &str = "core.bilateral_blur";
 pub const CROSS_BLUR: &str = "core.cross_blur";
@@ -10655,6 +10670,7 @@ impl Effect {
                 vec![("interpolation", vec![interpolation], 0.0, 100.0)]
             }
             Effect::Median { radius, .. } => vec![("radius", vec![radius], 0.0, 10.0)],
+            Effect::Minimax { radius, .. } => vec![("radius", vec![radius], 0.0, 500.0)],
             Effect::SmartBlur { radius, threshold } => vec![
                 ("radius", vec![radius], 0.0, 10.0),
                 ("threshold", vec![threshold], 0.0, 255.0),
@@ -11178,6 +11194,7 @@ impl Effect {
             // D-203: a radius scaled under one leaves the layer as it is.
             Effect::Median { radius, .. }
             | Effect::SmartBlur { radius, .. }
+            | Effect::Minimax { radius, .. }
             | Effect::BilateralBlur { radius, .. }
             | Effect::DustScratches { radius, .. } => *radius = scale(*radius),
             // D-447: the strokes keep their size on the picture, the brush at least half a pixel.
@@ -12115,6 +12132,7 @@ impl Effect {
             Effect::RadioWaves { .. } => "Radio Waves",
             Effect::PolarCoordinates { .. } => "Polar Coordinates",
             Effect::Median { .. } => "Median",
+            Effect::Minimax { .. } => "Minimax",
             Effect::SmartBlur { .. } => "Smart Blur",
             Effect::BilateralBlur { .. } => "Bilateral Blur",
             Effect::CrossBlur { .. } => "Cross Blur",
@@ -12406,6 +12424,7 @@ impl Effect {
             Effect::RadioWaves { .. } => RADIO_WAVES,
             Effect::PolarCoordinates { .. } => POLAR_COORDINATES,
             Effect::Median { .. } => MEDIAN,
+            Effect::Minimax { .. } => MINIMAX,
             Effect::SmartBlur { .. } => SMART_BLUR,
             Effect::BilateralBlur { .. } => BILATERAL_BLUR,
             Effect::CrossBlur { .. } => CROSS_BLUR,
@@ -14618,6 +14637,20 @@ impl Effect {
             Effect::Compressor { auto_release, .. } if !["off", "on"].contains(&auto_release.as_str()) => Some(format!(
                 "Compressor's auto release is \"off\" or \"on\", and this is \"{auto_release}\"."
             )),
+            // D-930.
+            Effect::Minimax { operation, channel, direction, dont_shrink_edges, .. } => {
+                (!MINIMAX_OPERATIONS.contains(&operation.as_str()))
+                    .then(|| format!("{name}'s operation is \"maximum\", \"minimum\", \"min_then_max\" or \"max_then_min\", and this is \"{operation}\"."))
+                    .or_else(|| (!MINIMAX_CHANNELS.contains(&channel.as_str())).then(|| format!(
+                        "{name}'s channel is \"color\", \"alpha_and_color\", \"alpha\", \"red\", \"green\" or \"blue\", and this is \"{channel}\"."
+                    )))
+                    .or_else(|| (!["both", "horizontal", "vertical"].contains(&direction.as_str())).then(|| format!(
+                        "{name}'s direction is \"both\", \"horizontal\" or \"vertical\", and this is \"{direction}\"."
+                    )))
+                    .or_else(|| (!["off", "on"].contains(&dont_shrink_edges.as_str())).then(|| format!(
+                        "{name}'s don't shrink edges is \"off\" or \"on\", and this is \"{dont_shrink_edges}\"."
+                    )))
+            }
             Effect::Median { operate_on_alpha, .. } if !["off", "on"].contains(&operate_on_alpha.as_str()) => Some(format!(
                 "Median's operate on alpha is \"off\" or \"on\", and this is \"{operate_on_alpha}\"."
             )),
@@ -18979,6 +19012,34 @@ pub(crate) fn apply_stack_at(
                     (ox, oy),
                 )
             }),
+            // D-930: the layer keeps its size.
+            Effect::Minimax { operation, radius, channel, direction, dont_shrink_edges } => {
+                crate::perf::time(crate::perf::Stage::EffectMinimax, || {
+                    let passes: &[bool] = match operation.as_str() {
+                        "maximum" => &[true],
+                        "minimum" => &[false],
+                        "min_then_max" => &[false, true],
+                        _ => &[true, false],
+                    };
+                    let chans = match channel.as_str() {
+                        "color" => [true, true, true, false],
+                        "alpha_and_color" => [true; 4],
+                        "alpha" => [false, false, false, true],
+                        "red" => [true, false, false, false],
+                        "green" => [false, true, false, false],
+                        _ => [false, false, true, false],
+                    };
+                    crate::median::minimax(
+                        source,
+                        *radius,
+                        passes,
+                        chans,
+                        direction != "vertical",
+                        direction != "horizontal",
+                        dont_shrink_edges == "on",
+                    )
+                })
+            }
             // D-203: neither grows the layer.
             Effect::Median {
                 radius,
