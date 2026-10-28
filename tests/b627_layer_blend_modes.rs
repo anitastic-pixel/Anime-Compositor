@@ -168,9 +168,12 @@ fn the_card_draws_them_as_the_cpu_does() {
             &mut gpu,
         )
         .expect("the frame draws");
-        assert!(
-            !log.finish().iter().any(|d| d.id == DiagnosticId::GpuPreviewOnCpu),
-            "{}: drawn on the card",
+        // B-800 leaves Hard Mix (D-921) to the CPU, and says so; every other mode is the card's.
+        let on_cpu = log.finish().iter().any(|d| d.id == DiagnosticId::GpuPreviewOnCpu);
+        assert_eq!(
+            on_cpu,
+            case["mode"] == "hard_mix",
+            "{}: drawn on the card unless it is Hard Mix",
             case["mode"]
         );
         let worst = cpu.iter().zip(&card).map(|(a, b)| a.abs_diff(*b)).max().unwrap_or(0);
