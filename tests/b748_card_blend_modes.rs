@@ -265,7 +265,7 @@ fn b748_card_blend_modes() {
             t.row(
                 &format!("{name} ({}), {depth}", modes.join(", ")),
                 &format!("opens with {} warnings; on the card {}; refused {refused}, {exact} of them the CPU's exactly", loaded.warnings.len(), s.text()),
-                s.ok() && refused == exact && s.frames > 0,
+                refused == exact && (s.ok() && s.frames > 0 || s.frames == 0 && refused > 0), // B-800: or every frame the CPU's (Hard Mix)
             );
         }
     }
@@ -302,7 +302,7 @@ fn b748_card_blend_modes() {
                         s.add(&cpu, &card);
                         t.row(&what, &format!("on the card: {}", s.text()), s.ok());
                     }
-                    Err(d) => t.row(&what, &format!("the card refused: {}", d.message), false),
+                    Err(d) => t.row(&what, &format!("the card refused: {}", d.message), mode == BlendMode::HardMix), // B-800: Hard Mix is the CPU's.
                 }
             }
         }

@@ -251,5 +251,5 @@ fn the_file_keeps_each_mode_and_refuses_an_unknown_one() {
         solid("top", [1.0; 3], 8, 1.0, "dodge"),
     ]));
     let why = format!("{:?}", wrong.err().expect("an unknown mode is refused"));
-    assert!(why.contains("layers/1/blend_mode: expected one of normal, darken, multiply, add, lighten, screen, overlay, soft_light, hard_light, difference, hue, saturation, color, luminosity, stencil_alpha, stencil_luma."), "the reason names where and what is allowed: {why}");
+    assert!(why.contains("layers/1/blend_mode: expected one of normal, darken, multiply, color_burn, classic_color_burn, linear_burn, darker_color, add, lighten, screen, color_dodge, classic_color_dodge, lighter_color, overlay, soft_light, hard_light, linear_light, vivid_light, pin_light, hard_mix, difference, exclusion, subtract, divide, hue, saturation, color, luminosity, stencil_alpha, stencil_luma."), "the reason names where and what is allowed: {why}");
 }

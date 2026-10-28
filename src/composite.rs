@@ -118,6 +118,84 @@ pub fn blend_pixel_kept(
     out
 }
 
+/// B-800: how near a mode's hard edge counts as on it (a value of exactly 0 or 1, or Hard Mix's sum
+/// of exactly 1), so a few last bits of rounding never flip a pixel from black to white and the CPU
+/// and the card agree; After Effects' 8 bpc whole numbers land on the edge exactly.
+const EDGE: f64 = 1e-5;
+
+/// D-921: Color Dodge, on encoded `b` beneath and `s` the layer.
+fn dodge(b: f64, s: f64) -> f64 {
+    if b <= EDGE {
+        0.0
+    } else if s >= 1.0 - EDGE {
+        1.0
+    } else {
+        (b / (1.0 - s)).min(1.0)
+    }
+}
+
+/// D-921: Color Burn, on encoded `b` beneath and `s` the layer.
+fn burn(b: f64, s: f64) -> f64 {
+    if b >= 1.0 - EDGE {
+        1.0
+    } else if s <= EDGE {
+        0.0
+    } else {
+        1.0 - ((1.0 - b) / s).min(1.0)
+    }
+}
+
+/// D-921: the fourteen modes' per-channel rules (document 21), the colour beneath first.
+fn more_mixer(mode: BlendMode) -> Option<fn(f64, f64) -> f64> {
+    let f: fn(f64, f64) -> f64 = match mode {
+        BlendMode::ColorDodge | BlendMode::ClassicColorDodge => dodge,
+        BlendMode::ColorBurn => burn,
+        BlendMode::ClassicColorBurn => |b, s| if s <= EDGE { b } else { burn(b, s) },
+        BlendMode::LinearBurn => |b, s| (b + s - 1.0).max(0.0),
+        BlendMode::LinearLight => |b, s| (b + 2.0 * s - 1.0).clamp(0.0, 1.0),
+        BlendMode::VividLight => |b, s| {
+            if s <= 0.5 {
+                burn(b, 2.0 * s)
+            } else {
+                dodge(b, 2.0 * s - 1.0)
+            }
+        },
+        BlendMode::PinLight => |b, s| {
+            if s <= 0.5 {
+                b.min(2.0 * s)
+            } else {
+                b.max(2.0 * s - 1.0)
+            }
+        },
+        BlendMode::HardMix => |b, s| if b + s >= 1.0 - EDGE { 1.0 } else { 0.0 },
+        BlendMode::Exclusion => |b, s| b + s - 2.0 * b * s,
+        BlendMode::Subtract => |b, s| (b - s).max(0.0),
+        BlendMode::Divide => |b, s| {
+            if s <= EDGE {
+                if b > EDGE { 1.0 } else { 0.0 }
+            } else {
+                (b / s).min(1.0)
+            }
+        },
+        _ => return None,
+    };
+    Some(f)
+}
+
+/// D-921: Darker Color and Lighter Color, the whole colour with the lower or higher W3C Lum, the
+/// colour beneath on a tie.
+fn more_whole(mode: BlendMode) -> Option<fn([f64; 3], [f64; 3]) -> [f64; 3]> {
+    fn lum(c: [f64; 3]) -> f64 {
+        0.3 * c[0] + 0.59 * c[1] + 0.11 * c[2]
+    }
+    let f: fn([f64; 3], [f64; 3]) -> [f64; 3] = match mode {
+        BlendMode::DarkerColor => |b, s| if lum(s) < lum(b) { s } else { b },
+        BlendMode::LighterColor => |b, s| if lum(s) > lum(b) { s } else { b },
+        _ => return None,
+    };
+    Some(f)
+}
+
 /// One pixel through document 21's "Blend modes", source over destination.
 ///
 /// The document's general equation, with `B` the mode's component-wise blend of the *straight*
@@ -195,8 +273,21 @@ pub fn blend_pixel_in(
     // D-748: Hue, Saturation, Color and Luminosity take the whole colour at once, by the W3C's
     // rules (D-730's, Turbulent Noise's), the colour beneath first.
     let whole = crate::grade::noise_whole(mode.as_str())
+        .or(more_whole(mode))
         .map(|f| f([0, 1, 2].map(|c| e(cd[c])), [0, 1, 2].map(|c| e(cs[c]))));
     let mut out = [0.0f32; 4];
+    // D-921 (our basis): a Classic mode scales the layer's encoded colour by its alpha first and
+    // lays the result at full weight wherever there is something beneath.
+    if let (BlendMode::ClassicColorDodge | BlendMode::ClassicColorBurn, Some(mix)) =
+        (mode, more_mixer(mode))
+    {
+        for c in 0..3 {
+            let b = d(mix(e(cd[c]), e(cs[c]) * a_s as f64)) as f32;
+            out[c] = (1.0 - a_d) * src[c] + a_d * b;
+        }
+        out[3] = a_s + a_d - a_s * a_d;
+        return out;
+    }
     for c in 0..3 {
         let b = match mode {
             BlendMode::Multiply => cs[c] * cd[c],
@@ -216,9 +307,26 @@ pub fn blend_pixel_in(
                 let mix = crate::grade::noise_mixer(mode.as_str());
                 d(mix(e(cd[c]), e(cs[c]))) as f32
             }
-            BlendMode::Hue | BlendMode::Saturation | BlendMode::Color | BlendMode::Luminosity => {
-                d(whole.expect("a whole-colour mode")[c]) as f32
+            BlendMode::Hue
+            | BlendMode::Saturation
+            | BlendMode::Color
+            | BlendMode::Luminosity
+            | BlendMode::DarkerColor
+            | BlendMode::LighterColor => d(whole.expect("a whole-colour mode")[c]) as f32,
+            BlendMode::ColorBurn
+            | BlendMode::LinearBurn
+            | BlendMode::ColorDodge
+            | BlendMode::LinearLight
+            | BlendMode::VividLight
+            | BlendMode::PinLight
+            | BlendMode::HardMix
+            | BlendMode::Exclusion
+            | BlendMode::Subtract
+            | BlendMode::Divide => {
+                let mix = more_mixer(mode).expect("a D-921 mode");
+                d(mix(e(cd[c]), e(cs[c]))) as f32
             }
+            BlendMode::ClassicColorBurn | BlendMode::ClassicColorDodge => unreachable!("handled above"),
             BlendMode::Normal | BlendMode::StencilAlpha | BlendMode::StencilLuma => {
                 unreachable!("handled above")
             }

@@ -157,10 +157,50 @@ fn decoded(c: vec3<f32>) -> vec3<f32> {
     return vec3(linear1(c.x), linear1(c.y), linear1(c.z));
 }
 
+// D-921: composite::dodge and burn, with its EDGE.
+const EDGE: f32 = 1e-5;
+
+fn dodge(b: f32, s: f32) -> f32 {
+    if b <= EDGE {
+        return 0.0;
+    }
+    if s >= 1.0 - EDGE {
+        return 1.0;
+    }
+    return min(1.0, b / (1.0 - s));
+}
+
+fn burn(b: f32, s: f32) -> f32 {
+    if b >= 1.0 - EDGE {
+        return 1.0;
+    }
+    if s <= EDGE {
+        return 0.0;
+    }
+    return 1.0 - min(1.0, (1.0 - b) / s);
+}
+
 // grade::noise_mixer, the backdrop `b` first: Overlay 4, Soft Light 5, Hard Light 6, Darken 7,
-// Lighten 8, Difference 9.
+// Lighten 8, Difference 9. D-921, composite::more_mixer: Color Burn 16, Classic Color Burn 17,
+// Linear Burn 18, Color Dodge 20, Classic Color Dodge 21, Linear Light 23, Vivid Light 24,
+// Pin Light 25, Exclusion 27, Subtract 28, Divide 29. Hard Mix, 26, is the CPU's (B-800).
 fn mixer(m: u32, b: f32, c: f32) -> f32 {
     switch m {
+        case 16u: { return burn(b, c); }
+        case 17u: { return select(burn(b, c), b, c <= EDGE); }
+        case 18u: { return max(0.0, b + c - 1.0); }
+        case 20u, 21u: { return dodge(b, c); }
+        case 23u: { return clamp(b + 2.0 * c - 1.0, 0.0, 1.0); }
+        case 24u: { return select(dodge(b, 2.0 * c - 1.0), burn(b, 2.0 * c), c <= 0.5); }
+        case 25u: { return select(max(b, 2.0 * c - 1.0), min(b, 2.0 * c), c <= 0.5); }
+        case 27u: { return b + c - 2.0 * b * c; }
+        case 28u: { return max(0.0, b - c); }
+        case 29u: {
+            if c <= EDGE {
+                return select(0.0, 1.0, b > EDGE);
+            }
+            return min(1.0, b / c);
+        }
         case 4u: { return select(1.0 - 2.0 * (1.0 - b) * (1.0 - c), 2.0 * b * c, b <= 0.5); }
         case 5u: {
             if c <= 0.5 {
@@ -211,8 +251,11 @@ fn set_sat(c: vec3<f32>, s: f32) -> vec3<f32> {
     return vec3(0.0);
 }
 
+// D-921: Darker Color 19 and Lighter Color 22, the colour beneath on a tie.
 fn whole(m: u32, b: vec3<f32>, s: vec3<f32>) -> vec3<f32> {
     switch m {
+        case 19u: { return select(b, s, lum(s) < lum(b)); }
+        case 22u: { return select(b, s, lum(s) > lum(b)); }
         case 10u: { return set_lum(set_sat(s, sat(b)), lum(b)); }
         case 11u: { return set_lum(set_sat(b, sat(s)), lum(b)); }
         case 12u: { return set_lum(s, lum(b)); }
@@ -224,9 +267,10 @@ fn whole(m: u32, b: vec3<f32>, s: vec3<f32>) -> vec3<f32> {
 // composite::blend_pixel_kept: the `(1-Ad)*Cs` term is taken back off and the alpha beneath kept.
 // B-748 (D-868): every mode: Normal 0, Multiply 1, Screen 2, Add 3, the encoded ones 4 to 13,
 // and the stencils, Alpha 14 and Luma 15, which keep what is under them by a share.
+// D-921: the mode number sits past bit 8, the fourteen more 16 to 29.
 fn blend(s: vec4<f32>, d: vec4<f32>) -> vec4<f32> {
     var out: vec4<f32>;
-    let mode = L.blend & 15u;
+    let mode = L.blend >> 8u;
     if mode == 14u {
         return d * s.w;
     }
@@ -237,6 +281,13 @@ fn blend(s: vec4<f32>, d: vec4<f32>) -> vec4<f32> {
     }
     if mode == 0u {
         out = s + d * (1.0 - s.w);
+    } else if mode == 17u || mode == 21u {
+        // D-921: a Classic mode, the layer's encoded colour scaled by its alpha, laid at full
+        // weight where there is something beneath.
+        let eb = encoded(straight(d));
+        let ec = encoded(straight(s)) * s.w;
+        let b = decoded(vec3(mixer(mode, eb.x, ec.x), mixer(mode, eb.y, ec.y), mixer(mode, eb.z, ec.z)));
+        out = vec4((1.0 - d.w) * s.xyz + d.w * b, s.w + d.w - s.w * d.w);
     } else {
         let cs = straight(s);
         let cd = straight(d);
@@ -245,7 +296,7 @@ fn blend(s: vec4<f32>, d: vec4<f32>) -> vec4<f32> {
             case 1u: { b = cs * cd; }
             case 2u: { b = cs + cd - cs * cd; }
             case 3u: { b = min(cs + cd, vec3(1.0)); }
-            case 10u, 11u, 12u, 13u: { b = decoded(whole(mode, encoded(cd), encoded(cs))); }
+            case 10u, 11u, 12u, 13u, 19u, 22u: { b = decoded(whole(mode, encoded(cd), encoded(cs))); }
             default: {
                 let eb = encoded(cd);
                 let ec = encoded(cs);
@@ -24952,6 +25003,15 @@ impl Gpu {
                 "D-874 draws Float's Normal, Multiply, Screen and Add on the card; B-748's other modes are drawn there in 8 and 16 bpc only.".into(),
             ));
         }
+        // B-800: Hard Mix turns each channel to 0 or 1 by a sum, so where the sum lands within the
+        // card's last bits of 1 the two would draw a pixel black and white; it stays the CPU's.
+        if plan.layers.iter().any(|l| l.blend == BlendMode::HardMix) {
+            return Some(on_cpu(
+                Severity::Info,
+                "The CPU drew this frame: a layer is in Hard Mix, which the GPU does not draw.".into(),
+                "B-800 leaves Hard Mix (D-921) to the CPU: its all-or-nothing edge cannot be matched on the card to the last bit.".into(),
+            ));
+        }
         // D-297: an adjustment layer in a blend mode other than normal is the CPU's.
         if plan
             .layers
@@ -25749,6 +25809,7 @@ impl Gpu {
                 });
                 let f = |v: f64| (v as f32).to_bits();
                 // B-748 (D-868): the shader's mode numbers, bit 32 for an 8 bpc sum; D-874: bit 64 for Float.
+                // D-921: the mode number from bit 8.
                 let blend = u32::from(plan.float) << 6
                     | u32::from(plan.display) << 5
                     | u32::from(layer.preserve) << 4
@@ -25769,7 +25830,21 @@ impl Gpu {
                         BlendMode::Luminosity => 13,
                         BlendMode::StencilAlpha => 14,
                         BlendMode::StencilLuma => 15,
-                    };
+                        BlendMode::ColorBurn => 16,
+                        BlendMode::ClassicColorBurn => 17,
+                        BlendMode::LinearBurn => 18,
+                        BlendMode::DarkerColor => 19,
+                        BlendMode::ColorDodge => 20,
+                        BlendMode::ClassicColorDodge => 21,
+                        BlendMode::LighterColor => 22,
+                        BlendMode::LinearLight => 23,
+                        BlendMode::VividLight => 24,
+                        BlendMode::PinLight => 25,
+                        BlendMode::HardMix => 26,
+                        BlendMode::Exclusion => 27,
+                        BlendMode::Subtract => 28,
+                        BlendMode::Divide => 29,
+                    } << 8;
                 let mut numbers = [
                     f(s0.0),
                     f(s0.1),

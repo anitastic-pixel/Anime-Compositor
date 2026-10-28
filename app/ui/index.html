@@ -5540,9 +5540,11 @@ function labelLayers(n) {
 // W-25: the blend modes the renderer draws, set on every selected layer as one entry to undo.
 // D-301: and four more from After Effects.
 // D-748: the core's BlendMode::ALL, in After Effects' order (tests/b627_layer_blend_modes.rs checks).
-const BLENDS = ['normal', 'darken', 'multiply', 'add', 'lighten', 'screen', 'overlay', 'soft_light', 'hard_light',
-  'difference', 'hue', 'saturation', 'color', 'luminosity', 'stencil_alpha', 'stencil_luma'];
-const blendName = (mode) => (mode[0].toUpperCase() + mode.slice(1)).replace('_', ' ');
+// D-921: fourteen more; each word capitalised as After Effects names it, and Add is shown as
+// Add (Linear Dodge), its saved word still add.
+const BLENDS = ['normal', 'darken', 'multiply', 'color_burn', 'classic_color_burn', 'linear_burn', 'darker_color', 'add', 'lighten', 'screen', 'color_dodge', 'classic_color_dodge', 'lighter_color', 'overlay', 'soft_light', 'hard_light', 'linear_light', 'vivid_light', 'pin_light', 'hard_mix',
+  'difference', 'exclusion', 'subtract', 'divide', 'hue', 'saturation', 'color', 'luminosity', 'stencil_alpha', 'stencil_luma'];
+const blendName = (mode) => mode === 'add' ? 'Add (Linear Dodge)' : mode.split('_').map((w) => w[0].toUpperCase() + w.slice(1)).join(' ');
 
 // B-24c: D-77's five mask modes, in the order that document 19 writes them.
 const MASK_MODES = ['add', 'subtract', 'intersect', 'difference', 'none'];
