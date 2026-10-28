@@ -221,3 +221,68 @@ fn b826_parent_and_matte_on_every_chosen_layer() {
         &rows,
     );
 }
+
+/// D-947 / B-827: every number field takes a sum, and +, * or / first works on the value there.
+#[test]
+fn b827_sums_in_number_fields() {
+    let mut rows: Rows = Vec::new();
+    let cases: &[(&str, f64, &str)] = &[
+        ("+400", 960.0, "1360"),
+        ("-400", 960.0, "-400"),
+        ("960-400", 960.0, "560"),
+        ("*2", 960.0, "1920"),
+        ("/2", 960.0, "480"),
+        ("+ 400", 960.0, "1360"),
+        ("2*(3+4)", 0.0, "14"),
+        ("1+2*3", 0.0, "7"),
+        ("-(5-8)", 0.0, "3"),
+        ("+10", -5.0, "5"),
+        ("*-1", 30.0, "-30"),
+        ("12.5", 3.0, "12.5"),
+        (".5", 3.0, "0.5"),
+        ("1e3", 0.0, "1000"),
+        ("/0", 5.0, "not taken"),
+        ("abc", 5.0, "not taken"),
+        ("2+", 5.0, "not taken"),
+        ("(2", 5.0, "not taken"),
+        ("alert(1)", 5.0, "not taken"),
+        ("", 5.0, "not taken"),
+    ];
+    let js: Vec<String> = cases
+        .iter()
+        .map(|(t, now, _)| format!("[{}, {now}]", serde_json::to_string(t).expect("text")))
+        .collect();
+    let said = node(
+        "B-827",
+        "typedSum",
+        &format!(
+            "out([{}].map(([t, now]) => {{ const v = typedSum(t, now); \
+             return Number.isFinite(v) ? String(Math.round(v * 1e6) / 1e6) : 'not taken'; }}));",
+            js.join(", ")
+        ),
+    );
+    for ((text, now, want), got) in cases.iter().zip(said.as_array().expect("a list")) {
+        rows.push((
+            format!("`{text}` typed over {now}"),
+            want.to_string(),
+            got.as_str().unwrap_or("?").to_string(),
+        ));
+    }
+    pins(
+        &mut rows,
+        &[(
+            "the one number field every panel uses reads what is typed through typedSum",
+            "      const said = typedSum(box.value, held); // D-947",
+        )],
+    );
+    table(
+        "B-827_typed_sums_table.md",
+        "B-827: sums typed into number fields (D-947)",
+        "b827_sums_in_number_fields",
+        "Each row runs the page's own `typedSum` under Node: the text typed, the value the field \
+         held, and the number it becomes (\"not taken\" leaves the field as it was). The last row \
+         pins that `scrubValue`, the number field every panel uses, reads through it. The \
+         private-app check is `verification/B-827_private_app_table.md`.",
+        &rows,
+    );
+}

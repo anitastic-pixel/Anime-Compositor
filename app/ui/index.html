@@ -8991,6 +8991,40 @@ const SUFFIX = { rotation: '\u00b0', opacity: '%', depth: ' px', zoom: ' mm', ti
 // the arithmetic a drag does.
 const number = (n) => String(Math.round(n * 1e6) / 1e6);
 
+// ---- B-827 begin
+// D-947: a number field takes a sum, as After Effects' do: "960-400" or "2*(3+4)" is worked out,
+// and one that starts with +, * or / works on the value already there ("+400", "*2", "/2"). A
+// leading - is a negative number, as in After Effects. Anything else is not a number (NaN), which
+// the field leaves as it was. Read by hand, never by eval.
+function typedSum(text, now) {
+  let s = String(text).replace(/\s+/g, '');
+  if (/^[+*/]/.test(s)) s = '(' + now + ')' + s;
+  let i = 0;
+  const peek = () => s[i];
+  const atom = () => {
+    if (peek() === '+' || peek() === '-') { const sign = s[i++] === '-' ? -1 : 1; return sign * atom(); }
+    if (peek() === '(') { i++; const v = sum(); if (s[i++] !== ')') return NaN; return v; }
+    const m = /^(\d+\.?\d*|\.\d+)(e[+-]?\d+)?/i.exec(s.slice(i));
+    if (!m) return NaN;
+    i += m[0].length;
+    return Number(m[0]);
+  };
+  const product = () => {
+    let v = atom();
+    while (peek() === '*' || peek() === '/') v = s[i++] === '*' ? v * atom() : v / atom();
+    return v;
+  };
+  const sum = () => {
+    let v = product();
+    while (peek() === '+' || peek() === '-') v = s[i++] === '+' ? v + product() : v - product();
+    return v;
+  };
+  if (!s) return NaN;
+  const v = sum();
+  return i === s.length ? v : NaN;
+}
+// ---- B-827 end
+
 // The one number this window draws: blue, dragged left and right, pressed to be typed into,
 // and moved by the arrow keys for anyone without a mouse. Every value a person can change goes
 // through here -- the transform rows in the inspector and on the timeline, an effect's
@@ -9048,7 +9082,7 @@ function scrubValue({ value, suffix = '', title, label, step = 1, whole = false,
     box.select();
     const leave = (cancelled, back) => {
       if (!box) return;
-      const said = Number(box.value);
+      const said = typedSum(box.value, held); // D-947
       const take = !cancelled && box.value.trim() !== '' && Number.isFinite(said);
       box = null;
       dragging = false;
