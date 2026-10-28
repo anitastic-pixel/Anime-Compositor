@@ -334,7 +334,8 @@ def main():
         proj_copy = work / project.name
         shutil.copy2(project, proj_copy)
         env = dict(os.environ, WEBVIEW2_USER_DATA_FOLDER=str(work / "webview"),
-                   WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=f"--remote-debugging-port={port}")
+                   WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=f"--remote-debugging-port={port}",
+                   ANIME_COMPOSITOR_BACKGROUND="1")
         proc = subprocess.Popen([str(exe_copy), str(proj_copy)], cwd=work, env=env)
         page = open_page(port, 60)
         t0 = time.time()

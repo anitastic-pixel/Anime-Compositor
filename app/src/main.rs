@@ -16384,7 +16384,16 @@ fn open_window(app: &AppHandle) -> tauri::Result<()> {
         let saved = window_file(app)
             .and_then(|f| std::fs::read_to_string(f).ok())
             .and_then(|t| placement_from_text(&t));
-        let p = placement_on_screen(saved, &areas, main);
+        let mut p = placement_on_screen(saved, &areas, main);
+        // Checking tools set this so a copy they start never shows up on the person's screen: the
+        // window is made, at the main display's size, just past the right edge of every display,
+        // never focused and kept off the taskbar. It still draws there; a minimized one would not.
+        let background = std::env::var_os("ANIME_COMPOSITOR_BACKGROUND").is_some();
+        if background {
+            let right = areas.iter().map(|a| a.0 + a.2 as i32).max().unwrap_or(main.0 + main.2 as i32);
+            p = Placement { x: right + 200, y: main.1, width: main.2, height: main.3, maximized: false };
+            window = window.focused(false).skip_taskbar(true);
+        }
         // The builder takes points: the display the window opens on says how many pixels one is.
         let scale = monitors
             .iter()
