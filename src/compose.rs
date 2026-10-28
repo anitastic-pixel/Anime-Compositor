@@ -4379,6 +4379,47 @@ fn resolve_rest(
             .with_remediation("Precompose the layers to blur and put CC Force Motion Blur on the composition layer."),
         );
     }
+    // D-922: the Layer Styles run after every effect, Inner Shadows before Drop Shadows, each in
+    // its listed order; one with Use Global Light on takes the composition's angle. A Drop
+    // Shadow's mode is drawn as Normal, said once a frame where that changes its pixels.
+    effects.sort_by_key(|i| match i.effect {
+        crate::effects::Effect::LayerStyle { inner: true, .. } => 1,
+        crate::effects::Effect::LayerStyle { .. } => 2,
+        _ => 0,
+    });
+    let mut drop_mode = None;
+    for i in effects.iter_mut().filter(|i| i.enabled && i.is_valid()) {
+        if let crate::effects::Effect::LayerStyle {
+            inner,
+            blend_mode,
+            color,
+            use_global_light,
+            angle,
+            ..
+        } = &mut i.effect
+        {
+            if use_global_light == "on" {
+                *angle = comp.global_light;
+            }
+            let same = blend_mode == "normal" || (blend_mode == "multiply" && color == "#000000");
+            if !*inner && !same && drop_mode.is_none() {
+                drop_mode = Some(blend_mode.clone());
+            }
+        }
+    }
+    if let Some(mode) = drop_mode {
+        log.record(
+            frame,
+            layer.name.clone(),
+            Diagnostic::new(
+                DiagnosticId::ProjectFeatureUnsupported,
+                Severity::Info,
+                format!("Layer {}'s Drop Shadow layer style is in {mode}, drawn here as Normal.", layer.name),
+                format!("D-922: a Layer Style Drop Shadow is laid behind the layer in Normal; frame {frame} draws it so. The mode is kept as it is."),
+            )
+            .with_remediation("Set the Drop Shadow's blend mode to Normal, or Multiply with black, to see it as it will be drawn."),
+        );
+    }
 
     // D-191: each layer setting's map, made at the size the effects run at. An adjustment
     // layer's are made where its stack runs, on the frame.

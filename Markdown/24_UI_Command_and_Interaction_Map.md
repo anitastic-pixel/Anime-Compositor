@@ -20,6 +20,7 @@ Every state-changing UI action invokes a stable command ID through the command l
 | composition.set_settings | Change the composition's name, size, frame rate and length | Ctrl+K | yes |
 | composition.set_motion_blur | Turn the composition's motion blur on or off, or set its shutter angle, phase and samples, as one step of history (D-188; in the window since B-124b, 2026-09-28) | none | yes |
 | composition.set_frame_blending | Turn the composition's frame blending on or off; off until the user turns it on (D-216; in the window since B-150b, 2026-09-29) | none | yes |
+| composition.set_global_light | Set the composition's Global Light angle, which every Layer Style with Use Global Light on takes; 120 until the user sets it (D-922; in the window since B-801, 2026-10-27) | none | yes |
 | composition.duplicate | Copy a composition with its layers, and show the copy | none | yes |
 | composition.delete | Delete a composition; the last one in a project is kept, and one a composition layer uses is refused (D-67) | none | yes |
 | edit.undo | Undo latest command | Ctrl+Z | control |

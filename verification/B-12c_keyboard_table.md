@@ -51,6 +51,7 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | `composition.duplicate` can be asked for without a mouse | yes | yes | pass |
 | `composition.open` can be asked for without a mouse | yes | yes | pass |
 | `composition.set_frame_blending` can be asked for without a mouse | yes | yes | pass |
+| `composition.set_global_light` can be asked for without a mouse | yes | yes | pass |
 | `composition.set_motion_blur` can be asked for without a mouse | yes | yes | pass |
 | `composition.set_settings` can be asked for without a mouse | yes | yes | pass |
 | `curve` can be asked for without a mouse | yes | yes | pass |
@@ -227,4 +228,4 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | dragging a property's pick whip onto another property is not the only way to link one to the other | true | true | pass |
 | dragging a layer's pick whip onto another layer is not the only way to make that layer its parent | true | true | pass |
 
-**197 of 197 checks pass.**
+**198 of 198 checks pass.**

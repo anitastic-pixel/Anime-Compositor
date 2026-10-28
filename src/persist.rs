@@ -226,6 +226,8 @@ const KEY_ORDER: &[&str] = &[
     "eight_bpc",
     // D-333.
     "ae_32bpc",
+    // D-922.
+    "global_light_angle",
     // D-323.
     "time_remap",
 ];
@@ -1858,6 +1860,31 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             if shadow_only != "off" || params.contains_key("shadow_only") {
                 params.insert("shadow_only".into(), J::from(shadow_only.as_str()));
             }
+        }
+        Effect::LayerStyle {
+            inner,
+            blend_mode,
+            color,
+            opacity,
+            use_global_light,
+            angle,
+            distance,
+            spread,
+            size,
+            noise,
+        } => {
+            params.insert("blend_mode".into(), J::from(blend_mode.as_str()));
+            params.insert("color".into(), J::from(color.as_str()));
+            params.insert("opacity".into(), num(*opacity));
+            params.insert("use_global_light".into(), J::from(use_global_light.as_str()));
+            params.insert("angle".into(), num(*angle));
+            params.insert("distance".into(), num(*distance));
+            params.insert(
+                if *inner { "choke" } else { "spread" }.into(),
+                num(*spread),
+            );
+            params.insert("size".into(), num(*size));
+            params.insert("noise".into(), num(*noise));
         }
         Effect::LensBlur {
             radius,
@@ -7843,6 +7870,12 @@ fn composition_json(base: Option<&J>, composition: &Composition) -> J {
     } else if let Some(map) = merged.as_object_mut() {
         map.remove("ae_32bpc");
     }
+    // D-922: written only when not 120.
+    if composition.global_light != 120.0 {
+        merged["global_light_angle"] = num(composition.global_light);
+    } else if let Some(map) = merged.as_object_mut() {
+        map.remove("global_light_angle");
+    }
     // D-261: written only when there are some or the file had the key.
     if !composition.sketches.is_empty() || base.is_some_and(|b| b.get("sketches").is_some()) {
         merged["sketches"] = J::Array(composition.sketches.iter().map(sketch_json).collect());
@@ -8792,6 +8825,8 @@ fn parse_effect(
         crate::effects::HUE_SATURATION,
         crate::effects::GRADIENT,
         crate::effects::DROP_SHADOW,
+        crate::effects::STYLE_INNER_SHADOW,
+        crate::effects::STYLE_DROP_SHADOW,
         crate::effects::LENS_BLUR,
         crate::effects::RIM_LIGHT,
         crate::effects::OUTLINE,
@@ -9359,6 +9394,22 @@ fn parse_effect(
             // D-760: a file from before it is off, which draws as it did.
             shadow_only: effect_word_or(params, "shadow_only", at, "off")?,
         }),
+        // D-922: the colour is read in small letters, as a new colour is.
+        crate::effects::STYLE_INNER_SHADOW | crate::effects::STYLE_DROP_SHADOW => {
+            let inner = type_id == crate::effects::STYLE_INNER_SHADOW;
+            Some(crate::effects::Effect::LayerStyle {
+                inner,
+                blend_mode: effect_word(params, "blend_mode", at)?,
+                color: effect_word(params, "color", at)?.to_ascii_lowercase(),
+                opacity: effect_number(params, "opacity", at)?,
+                use_global_light: effect_word(params, "use_global_light", at)?,
+                angle: effect_number(params, "angle", at)?,
+                distance: effect_number(params, "distance", at)?,
+                spread: effect_number(params, if inner { "choke" } else { "spread" }, at)?,
+                size: effect_number(params, "size", at)?,
+                noise: effect_number(params, "noise", at)?,
+            })
+        }
         crate::effects::LENS_BLUR => Some(crate::effects::Effect::LensBlur {
             radius: effect_number(params, "radius", at)?,
             edges: effect_word(params, "edges", at)?,
@@ -14537,6 +14588,15 @@ fn parse_composition(
         if composition.ae_32bpc && !composition.float_depth {
             return Err(invalid(&at, "false unless float_depth is true (D-333)"));
         }
+    }
+    // D-922.
+    if let Some(angle) = v.get("global_light_angle") {
+        let at = format!("{pointer}/global_light_angle");
+        let angle = angle
+            .as_f64()
+            .filter(|a| (-3600.0..=3600.0).contains(a))
+            .ok_or_else(|| invalid(&at, "a number from -3600 to 3600 (D-922)"))?;
+        composition.global_light = angle;
     }
     if let Some(sketches) = v.get("sketches") {
         let at = format!("{pointer}/sketches");

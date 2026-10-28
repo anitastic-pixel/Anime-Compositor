@@ -131,6 +131,200 @@ pub(crate) fn drop_shadow(
     g
 }
 
+/// D-922: a Layer Style's shadow offset, away from the light at `angle` degrees counter-clockwise
+/// from the right, `distance` pixels, y down; a whole step at a quarter turn.
+pub(crate) fn style_offset(angle: f64, distance: f64) -> (f64, f64) {
+    let (ux, uy) = match angle.rem_euclid(360.0) {
+        a if a == 0.0 => (-1.0, 0.0),
+        a if a == 90.0 => (0.0, 1.0),
+        a if a == 180.0 => (1.0, 0.0),
+        a if a == 270.0 => (0.0, -1.0),
+        _ => {
+            let t = angle.to_radians();
+            (-t.cos(), t.sin())
+        }
+    };
+    (distance * ux, distance * uy)
+}
+
+/// D-922: a Layer Style's noise at the layer's own whole pixel `(x, y)`, 0 to 1, the same every
+/// frame.
+pub(crate) fn style_grain(x: isize, y: isize) -> f64 {
+    let mut u = (x as u32).wrapping_mul(73856093) ^ (y as u32).wrapping_mul(19349663);
+    u ^= u >> 13;
+    u = u.wrapping_mul(0x5bd1e995);
+    u ^= u >> 15;
+    (u & 0xffffff) as f64 / 16777216.0
+}
+
+/// D-922: `row` read across the disc's run of half-width `hw` at each of `out_w` pixels, the
+/// least (`grow` false) or the most under it, transparent outside; output pixel `i` is the row's
+/// `i - grow_by`. Van Herk's blocks, so a pixel costs the same however wide the run.
+fn run_pick(row: &[f32], hw: usize, out_w: usize, grow_by: usize, grow: bool) -> Vec<f32> {
+    let pick = |a: f32, b: f32| if grow { a.max(b) } else { a.min(b) };
+    let k = 2 * hw + 1;
+    let n = out_w + 2 * hw;
+    let padded: Vec<f32> = (0..n)
+        .map(|j| {
+            let x = j as isize - (hw + grow_by) as isize;
+            if x >= 0 && (x as usize) < row.len() {
+                row[x as usize]
+            } else {
+                0.0
+            }
+        })
+        .collect();
+    let mut fwd = padded.clone();
+    for j in 1..n {
+        if j % k != 0 {
+            fwd[j] = pick(fwd[j - 1], padded[j]);
+        }
+    }
+    let mut back = padded.clone();
+    for j in (0..n.saturating_sub(1)).rev() {
+        if j % k != k - 1 {
+            back[j] = pick(back[j + 1], padded[j]);
+        }
+    }
+    (0..out_w).map(|i| pick(back[i], fwd[i + k - 1])).collect()
+}
+
+/// D-922: the layer's covering eroded (`grow` false: the least under the disc of whole steps
+/// within `radius`) or dilated (the most, the layer grown by the disc's whole steps), transparent
+/// outside the layer, then blurred at `sigma`. Returns it and how far its pixel (0, 0) lies up
+/// and left of the layer's.
+fn shaped_covering(source: &WorkingBuffer, radius: f64, grow: bool, sigma: f64) -> (Covering, usize) {
+    let (w, h) = (source.width(), source.height());
+    let alpha: Vec<f32> = source.data().par_chunks_exact(4).map(|px| px[3]).collect();
+    let g = if grow { radius.floor().max(0.0) as usize } else { 0 };
+    let plane = if radius < 1.0 {
+        alpha
+    } else {
+        // ponytail: a row of the disc at a time, (2r+1) passes a pixel; a 2-D transform if
+        // large spreads on large layers are slow.
+        let runs = disc_runs(radius);
+        let (ow, oh) = (w + 2 * g, h + 2 * g);
+        let mut plane = vec![0.0f32; ow * oh];
+        plane.par_chunks_mut(ow).enumerate().for_each(|(oy, out)| {
+            let y = oy as isize - g as isize;
+            let mut first = true;
+            for &(dy, hw) in &runs {
+                let sy = y + dy;
+                if sy < 0 || sy >= h as isize {
+                    if !grow {
+                        out.iter_mut().for_each(|v| *v = 0.0);
+                        return;
+                    }
+                    continue;
+                }
+                let row = &alpha[sy as usize * w..(sy as usize + 1) * w];
+                let picked = run_pick(row, hw as usize, ow, g, grow);
+                for (o, p) in out.iter_mut().zip(picked) {
+                    *o = if first {
+                        p
+                    } else if grow {
+                        o.max(p)
+                    } else {
+                        o.min(p)
+                    };
+                }
+                first = false;
+            }
+        });
+        plane
+    };
+    let (pw, ph) = (w + 2 * g, h + 2 * g);
+    let (alpha, r) = blur_alpha(&plane, pw, ph, sigma);
+    (Covering { alpha, w: pw + 2 * r, h: ph + 2 * r }, g + r)
+}
+
+/// D-922: the Layer Styles' shared settings, already valid and at this frame: `color` linear, or
+/// display values in 8 bpc; `angle` is the light's, the comp's Global Light already put in; `base`
+/// is how far effects above grew the layer, so the noise stays on the layer's own pixels.
+pub(crate) struct StyleShadow {
+    pub color: [f64; 3],
+    pub opacity: f64,
+    pub angle: f64,
+    pub distance: f64,
+    pub spread: f64,
+    pub size: f64,
+    pub noise: f64,
+    pub base: (usize, usize),
+}
+
+/// D-922: Inner Shadow: the eroded, blurred covering moved away from the light, and where it does
+/// not reach, the colour laid on the layer in `mode`, keeping the layer's alpha. Never grows.
+pub(crate) fn inner_shadow(
+    source: &mut WorkingBuffer,
+    s: &StyleShadow,
+    mode: crate::model::BlendMode,
+    display: bool,
+) {
+    let p = s.spread / 100.0;
+    let (cov, reach) = shaped_covering(source, s.size * p, false, s.size * (1.0 - p) / 2.0);
+    let (dx, dy) = style_offset(s.angle, s.distance);
+    let w = source.width();
+    let reach = reach as f64;
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let (x, y) = ((i % w) as isize, (i / w) as isize);
+            let b = cov.at(x as f64 + reach + 0.5 - dx, y as f64 + reach + 0.5 - dy) as f64;
+            let k = (1.0 - b) * s.opacity / 100.0
+                * (1.0
+                    - s.noise / 100.0
+                        * style_grain(x - s.base.0 as isize, y - s.base.1 as isize));
+            let c = s.color;
+            let src = [(c[0] * k) as f32, (c[1] * k) as f32, (c[2] * k) as f32, k as f32];
+            let out = crate::composite::blend_pixel_kept(
+                mode,
+                src,
+                [px[0], px[1], px[2], px[3]],
+                false,
+                display,
+            );
+            px.copy_from_slice(&out);
+        });
+}
+
+/// D-922: Drop Shadow as a Layer Style: the dilated, blurred covering moved away from the light,
+/// in the colour, laid behind the layer. The layer grows by `ceil(distance)`, the disc's whole
+/// steps and the blur's reach on every side, returned.
+pub(crate) fn style_drop_shadow(source: &mut WorkingBuffer, s: &StyleShadow) -> usize {
+    let p = s.spread / 100.0;
+    let (cov, reach) = shaped_covering(source, s.size * p, true, s.size * (1.0 - p) / 2.0);
+    let (dx, dy) = style_offset(s.angle, s.distance);
+    let g = s.distance.ceil() as usize + reach;
+    let ow = source.width() + 2 * g;
+    let mut out = WorkingBuffer::transparent(ow, source.height() + 2 * g);
+    let drawing = &*source;
+    let reach = reach as f64;
+    out.data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let (x, y) = (
+                (i % ow) as isize - g as isize,
+                (i / ow) as isize - g as isize,
+            );
+            let b = cov.at(x as f64 + reach + 0.5 - dx, y as f64 + reach + 0.5 - dy) as f64;
+            let k = b * s.opacity / 100.0
+                * (1.0
+                    - s.noise / 100.0
+                        * style_grain(x - s.base.0 as isize, y - s.base.1 as isize));
+            let d = at(drawing, x, y);
+            let rest = k * (1.0 - d[3] as f64);
+            for j in 0..3 {
+                px[j] = (d[j] as f64 + s.color[j] * rest) as f32;
+            }
+            px[3] = (d[3] as f64 + rest) as f32;
+        });
+    *source = out;
+    g
+}
+
 /// D-211: Radial Shadow's light in the buffer, how much the cast is scaled up about it, and how
 /// far the cast grows across and down before its blur. B-151: the card casts the same way.
 pub(crate) fn radial_cast(

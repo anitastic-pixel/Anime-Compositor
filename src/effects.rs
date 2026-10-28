@@ -895,6 +895,25 @@ pub enum Effect {
         softness: f64,
         shadow_only: String,
     },
+    /// D-922: a Layer Style, After Effects' Inner Shadow (`inner`, `core.style_inner_shadow`) or
+    /// Drop Shadow (`core.style_drop_shadow`). `blend_mode`, a layer mode's word but the stencils,
+    /// `color`, `#rrggbb`, and `use_global_light`, "on" or "off", kept as written so a wrong one is
+    /// reported; `opacity`, 0 to 100; `angle`, -3600 to 3600 degrees counter-clockwise from the
+    /// right, where the light comes from; `distance`, 0 to 1000; `spread`, the file's `choke` on an
+    /// Inner Shadow, 0 to 100; `size`, 0 to 250; `noise`, 0 to 100. Always run after the layer's
+    /// effects (compose sorts them last).
+    LayerStyle {
+        inner: bool,
+        blend_mode: String,
+        color: String,
+        opacity: f64,
+        use_global_light: String,
+        angle: f64,
+        distance: f64,
+        spread: f64,
+        size: f64,
+        noise: f64,
+    },
     /// D-116: `radius`, 0 to 200 pixels, and `edges`, "transparent" or "repeat", kept as
     /// written so a wrong one is reported. D-121: `iris`, "circle" or "triangle" to "decagon",
     /// kept as written; `roundness`, 0 to 100; `rotation`, -3600 to 3600 degrees clockwise from
@@ -4850,6 +4869,17 @@ pub const LEVELS_PLAIN: [f64; 5] = [0.0, 255.0, 1.0, 0.0, 255.0];
 pub const HUE_SATURATION: &str = "core.hue_saturation";
 pub const GRADIENT: &str = "core.gradient";
 pub const DROP_SHADOW: &str = "core.drop_shadow";
+pub const STYLE_INNER_SHADOW: &str = "core.style_inner_shadow";
+pub const STYLE_DROP_SHADOW: &str = "core.style_drop_shadow";
+
+/// D-922: a Layer Style's blend mode, any layer mode's word but the two stencils.
+pub fn style_mode(word: &str) -> Option<crate::model::BlendMode> {
+    use crate::model::BlendMode;
+    BlendMode::ALL
+        .into_iter()
+        .find(|m| m.as_str() == word)
+        .filter(|m| !matches!(m, BlendMode::StencilAlpha | BlendMode::StencilLuma))
+}
 pub const LENS_BLUR: &str = "core.lens_blur";
 pub const RIM_LIGHT: &str = "core.rim_light";
 pub const OUTLINE: &str = "core.outline";
@@ -7703,6 +7733,23 @@ impl Effect {
                 ("direction", vec![direction], -3600.0, 3600.0),
                 ("distance", vec![distance], 0.0, 1000.0),
                 ("softness", vec![softness], 0.0, 2000.0),
+            ],
+            Effect::LayerStyle {
+                inner,
+                opacity,
+                angle,
+                distance,
+                spread,
+                size,
+                noise,
+                ..
+            } => vec![
+                ("opacity", vec![opacity], 0.0, 100.0),
+                ("angle", vec![angle], -3600.0, 3600.0),
+                ("distance", vec![distance], 0.0, 1000.0),
+                (if *inner { "choke" } else { "spread" }, vec![spread], 0.0, 100.0),
+                ("size", vec![size], 0.0, 250.0),
+                ("noise", vec![noise], 0.0, 100.0),
             ],
             Effect::LensBlur {
                 radius,
@@ -11910,6 +11957,10 @@ impl Effect {
                 *distance = scale(*distance);
                 *softness = scale(*softness);
             }
+            Effect::LayerStyle { distance, size, .. } => {
+                *distance = scale(*distance);
+                *size = scale(*size);
+            }
             // D-211: the light is a share of the drawing and the distance a ratio; only the
             // softening is in pixels.
             Effect::RadialShadow { softness, .. } => *softness = scale(*softness),
@@ -11977,6 +12028,8 @@ impl Effect {
             Effect::HueSaturation { .. } => "Hue/Saturation",
             Effect::Gradient { .. } => "Gradient",
             Effect::DropShadow { .. } => "Drop Shadow",
+            Effect::LayerStyle { inner: true, .. } => "Inner Shadow",
+            Effect::LayerStyle { .. } => "Drop Shadow (Layer Style)",
             Effect::LensBlur { .. } => "Lens Blur",
             Effect::RimLight { .. } => "Rim Light",
             Effect::Outline { .. } => "Outline",
@@ -12266,6 +12319,8 @@ impl Effect {
             Effect::HueSaturation { .. } => HUE_SATURATION,
             Effect::Gradient { .. } => GRADIENT,
             Effect::DropShadow { .. } => DROP_SHADOW,
+            Effect::LayerStyle { inner: true, .. } => STYLE_INNER_SHADOW,
+            Effect::LayerStyle { .. } => STYLE_DROP_SHADOW,
             Effect::LensBlur { .. } => LENS_BLUR,
             Effect::RimLight { .. } => RIM_LIGHT,
             Effect::Outline { .. } => OUTLINE,
@@ -12700,6 +12755,19 @@ impl Effect {
             Effect::DropShadow {
                 distance, softness, ..
             } => distance.ceil() as usize + kernel_radius(*softness / 5.0),
+            // D-922: a drop shadow's move, its spread's disc and its blur's reach.
+            Effect::LayerStyle {
+                inner: false,
+                distance,
+                spread,
+                size,
+                ..
+            } => {
+                let p = spread / 100.0;
+                distance.ceil() as usize
+                    + (size * p).floor() as usize
+                    + kernel_radius(size * (1.0 - p) / 2.0)
+            }
             _ => 0,
         }
     }
@@ -13763,6 +13831,26 @@ impl Effect {
                     )
                 })
             }),
+            Effect::LayerStyle {
+                blend_mode,
+                color,
+                use_global_light,
+                ..
+            } => {
+                let name = self.name();
+                hex_fault(name, "colour", color)
+                    .or_else(|| {
+                        (!["on", "off"].contains(&use_global_light.as_str())).then(|| {
+                            format!("{name}'s use global light is \"on\" or \"off\", and this is \"{use_global_light}\".")
+                        })
+                    })
+                    .or_else(|| {
+                        (style_mode(blend_mode).is_none())
+                        .then(|| {
+                            format!("{name}'s blend mode is a layer mode but the stencils, and this is \"{blend_mode}\".")
+                        })
+                    })
+            }
             Effect::RadialShadow {
                 color,
                 render,
@@ -16483,6 +16571,42 @@ pub(crate) fn apply_stack_at(
                 });
                 ox += r;
                 oy += r;
+            }
+            // D-922: compose has already put the comp's Global Light in `angle` where it is on.
+            Effect::LayerStyle {
+                inner,
+                blend_mode,
+                color,
+                opacity,
+                angle,
+                distance,
+                spread,
+                size,
+                noise,
+                ..
+            } => {
+                let s = crate::layer_fx::StyleShadow {
+                    color: if display {
+                        encoded(color)
+                    } else {
+                        encoded(color).map(crate::grade::to_linear)
+                    },
+                    opacity: *opacity,
+                    angle: *angle,
+                    distance: *distance,
+                    spread: *spread,
+                    size: *size,
+                    noise: *noise,
+                    base: (ox, oy),
+                };
+                if *inner {
+                    let mode = style_mode(blend_mode).unwrap_or(crate::model::BlendMode::Multiply);
+                    crate::layer_fx::inner_shadow(source, &s, mode, display);
+                } else {
+                    let r = crate::layer_fx::style_drop_shadow(source, &s);
+                    ox += r;
+                    oy += r;
+                }
             }
             // D-211: the light is in per cent of the drawing's own box, however an effect above
             // grew it, and the layer grows to hold the shadow.
@@ -20819,7 +20943,10 @@ pub(crate) fn on_display(effect: &Effect, bits: Bits) -> bool {
     let mixes = bits == Bits::Eight
         && matches!(
             effect,
-            Effect::DropShadow { .. } | Effect::Fill { .. } | Effect::Mosaic { .. }
+            Effect::DropShadow { .. }
+                | Effect::Fill { .. }
+                | Effect::Mosaic { .. }
+                | Effect::LayerStyle { .. }
         );
     bits != Bits::Linear
         && (mixes

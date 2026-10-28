@@ -1955,6 +1955,10 @@
     <button data-run="Centre the selected layers"></button>
     <button data-run="Centre the anchor in the layer"></button>
     <button data-run="Fit the layer to the composition"></button>
+    <hr>
+    <button data-run="Layer style: Drop Shadow"></button>
+    <button data-run="Layer style: Inner Shadow"></button>
+    <button data-run="Global Light angle"></button>
   </div></span>
   <span class="mi"><button class="mt" aria-haspopup="menu" aria-expanded="false">Effect</button><div class="drop" role="menu" aria-label="Effect" hidden>
     <button data-run="Find an effect or preset"></button>
@@ -5728,6 +5732,10 @@ function paletteLines() {
     ['Centre the selected layers', 'Ctrl+Home', { key: 'Home', ctrlKey: true }],
     ['Centre the anchor in the layer', 'Ctrl+Alt+Home', { key: 'Home', ctrlKey: true, altKey: true }],
     ['Fit the layer to the composition', 'Ctrl+Alt+F', { key: 'f', code: 'KeyF', ctrlKey: true, altKey: true }],
+    // D-922: After Effects' Layer > Layer Styles, on every selected layer, and its Global Light.
+    ['Layer style: Drop Shadow', '', () => applyToLayers('core.style_drop_shadow', selection.filter((id) => takesEffects(layerById(id))))],
+    ['Layer style: Inner Shadow', '', () => applyToLayers('core.style_inner_shadow', selection.filter((id) => takesEffects(layerById(id))))],
+    ['Global Light angle', '', globalLightDialog],
     ['Key speed and influence', '', velocityDialog],
     ['Show effect controls', 'E', { key: 'e' }],
     ['Find an effect or preset', 'Ctrl+Space', fxConsole],
@@ -6451,8 +6459,12 @@ function layerGroups(comp, layer) {
     group('contents', 'Contents', () => [...indent(shapeRows(comp, layer), 1),
       ...tracks(propsOf(layer).filter((prop) => isGrad(prop) || isGroupNum(prop)), 1)]);
   }
-  const fx = propsOf(layer).filter(isFx);
+  // D-922: a Layer Style's keyed settings under Layer Styles, as After Effects groups them.
+  const styled = (prop) => /^core\.style_/.test((fxParts(layer, prop)[0] || {}).type_id || '');
+  const fx = propsOf(layer).filter((prop) => isFx(prop) && !styled(prop));
   if (fx.length) group('effects', 'Effects', () => tracks(fx, 1));
+  const styles = propsOf(layer).filter((prop) => isFx(prop) && styled(prop));
+  if (styles.length) group('styles', 'Layer Styles', () => tracks(styles, 1));
   if (layer.kind !== 'null') {
     group('blending', 'Blending', () => [
       plainRow(layer, 'Blend mode', [blendSelect(layer)], 1),
@@ -10390,6 +10402,9 @@ const EFFECT_NAMES = {
   'core.hue_saturation': 'Hue/Saturation',
   'core.gradient': 'Gradient',
   'core.drop_shadow': 'Drop Shadow',
+  // D-922: After Effects' Layer Styles, run after every effect.
+  'core.style_inner_shadow': 'Inner Shadow',
+  'core.style_drop_shadow': 'Drop Shadow (Layer Style)',
   'core.lens_blur': 'Lens Blur',
   'core.rim_light': 'Rim Light',
   'core.outline': 'Outline',
@@ -10684,6 +10699,7 @@ const EFFECT_GROUPS = [
     'core.paint_bucket', 'core.cell_pattern', 'core.stroke', 'core.write_on', 'core.scribble', 'core.vegas', 'core.energy_stroke', 'core.cc_ball_action', 'core.particle_space', 'core.particle_plane', 'core.particle_playground', 'core.particle_emitter', 'core.particle_grid', 'core.bubbles', 'core.drizzle', 'core.hair', 'core.mercury', 'core.polygon_shards', 'core.foam', 'core.scatterize', 'core.star_burst']],
   ['Stylize', ['core.drop_shadow', 'core.radial_shadow', 'core.halftone', 'core.mosaic', 'core.emboss', 'core.bevel_alpha', 'core.bevel_edges', 'core.glass', 'core.find_edges',
     'core.posterize', 'core.threshold', 'core.channel_threshold', 'core.threshold_rgb', 'core.solarize', 'core.kaleidoscope', 'core.roughen_edges', 'core.brush_strokes', 'core.cartoon', 'core.block_load', 'core.burn_film', 'core.hex_tile', 'core.mr_smoothie', 'core.plastic', 'core.repeat_tile', 'core.scatter', 'core.strobe_light', 'core.texturize', 'core.contour_paint', 'core.reduce_interlace_flicker']],
+  ['Layer Styles', ['core.style_drop_shadow', 'core.style_inner_shadow']],
   ['Camera & Lens', ['core.vignette', 'core.cc_vignette', 'core.chromatic_aberration', 'core.distance_gradation',
     'core.camera_shake', 'core.three_d_glasses', 'core.cc_spotlight', 'core.cc_cylinder', 'core.cc_environment', 'core.cc_sphere']],
   ['Time', ['core.echo', 'core.cc_wide_time', 'core.force_motion_blur', 'core.pixel_motion_blur', 'core.timewarp', 'core.time_difference', 'core.posterize_time', 'core.moment_map']],
@@ -10954,6 +10970,8 @@ const EFFECT_SEARCH = {
   'core.depth_key': 'depth key depth matte z zdepth exr render pass cut out near far fog',
   'core.glass': 'cc glass refraction refract lens bump map shockwave water ripple heat distortion bevel light',
   'core.drop_shadow': 'shade',
+  'core.style_inner_shadow': 'layer style inner shadow rim light edge glow photoshop global light choke',
+  'core.style_drop_shadow': 'layer style drop shadow photoshop global light spread',
   'core.halftone': 'dots screentone manga comic print',
   'core.mosaic': 'pixelate censor blocks',
   'core.emboss': 'relief',
@@ -10998,6 +11016,8 @@ const EFFECT_ABOUT = {
   'core.hue_saturation': 'Turns the colours around the colour wheel, and changes how strong and bright they are.',
   'core.gradient': 'Fills the layer with a blend between two colours.',
   'core.drop_shadow': 'Casts a soft shadow of the layer behind it.',
+  'core.style_inner_shadow': 'After Effects\' Inner Shadow layer style: a shadow inside the layer\'s edge, away from the light; in Add or Color Dodge with a bright colour it is a rim light. Always runs after the effects. Use Global Light takes the composition\'s angle (Layer menu).',
+  'core.style_drop_shadow': 'After Effects\' Drop Shadow layer style: the layer\'s shape, spread, blurred and moved away from the light, behind it. Always runs after the effects. Use Global Light takes the composition\'s angle (Layer menu).',
   'core.lens_blur': 'Out-of-focus blur like a real lens, with shaped bokeh highlights.',
   'core.rim_light': 'Lights one edge of the drawing, as a light from behind would.',
   'core.outline': 'Draws a coloured line around the drawing\'s shape.',
@@ -11367,6 +11387,19 @@ const EFFECT_PARAMS = {
     ['start_opacity', 'Start Opacity', 1, 0.5, '0 to 100'],
     ['end_opacity', 'End Opacity', 1, 0.5, '0 to 100']],
   // D-115, named as After Effects names them.
+  // D-922: After Effects' rows, Choke on an Inner Shadow where a Drop Shadow has Spread.
+  'core.style_inner_shadow': [['opacity', 'Opacity', 1, 0.5, 'per cent, 0 to 100'],
+    ['angle', 'Angle', 1, 1, 'degrees counter-clockwise from the right, where the light comes from; the Global Light\'s when Use Global Light is on', 'dial'],
+    ['distance', 'Distance', 1, 0.5, 'pixels, 0 to 1000'],
+    ['choke', 'Choke', 1, 0.5, 'per cent, 0 to 100'],
+    ['size', 'Size', 1, 0.5, 'pixels, 0 to 250'],
+    ['noise', 'Noise', 1, 0.5, 'per cent, 0 to 100']],
+  'core.style_drop_shadow': [['opacity', 'Opacity', 1, 0.5, 'per cent, 0 to 100'],
+    ['angle', 'Angle', 1, 1, 'degrees counter-clockwise from the right, where the light comes from; the Global Light\'s when Use Global Light is on', 'dial'],
+    ['distance', 'Distance', 1, 0.5, 'pixels, 0 to 1000'],
+    ['spread', 'Spread', 1, 0.5, 'per cent, 0 to 100'],
+    ['size', 'Size', 1, 0.5, 'pixels, 0 to 250'],
+    ['noise', 'Noise', 1, 0.5, 'per cent, 0 to 100']],
   'core.drop_shadow': [['opacity', 'Opacity', 1, 0.5, '0 to 100'],
     ['direction', 'Direction', 1, 1, 'degrees clockwise from up, -3600 to 3600', 'dial'],
     ['distance', 'Distance', 1, 0.5, 'pixels, 0 to 1000'],
@@ -13346,6 +13379,17 @@ const EFFECT_WORDS = {
   'core.drop_shadow': {
     choices: [['shadow_only', 'Shadow Only', [['off', 'Off'], ['on', 'On']]]],
     colours: [['color', 'Shadow Colour']],
+  },
+  // D-922: a layer mode but the stencils, and Use Global Light.
+  'core.style_inner_shadow': {
+    choices: [['blend_mode', 'Blend Mode', BLENDS.filter((m) => !m.startsWith('stencil')).map((m) => [m, blendName(m)])],
+      ['use_global_light', 'Use Global Light', [['on', 'On'], ['off', 'Off']]]],
+    colours: [['color', 'Color']],
+  },
+  'core.style_drop_shadow': {
+    choices: [['blend_mode', 'Blend Mode', BLENDS.filter((m) => !m.startsWith('stencil')).map((m) => [m, blendName(m)])],
+      ['use_global_light', 'Use Global Light', [['on', 'On'], ['off', 'Off']]]],
+    colours: [['color', 'Color']],
   },
   'core.lens_blur': {
     choices: [['iris', 'Iris Shape', [['circle', 'Circle'], ['triangle', 'Triangle'], ['square', 'Square'],
@@ -19613,6 +19657,14 @@ $('mbswitch').onclick = () => {
   const comp = composition();
   if (comp) command('/composition.set_motion_blur?enabled=' + !(comp.motion_blur && comp.motion_blur.enabled));
 };
+// D-922: the composition's Global Light angle, which each Layer Style with Use Global Light on takes.
+function globalLightDialog() {
+  const comp = composition();
+  if (!comp) return;
+  askName('Global Light angle', String(comp.global_light_angle ?? 120),
+    'Degrees counter-clockwise from the right, where the light comes from, -3600 to 3600. Every Layer Style with Use Global Light on takes it. Enter sets it, Esc leaves it.',
+    (text) => command('/composition.set_global_light?angle=' + encodeURIComponent(text)));
+}
 // D-216: frame blending for the composition, off until it is turned on.
 $('fbswitch').onclick = () => {
   const comp = composition();

@@ -26,7 +26,7 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | `doc.redo` is in the answer | present | present | pass |
 | `doc.solo` is in the answer | present | present | pass |
 | `doc.undo` is in the answer | present | present | pass |
-| the panels read 19 fields out of the composition on screen | true | true | pass |
+| the panels read 20 fields out of the composition on screen | true | true | pass |
 | `comp.ae_32bpc` is in the answer | present | present | pass |
 | `comp.background_color` is in the answer | present | present | pass |
 | `comp.camera` is in the answer | present | present | pass |
@@ -35,6 +35,7 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | `comp.float_depth` is in the answer | present | present | pass |
 | `comp.frame_blending` is in the answer | present | present | pass |
 | `comp.frame_rate` is in the answer | present | present | pass |
+| `comp.global_light_angle` is in the answer | present | present | pass |
 | `comp.height` is in the answer | present | present | pass |
 | `comp.id` is in the answer | present | present | pass |
 | `comp.layers` is in the answer | present | present | pass |
@@ -120,7 +121,7 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | the panel's `core.line_recolor` is an effect this build has | added | added | pass |
 | and the settings it sends for it - tolerance, colors, new_color - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.directional_blur` is an effect this build has | added | added | pass |
-| and the settings it sends for it - direction, length - are the ones the command reads | accepted | accepted | pass |
+| and the settings it sends for it - direction, length, taper - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.select_color` is an effect this build has | added | added | pass |
 | and the settings it sends for it - tolerance, colors, keep - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.line_width` is an effect this build has | added | added | pass |
@@ -391,6 +392,10 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | and the settings it sends for it - completion, center, intensity, direction, shape, color_from_source, color, reverse - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.halation` is an effect this build has | added | added | pass |
 | and the settings it sends for it - threshold, threshold_smooth, radius, amount, color, quality - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.style_inner_shadow` is an effect this build has | added | added | pass |
+| and the settings it sends for it - blend_mode, color, opacity, use_global_light, angle, distance, choke, size, noise - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.style_drop_shadow` is an effect this build has | added | added | pass |
+| and the settings it sends for it - blend_mode, color, opacity, use_global_light, angle, distance, spread, size, noise - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.channel_wipe` is an effect this build has | added | added | pass |
 | and the settings it sends for it - map_layer, fit, completion, softness, property, blur, invert - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.teeth_wipe` is an effect this build has | added | added | pass |
@@ -664,4 +669,4 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | the panel's `core.compressor` is an effect this build has | added | added | pass |
 | and the settings it sends for it - threshold, ratio, knee, attack, release, makeup, output_limit, auto_release - are the ones the command reads | accepted | accepted | pass |
 
-**643 of 643 checks pass.**
+**648 of 648 checks pass.**

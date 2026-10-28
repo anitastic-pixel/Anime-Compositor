@@ -223,6 +223,11 @@ pub enum Command {
         composition: Id,
         value: bool,
     },
+    /// D-922: the composition's Global Light angle, -3600 to 3600 degrees, 120 until it is set.
+    SetGlobalLight {
+        composition: Id,
+        angle: f64,
+    },
     /// Document 24's `sketch.set_layer`, D-261: a sketch layer made, or its name, whether it is
     /// shown and whether it covers the whole cut set. Its strokes are kept.
     SetSketchLayer {
@@ -663,6 +668,7 @@ impl Command {
             Command::SetLayerFrameBlend { .. } => "SET_LAYER_FRAME_BLEND",
             Command::SetDrawingDissolve { .. } => "SET_DRAWING_DISSOLVE",
             Command::SetFrameBlending { .. } => "SET_FRAME_BLENDING",
+            Command::SetGlobalLight { .. } => "SET_GLOBAL_LIGHT",
             Command::SetSketchLayer { .. } => "SET_SKETCH_LAYER",
             Command::RemoveSketchLayer { .. } => "REMOVE_SKETCH_LAYER",
             Command::AddSketchStroke { .. } => "ADD_SKETCH_STROKE",
@@ -860,6 +866,7 @@ impl Command {
                 true => "Turn on frame blending".to_string(),
                 false => "Turn off frame blending".to_string(),
             },
+            Command::SetGlobalLight { angle, .. } => format!("Set the Global Light angle to {angle}"),
             Command::SetSketchLayer { name, .. } => format!("Set sketch layer {name}"),
             Command::RemoveSketchLayer { .. } => "Delete a sketch layer".to_string(),
             Command::AddSketchStroke { stroke, .. } => match stroke.tool.as_str() {
@@ -1087,6 +1094,7 @@ impl Command {
             | Command::SetLayerFrameBlend { composition, .. }
             | Command::SetDrawingDissolve { composition, .. }
             | Command::SetFrameBlending { composition, .. }
+            | Command::SetGlobalLight { composition, .. }
             | Command::SetSketchLayer { composition, .. }
             | Command::RemoveSketchLayer { composition, .. }
             | Command::AddSketchStroke { composition, .. }
@@ -1154,6 +1162,7 @@ impl Command {
             | Command::SetSheetText { .. }
             | Command::SetMotionBlur { .. }
             | Command::SetFrameBlending { .. }
+            | Command::SetGlobalLight { .. }
             | Command::SetCompositionSettings { .. }
             | Command::SetColorView { .. }
             | Command::SetColorManagement { .. } => {}
@@ -1322,6 +1331,7 @@ impl Command {
                 | Command::SetCameraParent { .. }
                 | Command::SetMotionBlur { .. }
                 | Command::SetFrameBlending { .. }
+                | Command::SetGlobalLight { .. }
         )
     }
 
@@ -2818,6 +2828,15 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
         }
         Command::SetFrameBlending { value, .. } => {
             comp_mut(project, &comp_id)?.frame_blending = *value;
+        }
+        Command::SetGlobalLight { angle, .. } => {
+            if !angle.is_finite() || !(-3600.0..=3600.0).contains(angle) {
+                return Err(reject(
+                    "The Global Light angle is a number from -3600 to 3600 degrees.",
+                    "D-922: `global_light_angle` is -3600 to 3600.",
+                ));
+            }
+            comp_mut(project, &comp_id)?.global_light = *angle;
         }
         Command::SetSketchLayer {
             sketch,

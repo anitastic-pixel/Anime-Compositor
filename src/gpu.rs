@@ -13420,6 +13420,7 @@ macro_rules! not_fx {
             | crate::effects::Effect::PointControl { .. }
             | crate::effects::Effect::ColorControl { .. }
             | crate::effects::Effect::LayerControl { .. }
+            | crate::effects::Effect::LayerStyle { .. }
             | crate::effects::Effect::RadialBlur { .. }
             | crate::effects::Effect::ReduceInterlaceFlicker { .. }
             | crate::effects::Effect::RefineMatte { .. }

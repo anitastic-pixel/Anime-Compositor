@@ -99,6 +99,7 @@ const SENT: &[&str] = &[
     "composition.duplicate",
     "composition.open",
     "composition.set_frame_blending",
+    "composition.set_global_light",
     "composition.set_motion_blur",
     "composition.set_settings",
     "edit.redo",
@@ -616,6 +617,11 @@ const REACHED: &[(&str, &str)] = &[
     // D-216, accepted on 2026-09-29 and built by B-150b.
     (
         "composition.set_frame_blending",
+        "a command the window answers",
+    ),
+    // D-922, accepted on 2026-10-27 and built by B-801.
+    (
+        "composition.set_global_light",
         "a command the window answers",
     ),
     ("composition.duplicate", "a command the window answers"),
@@ -1639,6 +1645,8 @@ fn every_field_the_panels_read_is_in_the_answer_the_window_gives() {
         // B-150b: and D-216's four, each written only when not the default.
         "composition.set_frame_blending?enabled=true",
         "layer.toggle_frame_blend?layer=layer-3",
+        // B-801: and D-922's Global Light, written only when not 120.
+        "composition.set_global_light?angle=90",
         "layer.set_time_stretch?layer=layer-3&value=200",
         // D-323: and a Time Remap, written only when on.
         "layer.set_time_remap?layer=layer-3&on=1",
@@ -3809,6 +3817,35 @@ const EFFECT_KINDS: &[(&str, &[(&str, &str)])] = &[
             ("amount", "150"),
             ("color", "%23ffb040"),
             ("quality", "fast"),
+        ],
+    ),
+    // D-922: the Layer Styles' words and numbers.
+    (
+        "core.style_inner_shadow",
+        &[
+            ("blend_mode", "add"),
+            ("color", "%23ff8000"),
+            ("opacity", "50"),
+            ("use_global_light", "off"),
+            ("angle", "45"),
+            ("distance", "3"),
+            ("choke", "20"),
+            ("size", "6"),
+            ("noise", "10"),
+        ],
+    ),
+    (
+        "core.style_drop_shadow",
+        &[
+            ("blend_mode", "normal"),
+            ("color", "%232040a0"),
+            ("opacity", "60"),
+            ("use_global_light", "on"),
+            ("angle", "135"),
+            ("distance", "4"),
+            ("spread", "25"),
+            ("size", "8"),
+            ("noise", "0"),
         ],
     ),
     // D-511: the numbers, the centre and the shape.

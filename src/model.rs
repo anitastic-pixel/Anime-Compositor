@@ -1442,6 +1442,9 @@ pub struct Composition {
     /// averaging display values and Exposure working through a 2.2 curve. Only on with
     /// `float_depth`. Saved as `ae_32bpc` only when on.
     pub ae_32bpc: bool,
+    /// D-922: the Layer Styles' Global Light angle, degrees, 120 unless set. Saved as
+    /// `global_light_angle` only when not 120.
+    pub global_light: f64,
     layer_order: Vec<Id>,
     layers: BTreeMap<Id, Layer>,
 }
@@ -1606,6 +1609,7 @@ impl Composition {
             float_depth: false,
             eight_bpc: false,
             ae_32bpc: false,
+            global_light: 120.0,
             layer_order: Vec::new(),
             layers: BTreeMap::new(),
         }
