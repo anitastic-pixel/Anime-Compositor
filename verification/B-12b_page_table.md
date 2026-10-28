@@ -198,6 +198,7 @@ It also cannot see the shell routes actually working. `/save` is checked here on
 | the Leave it as it is control sends `media.relink` | true | true | pass |
 | the Value pick whip control sends `property.link` | true | true | pass |
 | the Parent pick whip control sends `layer.set_parent` | true | true | pass |
+| the Track matte pick whip control sends `layer.set_matte` | true | true | pass |
 | every control the script reaches for is one the markup defines | none missing | none missing | pass |
 
 **178 of 178 checks pass.**

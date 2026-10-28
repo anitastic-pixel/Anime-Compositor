@@ -430,7 +430,13 @@ const WIRING: &[(&str, &str, &str)] = &[
     (
         "Parent pick whip",
         "layer.set_parent",
-        "return ['Parent: ' + parent.name, '/layer.set_parent?layer=' + encodeURIComponent(layer.id)",
+        // D-946: the request is made for each chosen layer by `parentRequest`.
+        "return ['Parent: ' + parent.name, () => sendMany(layer, (l) => parentRequest(l, parent.id, frame, layers()))];",
+    ),
+    (
+        "Track matte pick whip",
+        "layer.set_matte",
+        "return ['Track matte: ' + parent.name, () => sendMany(layer, (l) => matteRequest(l, parent.id, only, layers()))];",
     ),
 ];
 

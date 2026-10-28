@@ -120,3 +120,104 @@ fn b825_shortcut_fixes() {
     );
 }
 
+/// D-946 / B-826: a parent or a track matte set with several layers chosen is set on all of them,
+/// as one entry to undo; a matte chosen where there was none is matte only (After Effects turns
+/// the matte layer's eye off); and the track matte has a pick whip.
+#[test]
+fn b826_parent_and_matte_on_every_chosen_layer() {
+    let mut rows: Rows = Vec::new();
+    let said = node(
+        "B-826",
+        "manyRequests, parentRequest, matteRequest, matteOnly",
+        "const all = [{ id: 'a' }, { id: 'b' }, { id: 'c' }, { id: 'p', parent: 'b' }, { id: 'm' },\n\
+                       { id: 's', kind: 'audio' }, { id: 'n', kind: 'null' }];\n\
+         const L = (id) => all.find((l) => l.id === id);\n\
+         const par = (on, chosen, to) => manyRequests(L(on), chosen, all, (l) => parentRequest(l, to, 12, all)).join(' ');\n\
+         const mat = (on, chosen, to) => manyRequests(L(on), chosen, all, (l) => matteRequest(l, to, true, all)).join(' ');\n\
+         out({\n\
+           three: par('a', ['a', 'c', 'b'], 'm'),\n\
+           alone: par('a', ['a'], 'm'),\n\
+           notChosen: par('a', ['b', 'c'], 'm'),\n\
+           withItself: par('a', ['a', 'm'], 'm'),\n\
+           loop: par('a', ['a', 'b'], 'p'),\n\
+           sound: par('a', ['a', 's'], 'm'),\n\
+           none: par('a', ['a', 'c'], ''),\n\
+           mattes: mat('a', ['a', 'c', 'm', 's'], 'm'),\n\
+           nullMatte: mat('a', ['a'], 'n'),\n\
+           firstMatte: matteOnly(null, 'm', false),\n\
+           changed: matteOnly({ layer_id: 'x', matte_only: false }, 'm', false),\n\
+           kept: matteOnly({ layer_id: 'x', matte_only: true }, 'm', true),\n\
+           cleared: matteOnly(null, '', false),\n\
+         });",
+    );
+    for (what, field, want) in [
+        ("parent M set on A with A, C, B chosen: all three, in the order chosen",
+         "three", "/layer.set_parent?layer=a&parent=m&frame=12 /layer.set_parent?layer=c&parent=m&frame=12 /layer.set_parent?layer=b&parent=m&frame=12"),
+        ("set on A chosen alone: A only", "alone", "/layer.set_parent?layer=a&parent=m&frame=12"),
+        ("set on A when A is not among the chosen: A only", "notChosen", "/layer.set_parent?layer=a&parent=m&frame=12"),
+        ("the parent itself among the chosen is left out", "withItself", "/layer.set_parent?layer=a&parent=m&frame=12"),
+        ("a chosen layer the parent rides on is left out (no loop)", "loop", "/layer.set_parent?layer=a&parent=p&frame=12"),
+        ("a sound among the chosen is left out", "sound", "/layer.set_parent?layer=a&parent=m&frame=12"),
+        ("None clears every chosen layer's parent", "none", "/layer.set_parent?layer=a&parent=&frame=12 /layer.set_parent?layer=c&parent=&frame=12"),
+        ("matte M on A, C, M and a sound: A and C", "mattes", "/layer.set_matte?layer=a&matte=m&only=true /layer.set_matte?layer=c&matte=m&only=true"),
+        ("a null is never a matte", "nullMatte", ""),
+    ] {
+        rows.push((what.into(), want.into(), said[field].as_str().unwrap_or("?").into()));
+    }
+    for (what, field, want) in [
+        ("a first matte is matte only (its eye off)", "firstMatte", "true"),
+        ("changing a matte keeps the tick as it was (off)", "changed", "false"),
+        ("changing a matte keeps the tick as it was (on)", "kept", "true"),
+        ("clearing a matte keeps the tick as it was", "cleared", "false"),
+    ] {
+        rows.push((what.into(), want.into(), said[field].to_string()));
+    }
+
+    // The window: layers given one parent as the page sends several are one entry to undo.
+    let viewer = Mutex::new(demo());
+    let depth = |v: &Mutex<Viewer>| v.lock().expect("lock").document.undo_depth();
+    let ids: Vec<String> = {
+        let held = viewer.lock().expect("lock");
+        let comp = held.document.project().composition(&held.composition).expect("comp");
+        comp.layers_in_order().map(|l| l.id.as_str().to_string()).collect()
+    };
+    let (parent, kids) = (&ids[0], &ids[1..ids.len().min(4)]);
+    let before = depth(&viewer);
+    for kid in kids {
+        edit_command(&viewer, "layer.set_parent", Some(&format!("layer={kid}&parent={parent}&frame=0&drag=1")));
+    }
+    edit_command(&viewer, "property.drag_end", None);
+    let set = {
+        let held = viewer.lock().expect("lock");
+        let comp = held.document.project().composition(&held.composition).expect("comp");
+        kids.iter()
+            .filter(|k| comp.layer(&Id::new(k.as_str())).is_some_and(|l| l.parent.as_ref().is_some_and(|p| p.as_str() == parent)))
+            .count()
+    };
+    rows.push((
+        format!("the window: {} layers given one parent with drag=1, then drag_end", kids.len()),
+        format!("{} parented, 1 entry to undo", kids.len()),
+        format!("{set} parented, {} entry to undo", depth(&viewer) - before),
+    ));
+
+    pins(
+        &mut rows,
+        &[
+            ("the Parent list sends for every chosen layer", "chooser.onchange = () => sendMany(layer, (l) => parentRequest(l, chooser.value, frame, layers()));"),
+            ("the Track matte list too, hiding a first matte", "chooser.onchange = () => { only.checked = matteOnly(held, chooser.value, only.checked); send(); };"),
+            ("several requests are one entry to undo", "for (const request of sends) await command(request + '&drag=1');"),
+            ("the track matte has a pick whip", "const pick = whip(layer, null, true);"),
+            ("which sends for every chosen layer", "return ['Track matte: ' + parent.name, () => sendMany(layer, (l) => matteRequest(l, parent.id, only, layers()))];"),
+            ("and so does the parent whip", "return ['Parent: ' + parent.name, () => sendMany(layer, (l) => parentRequest(l, parent.id, frame, layers()))];"),
+        ],
+    );
+    table(
+        "B-826_parent_and_matte_table.md",
+        "B-826: parent and track matte on every chosen layer, and a matte pick whip (D-946)",
+        "b826_parent_and_matte_on_every_chosen_layer",
+        "The first rows run the page's own `manyRequests`, `parentRequest`, `matteRequest` and \
+         `matteOnly` under Node on made-up layers; one row asks the real window; the rest pin the \
+         lines that wire them in. The private-app check is `verification/B-826_private_app_table.md`.",
+        &rows,
+    );
+}

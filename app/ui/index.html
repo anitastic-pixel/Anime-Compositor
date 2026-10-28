@@ -6671,13 +6671,15 @@ function propTrack(comp, layer, prop) {
 // table can see that a whip is a mouse's: the same links are typed into the expression box and
 // the same parents chosen from the Parent list.
 const WHIP_READS = ['anchor', 'position', 'scale', 'rotation', 'opacity', 'depth'];
-function whip(layer, prop) {
+// D-946: with `matte` it is the track matte's whip, beside the Track matte list.
+function whip(layer, prop, matte = false) {
   const b = document.createElement('button');
   b.type = 'button';
   b.className = 'whip';
   b.textContent = '@';
   b.title = prop
     ? 'Drag onto another property\'s row to make this ' + prop + ' expression read it'
+    : matte ? 'Drag onto another layer\'s row to make it ' + layer.name + '\'s track matte'
     : 'Drag onto another layer\'s row to make it ' + layer.name + '\'s parent';
   b.setAttribute('aria-label', b.title);
   b.onclick = (e) => e.stopPropagation();
@@ -6695,13 +6697,18 @@ function whip(layer, prop) {
         }
         const parent = layers().find((l) => l.id === id);
         if (!parent) return ['drop on a layer\'s row', null];
+        if (matte) {
+          if (parent.id === layer.id) return ['a layer cannot be its own matte', null];
+          if (parent.kind === 'audio' || parent.kind === 'null') return ['a ' + (parent.kind === 'null' ? 'null' : 'sound') + ' draws nothing to be a matte', null];
+          const only = matteOnly(layer.matte, parent.id, !!(layer.matte && layer.matte.matte_only));
+          return ['Track matte: ' + parent.name, () => sendMany(layer, (l) => matteRequest(l, parent.id, only, layers()))];
+        }
         if (parent.id === layer.id) return ['a layer cannot be its own parent', null];
         if (parent.kind === 'audio') return ['a sound cannot be a parent', null];
         for (let up = parent; up; up = layers().find((l) => l.id === up.parent)) {
           if (up.parent === layer.id) return [parent.name + ' rides on ' + layer.name + ', so that would be a loop', null];
         }
-        return ['Parent: ' + parent.name, '/layer.set_parent?layer=' + encodeURIComponent(layer.id)
-          + '&parent=' + encodeURIComponent(parent.id) + '&frame=' + frame];
+        return ['Parent: ' + parent.name, () => sendMany(layer, (l) => parentRequest(l, parent.id, frame, layers()))];
       }
       const to = li && li.dataset.prop;
       const owner = !to ? null : id === CAMERA_ROW ? cameraRow() : layers().find((l) => l.id === id);
@@ -6749,7 +6756,7 @@ function whip(layer, prop) {
       if (lit) lit.classList.remove('whiptarget');
       svg.remove();
       label.remove();
-      if (go && request) command(request);
+      if (go && request) (typeof request === 'function' ? request() : command(request));
     };
     // On the window rather than the spiral: the list may be redrawn under the drag, and the
     // spiral that held the pointer with it, and the hand must still be followed.
@@ -9674,6 +9681,44 @@ function propRow(into, layer, prop) {
   }
 }
 
+// ---- B-826 begin
+// D-946: a parent or a matte set on one of several chosen layers is set on every one of them, as
+// After Effects does; the layer it is set on is `layer`, and the others are `chosen`. Each layer
+// gets its own request, or none when that layer cannot take it (itself, a loop, a sound).
+function manyRequests(layer, chosen, all, make) {
+  const ids = chosen.length > 1 && chosen.includes(layer.id) ? chosen : [layer.id];
+  return ids.map((id) => all.find((l) => l.id === id)).filter(Boolean).map(make).filter(Boolean);
+}
+function ridesOn(up, l, all) {
+  for (; up; up = all.find((p) => p.id === up.parent)) if (up.id === l.id) return true;
+  return false;
+}
+function parentRequest(l, parentId, at, all) {
+  const parent = all.find((p) => p.id === parentId);
+  if (l.kind === 'audio' || (parent && (parent.kind === 'audio' || ridesOn(parent, l, all)))) return null;
+  return '/layer.set_parent?layer=' + encodeURIComponent(l.id) + '&parent=' + encodeURIComponent(parentId) + '&frame=' + at;
+}
+function matteRequest(l, matteId, only, all) {
+  const matte = all.find((m) => m.id === matteId);
+  if (l.kind === 'audio' || (matte && (matte.id === l.id || matte.kind === 'audio' || matte.kind === 'null'))) return null;
+  return '/layer.set_matte?layer=' + encodeURIComponent(l.id) + '&matte=' + encodeURIComponent(matteId) + '&only=' + only;
+}
+// After Effects turns the matte layer's eye off when a matte is first chosen: a layer that had no
+// matte and is given one is matte only; changing or clearing one keeps the tick as it was.
+function matteOnly(held, picked, ticked) {
+  return !held && picked ? true : ticked;
+}
+// ---- B-826 end
+// One request alone, or several as one entry to undo.
+function sendMany(layer, make) {
+  const sends = manyRequests(layer, selection, layers(), make);
+  if (sends.length < 2) return sends.length ? command(sends[0]) : null;
+  nudge = nudge.then(async () => {
+    for (const request of sends) await command(request + '&drag=1');
+    await command('/property.drag_end');
+  });
+}
+
 // Which layer shapes this one, and whether that layer is still drawn in its own right.
 //
 // Both travel in one request, because the core takes them in one command and document 19 holds
@@ -9694,9 +9739,10 @@ function matteControls(layer) {
     .filter((l) => l.id !== layer.id && l.kind !== 'audio' && l.kind !== 'null')
     .map((l) => new Option(l.name, l.id)));
   chooser.value = held ? held.layer_id : '';
-  const send = () => command('/layer.set_matte?layer=' + encodeURIComponent(layer.id)
-    + '&matte=' + encodeURIComponent(chooser.value) + '&only=' + only.checked);
-  chooser.onchange = send;
+  // D-946: every chosen layer takes the matte, and a matte chosen where there was none is hidden
+  // (matte only), as After Effects turns the matte layer's eye off.
+  const send = () => sendMany(layer, (l) => matteRequest(l, chooser.value, only.checked, layers()));
+  chooser.onchange = () => { only.checked = matteOnly(held, chooser.value, only.checked); send(); };
   only.onchange = send;
   chooser.className = 'blend';
   chooser.onclick = (e) => e.stopPropagation();
@@ -9704,7 +9750,8 @@ function matteControls(layer) {
   label.append(only, 'matte only');
   label.title = 'Keep the matte layer out of the visible stack';
   label.onclick = (e) => e.stopPropagation();
-  if (!held) return [chooser, ' ', label];
+  const pick = whip(layer, null, true);
+  if (!held) return [pick, ' ', chooser, ' ', label];
   // D-293: what of the matte covers, as After Effects' Track Matte mode.
   const mode = document.createElement('select');
   mode.className = 'blend';
@@ -9715,7 +9762,7 @@ function matteControls(layer) {
   mode.onclick = (e) => e.stopPropagation();
   mode.onchange = () => command('/layer.set_matte_mode?layer=' + encodeURIComponent(layer.id)
     + '&mode=' + mode.value);
-  return [chooser, ' ', mode, ' ', label];
+  return [pick, ' ', chooser, ' ', mode, ' ', label];
 }
 
 // D-57: which layer this one rides on. The frame goes with it because document 21 works the
@@ -9736,8 +9783,8 @@ function parentSelect(layer) {
   chooser.options[0].text = 'None';
   chooser.value = layer.parent || '';
   chooser.onclick = (e) => e.stopPropagation();
-  chooser.onchange = () => command('/layer.set_parent?layer=' + encodeURIComponent(layer.id)
-    + '&parent=' + encodeURIComponent(chooser.value) + '&frame=' + frame);
+  // D-946: every chosen layer takes the parent.
+  chooser.onchange = () => sendMany(layer, (l) => parentRequest(l, chooser.value, frame, layers()));
   return chooser;
 }
 
