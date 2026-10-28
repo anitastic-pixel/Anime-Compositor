@@ -543,3 +543,259 @@ fn b830_align_panel() {
         &rows,
     );
 }
+
+/// D-951 / B-831: New Comp from Selection: a composition the size and length of the chosen
+/// composition or drawings, holding it as its one layer, as one entry to undo.
+#[test]
+fn b831_new_comp_from_selection() {
+    let mut rows: Rows = Vec::new();
+    let said = node(
+        "B-831",
+        "newCompSteps",
+        "const comp = { id: 'c1', name: 'Shot 1', layers: [], width: 1280, height: 720, duration_frames: 48,\n\
+                        frame_rate: { numerator: 24000, denominator: 1001 } };\n\
+         out({\n\
+           comp: newCompSteps(comp, '24/1').join(' then '),\n\
+           seq: newCompSteps({ id: 'a1', name: 'Run', kind: 'image_sequence' }, '12/1').join(' then '),\n\
+           sound: newCompSteps({ id: 'a2', name: 'Voice', kind: 'audio' }, '24/1').length,\n\
+         });",
+    );
+    for (what, field, want) in [
+        (
+            "a composition: its own size, length and rate, then it as a layer, as one drag",
+            "comp",
+            "/composition.create?name=Shot%201&width=1280&height=720&frames=48&fps=24000/1001&drag=1 then \
+             /layer.add_composition?of=c1&drag=1 then /property.drag_end",
+        ),
+        (
+            "drawings: the app reads their size and count; the rate is the open composition's",
+            "seq",
+            "/composition.create?name=Run&footage=a1&fps=12/1&drag=1 then \
+             /layer.create?asset=a1&name=Run&drag=1 then /property.drag_end",
+        ),
+    ] {
+        rows.push((what.into(), want.into(), said[field].as_str().unwrap_or("?").into()));
+    }
+    rows.push(("a sound makes nothing".into(), "0".into(), said["sound"].to_string()));
+
+    // The window: the page's steps run as the page sends them.
+    let run = |viewer: &Mutex<Viewer>, steps: &[String]| {
+        for step in steps {
+            let (id, q) = step[1..].split_once('?').map_or((&step[1..], None), |(i, q)| (i, Some(q)));
+            edit_command(viewer, id, q);
+        }
+    };
+    let viewer = Mutex::new(demo());
+    let (asset, size, count, before, depth, shown) = {
+        let held = viewer.lock().expect("lock");
+        let project = held.document.project();
+        let asset = project.assets.iter().filter(|a| a.kind == AssetKind::ImageSequence).max_by_key(|a| a.frames.len()).expect("a sequence").clone();
+        let image = media::decode(&held.root.join(&asset.files()[0])).expect("decode");
+        let out = (
+            asset.clone(),
+            format!("{}x{}", image.width(), image.height()),
+            asset.frames.len(),
+            project.clone(),
+            held.document.undo_depth(),
+            held.composition.clone(),
+        );
+        out
+    };
+    let steps = vec![
+        format!("/composition.create?name={}&footage={}&fps=24/1&drag=1", asset.id.as_str(), asset.id.as_str()),
+        format!("/layer.create?asset={}&name=Run&drag=1", asset.id.as_str()),
+        "/property.drag_end".to_string(),
+    ];
+    run(&viewer, &steps);
+    let made = {
+        let held = viewer.lock().expect("lock");
+        let comp = held.document.project().composition(&held.composition).expect("the new composition");
+        let layers: Vec<&Layer> = comp.layers_in_order().collect();
+        let out = format!(
+            "{}x{}, {} frames, {} layer showing {}, {} entry",
+            comp.width,
+            comp.height,
+            comp.duration_frames,
+            layers.len(),
+            layers.first().map_or("nothing".to_string(), |l| l.asset_id.as_str().to_string()),
+            held.document.undo_depth() - depth,
+        );
+        out
+    };
+    rows.push((
+        "the window: New Comp from Selection on the reference shot's drawings".into(),
+        format!("{size}, {count} frames, 1 layer showing {}, 1 entry", asset.id.as_str()),
+        made,
+    ));
+    viewer.lock().expect("lock").document.undo();
+    let back = {
+        let held = viewer.lock().expect("lock");
+        let out = held.document.project().clone() == before;
+        out
+    };
+    rows.push(("one Ctrl+Z takes the composition and its layer away".into(), "true".into(), back.to_string()));
+
+    // A composition: the new one holds the shot as a layer, the shot's size and length.
+    let (w, h, frames) = {
+        let held = viewer.lock().expect("lock");
+        let c = held.document.project().composition(&shown).expect("the shot");
+        let out = (c.width, c.height, c.duration_frames);
+        out
+    };
+    run(
+        &viewer,
+        &[
+            format!("/composition.create?name=Shot&width={w}&height={h}&frames={frames}&fps=24/1&drag=1"),
+            format!("/layer.add_composition?of={}&drag=1", shown.as_str()),
+            "/property.drag_end".to_string(),
+        ],
+    );
+    let nested = {
+        let held = viewer.lock().expect("lock");
+        let comp = held.document.project().composition(&held.composition).expect("the new composition");
+        let out = format!(
+            "{} layers, the first a {:?}, {}",
+            comp.len(),
+            comp.layers_in_order().next().map(|l| l.kind),
+            held.composition != shown
+        );
+        out
+    };
+    rows.push((
+        "the window: from the open composition".into(),
+        "1 layers, the first a Some(Composition), true".into(),
+        nested,
+    ));
+    let refused = edit_command(&viewer, "composition.create", Some("footage=nothing-here")).unwrap_or_default();
+    rows.push((
+        "a drawing that is not there is refused".into(),
+        "true".into(),
+        refused.contains("Choose a drawing").to_string(),
+    ));
+    pins(
+        &mut rows,
+        &[
+            ("in a Project item's right-click menu", "[['New comp from selection', '', () => newCompFromSelection(id)]]"),
+            ("in the Composition menu", "<button data-run=\"New comp from selection\"></button>"),
+        ],
+    );
+    table(
+        "B-831_new_comp_from_selection_table.md",
+        "B-831: New Comp from Selection (D-951)",
+        "b831_new_comp_from_selection",
+        "The first rows run the page's own `newCompSteps` under Node on a made-up composition and \
+         two made-up items; the window rows send those steps to a real window on the reference \
+         shot; the rest pin the wiring. The private-app check is \
+         `verification/B-831_private_app_table.md`.",
+        &rows,
+    );
+}
+
+fn header(r: &Response<Vec<u8>>, name: &str) -> String {
+    r.headers().get(name).map_or_else(String::new, |v| v.to_str().unwrap_or("?").to_string())
+}
+
+/// D-952 / B-832: the viewer's resolution list, Full, Half, Third, Quarter and Auto, with Third
+/// drawn by the window at a third of the size each way.
+#[test]
+fn b832_resolution_list() {
+    let mut rows: Rows = Vec::new();
+    let said = node(
+        "B-832",
+        "RESOLUTIONS, resolutionShown, resolutionSet",
+        "out({\n\
+           names: RESOLUTIONS.map(([, n]) => n).join(', '),\n\
+           auto: JSON.stringify(resolutionSet('auto')), third: JSON.stringify(resolutionSet('third')),\n\
+           lit: [['full', false], ['full', true], ['half', false], ['third', true], ['draft', true]]\n\
+             .map(([q, f]) => resolutionShown(q, f)).join(', '),\n\
+         });",
+    );
+    for (what, field, want) in [
+        ("the list, as After Effects names it", "names", "Full, Half, Third, Quarter, Auto"),
+        ("Auto is Full drawn at the size shown (Full pixels unticked)", "auto", "{\"quality\":\"full\",\"fullPixels\":false}"),
+        ("a size from the list is that size at any zoom (Full pixels ticked)", "third", "{\"quality\":\"third\",\"fullPixels\":true}"),
+        ("the line lit for Full unticked, Full ticked, Half unticked, Third, Quarter", "lit", "auto, full, half, third, draft"),
+    ] {
+        rows.push((what.into(), want.into(), said[field].as_str().unwrap_or("?").into()));
+    }
+    let sized = node(
+        "B-162 / B-163",
+        "sizedAs, askedAs",
+        "out([sizedAs('/frame/7?q=full', 0.33), sizedAs('/frame/7?q=full', 0.4), sizedAs('/frame/7?q=third', 0.25),\n\
+              sizedAs('/frame/7?q=third', 1), askedAs('/frame/7?q=third', true)].join(' '));",
+    );
+    rows.push((
+        "Auto at 33% draws Third, at 40% Half; Third chosen at 25% draws Quarter, at 100% Third; a drag on Third is In motion".into(),
+        "/frame/7?q=third /frame/7?q=half /frame/7?q=draft /frame/7?q=third /frame/7?q=motion".into(),
+        sized.as_str().unwrap_or("?").into(),
+    ));
+
+    // The window draws Third: a third each way, labelled not final, and close to Full averaged
+    // over each three by three square.
+    let export = Mutex::new(Export::default());
+    let viewer = Mutex::new(demo());
+    let ask = |q| serve_logged(&viewer, &export, None, None, Ask::Frame(30), Some(q));
+    let full = ask(PreviewQuality::Full);
+    let third = ask(PreviewQuality::Third);
+    rows.push((
+        "frame 30 at Third: its size, its label and not final".into(),
+        "640 360 Third true, 921600 bytes".into(),
+        format!(
+            "{} {} {} {}, {} bytes",
+            header(&third, "x-width"),
+            header(&third, "x-height"),
+            header(&third, "x-quality"),
+            header(&third, "x-differs"),
+            third.body().len()
+        ),
+    ));
+    let (f, t) = (full.body(), third.body());
+    let mut total = 0.0;
+    for y in 0..360usize {
+        for x in 0..640usize {
+            for c in 0..4usize {
+                let mut sum = 0.0;
+                for dy in 0..3 {
+                    for dx in 0..3 {
+                        sum += f[((y * 3 + dy) * 1920 + x * 3 + dx) * 4 + c] as f64;
+                    }
+                }
+                total += (sum / 9.0 - t[(y * 640 + x) * 4 + c] as f64).abs();
+            }
+        }
+    }
+    let mean = total / (640.0 * 360.0 * 4.0);
+    rows.push((
+        "Third against Full averaged over each 3x3 square: mean difference under 3 levels of 255".into(),
+        "true".into(),
+        format!("{}", mean < 3.0),
+    ));
+    rows.push((
+        "and Full asked after it is still Full, the same as export".into(),
+        "Full false".into(),
+        {
+            let again = ask(PreviewQuality::Full);
+            format!("{} {}", header(&again, "x-quality"), header(&again, "x-differs"))
+        },
+    ));
+    pins(
+        &mut rows,
+        &[
+            ("the list sits above the D key's Full/Draft line in the quality menu", "  $('toggle').before(b);"),
+            ("the lit line follows each frame that comes back", "    litResolution(); // D-952"),
+            ("and the Full pixels tick", "sizeStillRight(); litResolution(); };"),
+        ],
+    );
+    table(
+        "B-832_resolution_list_table.md",
+        "B-832: the viewer's resolution list (D-952)",
+        "b832_resolution_list",
+        &format!(
+            "The first rows run the page's own list and its sizing rule under Node; the window rows \
+             ask the reference shot's frame 30 at Third and Full (Third's mean difference from Full \
+             averaged over 3x3 squares was {mean:.2} levels of 255); the rest pin the wiring. The \
+             private-app check is `verification/B-832_private_app_table.md`."
+        ),
+        &rows,
+    );
+}

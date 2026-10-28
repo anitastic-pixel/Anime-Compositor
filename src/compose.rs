@@ -234,7 +234,7 @@ fn plan_scaled(
 /// so a full-resolution preview and an export still go through the renderer identically.
 pub fn tile_size(quality: PreviewQuality, tile_size: usize) -> usize {
     match quality {
-        PreviewQuality::Full | PreviewQuality::Half => tile_size,
+        PreviewQuality::Full | PreviewQuality::Half | PreviewQuality::Third => tile_size,
         PreviewQuality::Draft | PreviewQuality::Motion => DRAFT_TILE_SIZE,
     }
 }
@@ -4431,6 +4431,8 @@ fn resolve_rest(
             PreviewQuality::Half
         } else if pre == crate::preview::MOTION_DIVISOR as f64 {
             PreviewQuality::Motion
+        } else if pre == 3.0 {
+            PreviewQuality::Third
         } else {
             PreviewQuality::Draft
         };

@@ -332,7 +332,7 @@ fn b123_gpu_fx() {
         for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
             let mut log = FrameLog::new(3);
             let tile = match quality {
-                PreviewQuality::Full | PreviewQuality::Half => DEFAULT_TILE_SIZE,
+                PreviewQuality::Full | PreviewQuality::Half | PreviewQuality::Third => DEFAULT_TILE_SIZE,
                 PreviewQuality::Draft | PreviewQuality::Motion => compose::DRAFT_TILE_SIZE,
             };
             let plan = |card: bool, log: &mut FrameLog| {

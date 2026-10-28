@@ -262,6 +262,7 @@ fn quality_asked(query: Option<&str>) -> Option<PreviewQuality> {
         .and_then(|value| match value {
             "draft" => Some(PreviewQuality::Draft),
             "half" => Some(PreviewQuality::Half),
+            "third" => Some(PreviewQuality::Third), // D-952
             "full" => Some(PreviewQuality::Full),
             // D-898: the picture made while the hand moves, for this frame alone.
             "motion" => Some(PreviewQuality::Motion),
@@ -12110,10 +12111,39 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                     }),
                 }
             };
+            // D-951: New Comp from Selection names a drawing. The composition takes the drawing's
+            // size and, for a sequence, one frame per drawing, unless the page sends its own.
+            let footage = parameter(query, "footage").map(|asset| {
+                let held = viewer.lock().expect("the viewer lock was poisoned");
+                let found = held.document.project().assets.iter().find(|a| {
+                    a.id.as_str() == asset
+                        && matches!(a.kind, AssetKind::Still | AssetKind::ImageSequence)
+                });
+                let size = found
+                    .and_then(|a| {
+                        a.files()
+                            .first()
+                            .and_then(|f| media::decode(&held.root.join(f)).ok())
+                    })
+                    .map(|image| (image.width() as u32, image.height() as u32));
+                let count = found
+                    .filter(|a| a.kind == AssetKind::ImageSequence)
+                    .map(|a| a.frames.len() as u32)
+                    .filter(|n| *n > 0);
+                (found.is_some(), size, count)
+            });
+            if let Some((false, _, _)) = footage {
+                return Some(
+                    "Choose a drawing or a sequence in the Project panel to make a composition \
+                     from."
+                        .to_string(),
+                );
+            }
+            let (fit_width, fit_height) = footage.and_then(|f| f.1).unwrap_or((1920, 1080));
             let (width, height, frames) = match (
-                number("width", 1920),
-                number("height", 1080),
-                number("frames", 240),
+                number("width", fit_width),
+                number("height", fit_height),
+                number("frames", footage.and_then(|f| f.2).unwrap_or(240)),
             ) {
                 (Ok(w), Ok(h), Ok(f)) => (w, h, f),
                 (Err(said), _, _) | (_, Err(said), _) | (_, _, Err(said)) => return Some(said),
@@ -12148,12 +12178,16 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                 )
             };
             let id = composition.id.clone();
-            let said = edit(
-                viewer,
-                Command::AddComposition {
-                    composition: Box::new(composition),
-                },
-            );
+            let add = Command::AddComposition {
+                composition: Box::new(composition),
+            };
+            // D-951: with `drag=1` the composition and the layer New Comp from Selection puts in
+            // it are one entry to undo, joined as a drag joins its moves.
+            let said = if parameter(query, "drag").is_some() {
+                drag_update(viewer, add)
+            } else {
+                edit(viewer, add)
+            };
             // Only if the core took it. A refused command must leave the window looking at what
             // it was looking at, and `show` would otherwise move it to a composition that is
             // not in the project.
@@ -12166,6 +12200,9 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                 .is_some();
             if made {
                 show(viewer, &id);
+                if parameter(query, "drag").is_some() {
+                    return Some(said);
+                }
                 return Some(format!(
                     "{said}, {width}x{height} at {} fps, {frames} frames. It is empty; \
                      import drawings and add layers to fill it.",

@@ -68,6 +68,9 @@ pub enum PreviewQuality {
     /// eighth on each axis, masks drawn at that size and fewer blur samples. Never final, and
     /// replaced by the chosen quality the moment the hand stops.
     Motion,
+    /// D-952: a third on each axis, After Effects' Third, between Half and Draft (its Quarter).
+    /// Not final pixels.
+    Third,
 }
 
 impl PreviewQuality {
@@ -79,6 +82,7 @@ impl PreviewQuality {
             PreviewQuality::Half => "Half",
             PreviewQuality::Full => "Full",
             PreviewQuality::Motion => "In motion",
+            PreviewQuality::Third => "Third",
         }
     }
 
@@ -98,6 +102,7 @@ impl PreviewQuality {
             PreviewQuality::Half => 2,
             PreviewQuality::Full => 1,
             PreviewQuality::Motion => MOTION_DIVISOR,
+            PreviewQuality::Third => 3,
         }
     }
 
