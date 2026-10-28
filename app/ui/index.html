@@ -6300,6 +6300,20 @@ function ctrlClickTo(key) {
   return linear && plain ? 'auto' : 'linear';
 }
 // ---- B-825 end
+// ---- B-834 begin
+// D-954: the request that makes the side coming into the key at `at` straight, or null when it
+// already is or there is no key before it. The key before keeps its own side's curve.
+function intoKey(layer, prop, at) {
+  const keys = ((layer.transform || {})[prop] || {}).keyframes || [];
+  const p = keys.filter((k) => k.frame < at).pop();
+  if (!p || p.interp !== 'ease' || !p.ease) return null;
+  const [x1, y1, x2, y2] = p.ease, third = (v, w) => Math.abs(v - w) < 1e-9;
+  if (third(x2, 2 / 3) && third(y2, 2 / 3)) return null;
+  const q = whose(layer) + '&prop=' + prop + '&frame=' + p.frame + '&drag=1';
+  return '/keyframe.set_interp?' + q + (third(x1, 1 / 3) && third(y1, 1 / 3) ? '&mode=linear'
+    : '&mode=ease&curve=' + [x1, y1, 2 / 3, 2 / 3].join(','));
+}
+// ---- B-834 end
 // One entry to undo: the key alone is chosen, its kind set and, going to linear, its interpolation.
 function ctrlClickKey(layer, prop, key) {
   const id = keyId(layer, prop, key.frame);
@@ -6307,6 +6321,9 @@ function ctrlClickKey(layer, prop, key) {
   const to = ctrlClickTo(key);
   const sends = ['/keyframe.set_kind?kind=' + (to === 'auto' ? 'auto' : 'bezier') + '&key=' + encodeURIComponent(id) + '&drag=1'];
   if (to === 'linear') sends.push('/keyframe.set_interp?' + whose(layer) + '&prop=' + prop + '&frame=' + key.frame + '&mode=linear&drag=1');
+  // D-954: and the side coming in, which the key before holds: an auto key eased it.
+  const before = to === 'linear' ? intoKey(layer, prop, key.frame) : null;
+  if (before) sends.push(before);
   nudge = nudge.then(async () => {
     for (const request of sends) await command(request);
     await command('/property.drag_end');

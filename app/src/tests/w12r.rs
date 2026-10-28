@@ -975,3 +975,130 @@ fn b833_small_shortcuts() {
         &rows,
     );
 }
+
+/// D-954 / B-834: Ctrl+click on a key, found by the private-app check: turning an auto key back
+/// to linear straightens the side coming into it as well, and the whole click is one entry.
+#[test]
+fn b834_ctrl_click_back_to_linear() {
+    use anime_compositor::model::{Interp, Keyframe};
+    let mut rows: Rows = Vec::new();
+    let viewer = Mutex::new(demo());
+    {
+        // Three plain linear Rotation keys, 0, 30, 0, on the first drawn layer, as layer3 has them
+        // in the reference shot.
+        use anime_compositor::model::{Prop, Value};
+        let held = &mut *viewer.lock().expect("lock");
+        let composition = held.composition.clone();
+        let comp = held.document.project().composition(&composition).expect("comp");
+        let id = comp.layers_in_order().find(|l| l.kind == LayerKind::Raster).expect("a drawn layer").id.clone();
+        for (frame, value) in [(0, 0.0), (40, 30.0), (80, 0.0)] {
+            held.document
+                .apply(anime_compositor::command::Command::SetKeyframe {
+                    composition: composition.clone(),
+                    target: anime_compositor::command::Target::Layer(id.clone()),
+                    prop: Prop::Rotation,
+                    frame,
+                    value: Value::Scalar(value),
+                    interp: Interp::Linear,
+                    spatial: None,
+                })
+                .expect("a key");
+        }
+    }
+    let keys = |viewer: &Mutex<Viewer>| -> (String, Vec<Keyframe>) {
+        let held = viewer.lock().expect("lock");
+        let comp = held.document.project().composition(&held.composition).expect("comp");
+        let layer = comp
+            .layers_in_order()
+            .find(|l| l.transform.rotation.keyframes().len() >= 3)
+            .expect("a layer with three Rotation keys");
+        let out = (layer.id.as_str().to_string(), layer.transform.rotation.keyframes().to_vec());
+        out
+    };
+    let (id, start) = keys(&viewer);
+    let middle = start[1].frame;
+    let depth = || viewer.lock().expect("lock").document.undo_depth();
+    let send = |request: &str| {
+        let request = request.trim_start_matches('/');
+        let (what, query) = request.split_once('?').unwrap_or((request, ""));
+        edit_command(&viewer, what, Some(query));
+    };
+    let d0 = depth();
+    // The page's first Ctrl+click on the plain linear middle key: auto, in one drag.
+    send(&format!("/keyframe.set_kind?kind=auto&key={id}|rotation|{middle}&drag=1"));
+    send("/property.drag_end");
+    let (_, auto) = keys(&viewer);
+    let eased = |k: &Keyframe| matches!(k.interp, Interp::Ease { .. });
+    rows.push((
+        "Ctrl+click on the plain middle key: auto, easing both sides, one entry".into(),
+        "true, true, 1".into(),
+        format!("{}, {}, {}", eased(&auto[0]), eased(&auto[1]), depth() - d0),
+    ));
+    // What the page sends for the second Ctrl+click: the side coming in, from the key before.
+    let js_keys: Vec<serde_json::Value> = auto
+        .iter()
+        .map(|k| match k.interp {
+            Interp::Ease { x1, y1, x2, y2 } => {
+                serde_json::json!({ "frame": k.frame, "interp": "ease", "ease": [x1, y1, x2, y2] })
+            }
+            Interp::Hold => serde_json::json!({ "frame": k.frame, "interp": "hold" }),
+            _ => serde_json::json!({ "frame": k.frame, "interp": "linear" }),
+        })
+        .collect();
+    let layer = serde_json::json!({ "id": id, "transform": { "rotation": { "keyframes": js_keys } } });
+    let said = node(
+        "B-834",
+        "intoKey",
+        &format!(
+            "globalThis.whose = (l) => 'layer=' + l.id;\n\
+             const layer = {layer};\n\
+             out({{ into: intoKey(layer, 'rotation', {middle}), first: intoKey(layer, 'rotation', {first}),\n\
+               straight: intoKey({{ id: 'x', transform: {{ rotation: {{ keyframes: [{{ frame: 0, interp: 'linear' }}] }} }} }}, 'rotation', 10) }});",
+            first = start[0].frame
+        ),
+    );
+    let into = said["into"].as_str().unwrap_or("?").to_string();
+    rows.push((
+        "the side coming in is sent as the key before's curve, straightened".into(),
+        format!("/keyframe.set_interp?layer={id}&prop=rotation&frame={}&drag=1&mode=linear", start[0].frame),
+        into.clone(),
+    ));
+    rows.push((
+        "nothing to send for the first key, or for a side already straight".into(),
+        "null, null".into(),
+        format!("{}, {}", said["first"], said["straight"]),
+    ));
+    let d1 = depth();
+    send(&format!("/keyframe.set_kind?kind=bezier&key={id}|rotation|{middle}&drag=1"));
+    send(&format!("/keyframe.set_interp?layer={id}&prop=rotation&frame={middle}&mode=linear&drag=1"));
+    send(&into);
+    send("/property.drag_end");
+    let (_, back) = keys(&viewer);
+    rows.push((
+        "Ctrl+click again: every Rotation key as it started, plain and linear, one entry".into(),
+        "true, 1".into(),
+        format!("{}, {}", back == start, depth() - d1),
+    ));
+    viewer.lock().expect("lock").document.undo();
+    rows.push(("one Ctrl+Z: the auto key again".into(), "true".into(), (keys(&viewer).1 == auto).to_string()));
+    viewer.lock().expect("lock").document.undo();
+    rows.push(("and one more: as it started".into(), "true".into(), (keys(&viewer).1 == start).to_string()));
+    pins(
+        &mut rows,
+        &[(
+            "the second Ctrl+click sends the side coming in",
+            "  const before = to === 'linear' ? intoKey(layer, prop, key.frame) : null;\n  if (before) sends.push(before);\n",
+        )],
+    );
+    table(
+        "B-834_ctrl_click_linear_table.md",
+        "B-834: Ctrl+click back to linear straightens both sides, as one entry (D-954)",
+        "b834_ctrl_click_back_to_linear",
+        "Found by B-825's check in a private copy of the app: the second Ctrl+click left the side \
+         coming into the key eased, and each click was two or three entries to undo. The rows send \
+         the page's requests to the window's own command handler on the reference shot's keyed \
+         Rotation; `intoKey` is the page's own code run under Node. The private-app check is \
+         `verification/B-825_private_app_table.md`.",
+        &rows,
+    );
+}

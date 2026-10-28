@@ -11185,6 +11185,21 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                     },
                 });
             }
+            // D-954: with `drag`, the kinds join the running drag as any other edit does, so a
+            // Ctrl+click that changes a key's kind and its curve is one entry to undo.
+            if parameter(query, "drag").is_some() {
+                if !held.document.drag_in_progress() {
+                    if let Err(diagnostic) = held.document.begin_drag() {
+                        return Some(diagnostic.sentence());
+                    }
+                }
+                for command in commands {
+                    if let Err(diagnostic) = held.document.update_drag(command) {
+                        return Some(diagnostic.sentence());
+                    }
+                }
+                return Some("Dragging.".to_string());
+            }
             return Some(match held.document.apply_all(commands) {
                 Ok(record) => record.label.clone(),
                 Err(diagnostic) => diagnostic.sentence(),
