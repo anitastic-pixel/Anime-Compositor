@@ -216865,6 +216865,46 @@ FX-REMOVEGRAIN-020 (`fx_removegrain_020.json`): Unsharp Mask amount 600, above 5
 
 FX-REMOVEGRAIN-021 (`fx_removegrain_021.json`): Unsharp Mask threshold keyed to 300 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
+Remove Grain's further groups (D-966, B-846): Viewing Mode, Preview Region, Channel Noise Reduction, Fine Tuning and Temporal Filtering. The same composition and drawings, and two more, each an image sequence of 5 drawings shown one a frame: `seq`, `grainy` whose grain is drawn again each frame, and `cut`, `seq` whose right half turns green from frame 3. Settings a case does not write are read at their neutral values, which leave D-455's picture as it was. `tools/remove_grain_more_reference.py` works the expected frames, `Fixtures/remove_grain/expected_remove_grain_more.json`, tolerance 2e-5, and checks that its rule at the neutral values gives FX-REMOVEGRAIN-001, 006, 007, 010 and 011 exactly; FX-REMOVEGRAIN-001 to 021 and their expected file are not changed.
+
+FX-REMOVEGRAIN-022 (`fx_removegrain_022.json`): As After Effects adds it now (D-965, D-966): three passes, Chroma Suppression 1, Texture 0.1, the rest neutral; a little grain passed through. Frames 0.
+
+FX-REMOVEGRAIN-023 (`fx_removegrain_023.json`): Chroma Suppression 3 alone: colour grain averaged harder than FX-REMOVEGRAIN-001. Frames 0.
+
+FX-REMOVEGRAIN-024 (`fx_removegrain_024.json`): Texture 0.5: half way between FX-REMOVEGRAIN-001 and the drawing. Frames 0.
+
+FX-REMOVEGRAIN-025 (`fx_removegrain_025.json`): Texture 1: all the grain passed through, the drawing as it is. Frames 0.
+
+FX-REMOVEGRAIN-026 (`fx_removegrain_026.json`): Noise Size Bias -1 over three passes. Frames 0.
+
+FX-REMOVEGRAIN-027 (`fx_removegrain_027.json`): Noise Size Bias 1 over three passes. Frames 0.
+
+FX-REMOVEGRAIN-028 (`fx_removegrain_028.json`): Clean Solid Areas 2: one more pass, smoother than FX-REMOVEGRAIN-001. Frames 0.
+
+FX-REMOVEGRAIN-029 (`fx_removegrain_029.json`): Single Channel, Red Noise Reduction 0: red kept exactly, green and blue smoothed. Frames 0.
+
+FX-REMOVEGRAIN-030 (`fx_removegrain_030.json`): Viewing Mode Preview, the region 8 by 6 pixels round 25 % 50 %: inside FX-REMOVEGRAIN-001 with its edge white, outside the drawing. Frames 0.
+
+FX-REMOVEGRAIN-031 (`fx_removegrain_031.json`): Preview with Show Box off: no white edge. Frames 0.
+
+FX-REMOVEGRAIN-032 (`fx_removegrain_032.json`): Viewing Mode Noise Samples: the drawing as given, its edge white. Frames 0.
+
+FX-REMOVEGRAIN-033 (`fx_removegrain_033.json`): Viewing Mode Blending Matte on `holes`: white at each pixel's covering. Frames 0.
+
+FX-REMOVEGRAIN-034 (`fx_removegrain_034.json`): Temporal Filtering on, as added (100 %, 0.9), on `seq`, grain drawn again each frame: frames 0 and 4 have one neighbour, frame 2 two. Frames 0, 2, 4.
+
+FX-REMOVEGRAIN-035 (`fx_removegrain_035.json`): Temporal Filtering off on `seq`: each frame alone. Frames 2.
+
+FX-REMOVEGRAIN-036 (`fx_removegrain_036.json`): Temporal Filtering Amount 50, Motion Sensitivity 0.3 on `cut`, whose right half turns green at frame 3: the green does not streak into frame 2. Frames 2, 3.
+
+FX-REMOVEGRAIN-037 (`fx_removegrain_037.json`): Viewing Mode "wide", not one of its four words. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-REMOVEGRAIN-038 (`fx_removegrain_038.json`): Texture 2, above 1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-REMOVEGRAIN-039 (`fx_removegrain_039.json`): Temporal Filtering "maybe", not "off" or "on". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-REMOVEGRAIN-040 (`fx_removegrain_040.json`): Noise Size Bias -2, below -1. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
 ### Brush Strokes (D-447)
 
 Brush Strokes, after After Effects' Brush Strokes (Stylize), `core.brush_strokes` (B-327). Every case is a composition 16 by 10 holding Noise's card, the same size, unmoved unless the case says; `tools/brush_strokes_reference.py` works the expected frames, `Fixtures/brush_strokes/expected_brush_strokes.json`, tolerance 2e-5; the rule is in document 21.
