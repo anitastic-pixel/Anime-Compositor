@@ -224479,3 +224479,27 @@ FX-BULGE-032 (`fx_bulge_032.json`): Pin All Edges written off: FX-BULGE-001 exac
 FX-BULGE-033 (`fx_bulge_033.json`): Antialiasing written "medium". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-BULGE-034 (`fx_bulge_034.json`): Pin All Edges written "yes". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Gradient's Ramp Scatter and Blend With Original (D-1029)
+
+Gradient's `ramp_scatter` and `blend_with_original` (B-908). Every case is FX-GRAD-002's project (unmoved, the cel, blend normal, both opacities 100) with the setting written, unless the case says; FX-GRAD-001 to 022 above are unchanged and their files carry neither setting. `tools/gradient_reference.py` works the expected frames in double precision; they are in `Fixtures/gradient/expected_gradient.json` beside 001 to 022's. Tolerance as 001 to 022's. **Checked by what they claim.** The tool checks that every case keeps each pixel's covering and leaves the empty pixels empty; FX-GRAD-002's row 4 is alike along the row and Ramp Scatter 64 makes it differ (023); both 0 written is 002 exactly (024); Blend With Original 50 is halfway between the drawing and 002 at every shown pixel (025); 100 is the drawing exactly (026); the keyed frames are 002, scatter 128's own frame, and a third different frame (027); the move carries 023's grain three pixels right (028); and white to white scattered is 013's frame (029).
+
+FX-GRAD-023 (`fx_grad_023.json`): Ramp Scatter 64: FX-GRAD-002 grained, each pixel's place along the ramp moved by up to an eighth of the ramp either way, fixed to the drawing; pixels in one row no longer all alike. Frames 0.
+
+FX-GRAD-024 (`fx_grad_024.json`): Ramp Scatter 0 and Blend With Original 0 written: FX-GRAD-002 exactly. Frames 0.
+
+FX-GRAD-025 (`fx_grad_025.json`): Blend With Original 50: every pixel halfway between the drawing and FX-GRAD-002's. Frames 0.
+
+FX-GRAD-026 (`fx_grad_026.json`): Blend With Original 100: the drawing, untouched. Frames 0.
+
+FX-GRAD-027 (`fx_grad_027.json`): Ramp Scatter keyed from 0 at frame 0 to 256 at frame 4, linear: frame 0 is FX-GRAD-002, frame 2 scatter 128, frame 4 the most, half the ramp either way. Frames 0, 2, 4.
+
+FX-GRAD-028 (`fx_grad_028.json`): FX-GRAD-023 moved three pixels right: the grain is fixed to the drawing, so it moves with it. Frames 0, 3.
+
+FX-GRAD-029 (`fx_grad_029.json`): Ramp Scatter 256 with white to white: a scattered place along one colour is still that colour, so this is FX-GRAD-013. Frames 0.
+
+FX-GRAD-030 (`fx_grad_030.json`): Ramp Scatter 257, above 256 (on FX-GRAD-001's settings). The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GRAD-031 (`fx_grad_031.json`): Blend With Original 101, above 100 (on FX-GRAD-001's settings). The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-GRAD-032 (`fx_grad_032.json`): Blend With Original keyed to -1 at frame 4, below 0 (on FX-GRAD-001's settings). The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.

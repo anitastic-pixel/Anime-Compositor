@@ -18,6 +18,18 @@ colour is mixed in encoded values, G_enc = start + t (end - start), each channel
 start_opacity)) / 100. With b the pixel's straight linear colour, f = G (normal), b * G
 (multiply), 1 - (1 - b)(1 - G) (screen) or b + G (add), and out = ((b + o (f - b)) * a, a).
 
+D-1029 adds After Effects' Gradient Ramp's last two settings, each keyable and 0 when a file leaves
+it out. `ramp_scatter`, 0 to 256: the ramp's place is moved, before it is clamped, by
+ramp_scatter / 512 * u, u = grade::unit(mix(0), X, Y, 0, 0), the seeded number in -1..1 Noise
+uses (noise_reference.u, seed 0, frame 0, channel 0) at the pixel's whole place (X, Y) in the
+drawing's own space: t = clamp(raw + ramp_scatter / 512 * u, 0, 1), so the scatter spans
+ramp_scatter / 256 of the ramp, about one 8-bit step of a black-to-white ramp per unit, fixed to
+the drawing and the same on every frame; it breaks up banding. The colour and the strength are
+both read at the scattered t. `blend_with_original`, 0 to 100: o is multiplied by
+1 - blend_with_original / 100, which is the result mixed back with the layer as it was by that
+share. Both 0 are D-114's rule exactly. After Effects' own scatter strength could not be measured
+from a 720p tutorial, so its scale is this program's own.
+
 **This file never runs the build's code path.** It works in double precision on lists, straight
 from the drawing's 8-bit values, where the build works in single precision on its buffers.
 
@@ -41,6 +53,7 @@ from adjust_reference import srgb_to_linear, prop  # noqa: E402
 from fxkey_reference import keyed, value_at, setting_json  # noqa: E402
 import smooth_reference as S  # noqa: E402
 import recolor_reference as R  # noqa: E402
+from noise_reference import u as U  # noqa: E402
 
 W, H = R.W, R.H
 OUT = Path(__file__).resolve().parent.parent / "Fixtures" / "gradient"
@@ -49,6 +62,9 @@ OPACITY = (0, 100)
 POINT = (-1000, 1000)
 NAMES = ("shape", "start", "end", "start_color", "end_color", "start_opacity", "end_opacity",
          "blend")
+SCATTER = (0, 256)  # D-1029
+BLEND_ORIGINAL = (0, 100)  # D-1029
+EXTRA = ("ramp_scatter", "blend_with_original")  # D-1029: written only when a case gives them
 
 
 # --- the rule -------------------------------------------------------------------------------
@@ -61,22 +77,25 @@ BLENDS = {
 }
 
 
-def along(shape, px, py, s, e):
-    """How far along the gradient the point (px, py) is, 0 at the start and 1 at the end."""
+def along(shape, px, py, s, e, scatter=0):
+    """How far along the gradient the point (px, py) is, 0 at the start and 1 at the end.
+    D-1029: moved by `scatter` / 512 of the seeded number at the pixel's whole place."""
     ex, ey = e[0] - s[0], e[1] - s[1]
     dx, dy = px - s[0], py - s[1]
     ll = ex * ex + ey * ey
     if ll == 0:
-        return 1.0
-    if shape == "linear":
+        t = 1.0
+    elif shape == "linear":
         t = (dx * ex + dy * ey) / ll
     else:
         t = math.sqrt(dx * dx + dy * dy) / math.sqrt(ll)
+    if scatter:
+        t += scatter / 512 * U(0, math.floor(px), math.floor(py), 0, 0)
     return min(1.0, max(0.0, t))
 
 
 def gradient(pixels, shape, start, end, start_color, end_color, start_opacity, end_opacity,
-             blend, w=W, h=H):
+             blend, w=W, h=H, scatter=0, blend_original=0):
     """`pixels` are 8-bit straight RGBA, rows top to bottom, a drawing w by h."""
     s = (start[0] / 100 * w, start[1] / 100 * h)
     e = (end[0] / 100 * w, end[1] / 100 * h)
@@ -88,9 +107,9 @@ def gradient(pixels, shape, start, end, start_color, end_color, start_opacity, e
         if p[3] == 0:
             out.append(R.working(p))
             continue
-        t = along(shape, i % w + 0.5, i // w + 0.5, s, e)
+        t = along(shape, i % w + 0.5, i // w + 0.5, s, e, scatter)
         g = [srgb_to_linear(u + t * (v - u)) for u, v in zip(c0, c1)]
-        o = (start_opacity + t * (end_opacity - start_opacity)) / 100
+        o = (start_opacity + t * (end_opacity - start_opacity)) / 100 * (1 - blend_original / 100)
         a = p[3] / 255
         b = [srgb_to_linear(p[c] / 255) for c in range(3)]
         out.append([(b[c] + o * (mix(b[c], g[c]) - b[c])) * a for c in range(3)] + [a])
@@ -127,11 +146,13 @@ DRAWINGS = {"cel": [[cel(x, y) for x in range(W)] for y in range(H)]}
 # --- the cases ------------------------------------------------------------------------------
 
 def case(shape="linear", start=(50, 0), end=(50, 100), start_color="#ffffff",
-         end_color="#6450a0", start_opacity=0, end_opacity=50, blend="multiply", shift=0):
+         end_color="#6450a0", start_opacity=0, end_opacity=50, blend="multiply", shift=0,
+         ramp_scatter=None, blend_with_original=None):
     return {"drawing": "cel", "shape": shape, "start": start, "end": end,
             "start_color": start_color, "end_color": end_color,
             "start_opacity": start_opacity, "end_opacity": end_opacity, "blend": blend,
-            "shift": shift}
+            "shift": shift, "ramp_scatter": ramp_scatter,
+            "blend_with_original": blend_with_original}
 
 
 def clamp(v, r):
@@ -142,9 +163,12 @@ def render(c, frame_no):
     pixels = [p for row in DRAWINGS[c["drawing"]] for p in row]
     point = lambda k: [clamp(v, POINT) for v in value_at(c[k], frame_no)]  # noqa: E731
     opacity = lambda k: clamp(value_at(c[k], frame_no), OPACITY)  # noqa: E731
+    extra = lambda k, r: 0 if c.get(k) is None else clamp(value_at(c[k], frame_no), r)  # noqa: E731,E501
     return R.frame(gradient(pixels, c["shape"], point("start"), point("end"), c["start_color"],
                             c["end_color"], opacity("start_opacity"), opacity("end_opacity"),
-                            c["blend"]), c["shift"])
+                            c["blend"], scatter=extra("ramp_scatter", SCATTER),
+                            blend_original=extra("blend_with_original", BLEND_ORIGINAL)),
+                   c["shift"])
 
 
 def plain(c):
@@ -210,6 +234,28 @@ CASES = {
     "FX-GRAD-015": ("FX-GRAD-001 moved three pixels right: the same, moved; the gradient moves "
                     "with the drawing.",
                     case(shift=3), [0, 3]),
+    # D-1029: Ramp Scatter and Blend With Original. FX-GRAD-001 to 022 are unchanged and their
+    # files carry neither.
+    "FX-GRAD-023": ("Ramp Scatter 64 on FX-GRAD-002 (normal, both opacities 100): the ramp "
+                    "grained, each pixel's place along it moved by up to an eighth of the ramp "
+                    "either way, fixed to the drawing; pixels in one row no longer all alike.",
+                    case(ramp_scatter=64, **FULL), [0]),
+    "FX-GRAD-024": ("Ramp Scatter 0 and Blend With Original 0 written: FX-GRAD-002 exactly.",
+                    case(ramp_scatter=0, blend_with_original=0, **FULL), [0]),
+    "FX-GRAD-025": ("Blend With Original 50 on FX-GRAD-002: every pixel halfway between the "
+                    "drawing and FX-GRAD-002's.",
+                    case(blend_with_original=50, **FULL), [0]),
+    "FX-GRAD-026": ("Blend With Original 100: the drawing, untouched.",
+                    case(blend_with_original=100, **FULL), [0]),
+    "FX-GRAD-027": ("Ramp Scatter keyed from 0 at frame 0 to 256 at frame 4: frame 0 is "
+                    "FX-GRAD-002, frame 2 scatter 128, frame 4 the most, half the ramp either way.",
+                    case(ramp_scatter=keyed((0, 0), (4, 256)), **FULL), [0, 2, 4]),
+    "FX-GRAD-028": ("FX-GRAD-023 moved three pixels right: the grain is fixed to the drawing, so "
+                    "it moves with it.",
+                    case(ramp_scatter=64, shift=3, **FULL), [0, 3]),
+    "FX-GRAD-029": ("Ramp Scatter 256 with white to white: a scattered place along one colour is "
+                    "still that colour, so this is FX-GRAD-013.",
+                    case(ramp_scatter=256, end_color="#ffffff", **FULL), [0]),
 }
 
 # Outside the contract in a file. D-46: the file is read, the effect is kept as written and left
@@ -224,6 +270,10 @@ INVALID = {
     "FX-GRAD-021": ("Blend \"overlay\", which is not a blend.", case(blend="overlay")),
     "FX-GRAD-022": ("A start colour written \"#12345\", one digit short.",
                     case(start_color="#12345")),
+    "FX-GRAD-030": ("Ramp Scatter 257, above 256.", case(ramp_scatter=257)),
+    "FX-GRAD-031": ("Blend With Original 101, above 100.", case(blend_with_original=101)),
+    "FX-GRAD-032": ("Blend With Original keyed to -1 at frame 4, below 0.",
+                    case(blend_with_original=keyed((0, 0), (4, -1)))),
 }
 
 
@@ -240,7 +290,7 @@ def project_json(fx, c):
     t["position"] = prop([W / 2 + c["shift"], H / 2])
     comp["layers"][0]["effects"] = [{
         "instance_id": "fx-0-0", "type_id": "core.gradient", "enabled": True,
-        "parameters": {k: setting_json(c[k]) for k in NAMES}}]
+        "parameters": {k: setting_json(c[k]) for k in NAMES + EXTRA if c.get(k) is not None}}]
     return p
 
 
@@ -296,7 +346,7 @@ def check(expected):
                                                                   (0, 10)) == 1
     # A pixel that does not show, and the covering, are kept by every case.
     for fx, frames in c.items():
-        shift = 3 if fx == "FX-GRAD-015" else 0
+        shift = 3 if fx in ("FX-GRAD-015", "FX-GRAD-028") else 0
         base = plain(case(shift=shift))
         for px in frames.values():
             for i in range(W * H):
@@ -360,6 +410,24 @@ def check(expected):
     assert moved == c["FX-GRAD-015"]["3"]
     for y in range(H):
         assert moved[at(3, y):at(0, y + 1)] == one[at(0, y):at(W - 3, y)]
+    # D-1029.
+    xs = [x for x in range(W) if drawn[at(x, 4)][3] > 0]
+    assert len(xs) >= 4
+    two_rows = [two[at(x, 4)][0] / two[at(x, 4)][3] for x in xs]
+    grained = c["FX-GRAD-023"]["0"]
+    rows = [grained[at(x, 4)][0] / grained[at(x, 4)][3] for x in xs]
+    assert max(two_rows) - min(two_rows) < 1e-12 and max(rows) - min(rows) > 1e-3
+    assert c["FX-GRAD-024"]["0"] == two
+    half = c["FX-GRAD-025"]["0"]
+    assert all(near(half[i], [(u + v) / 2 for u, v in zip(drawn[i], two[i])]) for i in shows)
+    assert c["FX-GRAD-026"]["0"] == drawn
+    keyed_s = c["FX-GRAD-027"]
+    assert keyed_s["0"] == two and keyed_s["2"] != two and keyed_s["4"] != keyed_s["2"]
+    assert keyed_s["2"] == render(case(ramp_scatter=128, **FULL), 0)
+    moved = c["FX-GRAD-028"]["0"]
+    for y in range(H):
+        assert moved[at(3, y):at(0, y + 1)] == grained[at(0, y):at(W - 3, y)]
+    assert all(near(c["FX-GRAD-029"]["0"][i], thirteen[i]) for i in range(W * H))
     print("checked")
 
 
