@@ -1995,6 +1995,8 @@ pub(crate) struct GlassLight {
     pub(crate) point: Option<(f64, f64)>,
     pub(crate) height: f64,
     pub(crate) shares: [f64; 5],
+    /// D-934: the rim look, the flat surface kept and every slope darkened.
+    pub(crate) rim: bool,
 }
 
 /// D-317: After Effects' CC Glass, reduced. The bump is the phase (D-316) `property` reads from
@@ -2093,6 +2095,7 @@ pub(crate) fn glass(
         point,
         height: light_height,
         shares: [ambient, diffuse, specular, roughness, metal],
+        rim,
     }) = full
     {
         let unit = |v: [f64; 3]| {
@@ -2131,7 +2134,18 @@ pub(crate) fn glass(
                     0.0
                 };
                 for c in 0..3 {
-                    let lit = color[c] * (ambient + diffuse * intensity * light[c] * nl.max(0.0))
+                    let share = if rim {
+                        // D-934: 1 where flat, down to ambient's part of it where steep.
+                        let bottom = ambient + diffuse * intensity * light[c];
+                        if bottom > 0.0 {
+                            (ambient + diffuse * intensity * light[c] * n[2]) / bottom
+                        } else {
+                            0.0
+                        }
+                    } else {
+                        ambient + diffuse * intensity * light[c] * nl.max(0.0)
+                    };
+                    let lit = color[c] * share
                         + specular * intensity * (light[c] + (color[c] - light[c]) * metal) * shine;
                     px[c] = (lit * a) as f32;
                 }

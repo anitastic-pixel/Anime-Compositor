@@ -2350,7 +2350,8 @@ fn card_effect(
                 }
                 // B-224: as each one's own function returns at once.
                 E::DisplacementMap { map, .. } => map.is_none(),
-                // D-561: only the classic light leaves a flat or unlit glass alone.
+                // D-561: only the classic light leaves a flat or unlit glass alone. D-934: AE
+                // Lights, the bend alone, leaves a flat or unbent one.
                 E::Glass {
                     height,
                     displacement,
@@ -2358,8 +2359,9 @@ fn card_effect(
                     light_type,
                     ..
                 } => {
-                    light_type == "classic"
-                        && (*height == 0.0 || (*displacement == 0.0 && *light_intensity <= 0.0))
+                    (light_type == "classic"
+                        && (*height == 0.0 || (*displacement == 0.0 && *light_intensity <= 0.0)))
+                        || (light_type == "ae_lights" && (*height == 0.0 || *displacement == 0.0))
                 }
                 // B-225: as each one's own function returns at once; a bolt off its original
                 // still clears the layer.

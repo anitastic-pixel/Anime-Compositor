@@ -9593,7 +9593,8 @@ fn dmap(@builtin(global_invocation_id) id: vec3<u32>) {
 // in linear light. D-561: k[8] 0 for that classic light, 1 distant, 2 point, lit then as
 // `plastic` lights it without the dust or an ambient colour: k[9], k[10] the point and k[11] the
 // height, k[12..15] the distant light's direction, then ambient, diffuse, specular, roughness,
-// metal. The highlight's power is single precision, as `plastic`'s.
+// metal. The highlight's power is single precision, as `plastic`'s. D-934: k[20] 1 for the rim
+// look, each channel's share then (ambient + diffuse I Lc N.z) / (ambient + diffuse I Lc).
 @compute @workgroup_size(16, 16)
 fn glass(@builtin(global_invocation_id) id: vec3<u32>) {
     let size = textureDimensions(input);
@@ -9628,7 +9629,15 @@ fn glass(@builtin(global_invocation_id) id: vec3<u32>) {
         for (var c = 0u; c < 3u; c++) {
             let cc = quotient(f64(px[c]), a);
             let lc = k[5u + c];
-            let lit = cc * (k[15] + k[16] * k[4] * lc * max(nl, 0.0lf)) + k[17] * k[4] * (lc + (cc - lc) * k[19]) * shine;
+            var share = k[15] + k[16] * k[4] * lc * max(nl, 0.0lf);
+            if k[20] != 0.0lf {
+                let bottom = k[15] + k[16] * k[4] * lc;
+                share = 0.0lf;
+                if bottom > 0.0lf {
+                    share = (k[15] + k[16] * k[4] * lc * n.z) / bottom;
+                }
+            }
+            let lit = cc * share + k[17] * k[4] * (lc + (cc - lc) * k[19]) * shine;
             px[c] = f32(lit * a);
         }
         textureStore(output, id.xy, px);
@@ -22203,6 +22212,7 @@ impl Gpu {
                 specular,
                 roughness,
                 metal,
+                light_look,
                 map,
                 ..
             } => {
@@ -22265,6 +22275,12 @@ impl Gpu {
                     "point" => 2.0,
                     _ => 0.0,
                 };
+                // D-934: AE Lights is the classic pass at no intensity.
+                let intensity = if light_type == "ae_lights" {
+                    0.0
+                } else {
+                    light_intensity / 100.0
+                };
                 let (px, py) = crate::effects::radial_center(*light_position, (w, h), (ox, oy));
                 let d = [100.0 * ux, 100.0 * uy, *light_height];
                 let dl = (d[0] * d[0] + d[1] * d[1] + d[2] * d[2]).sqrt();
@@ -22278,7 +22294,7 @@ impl Gpu {
                     height / 100.0 * 1.25 * softness.max(1.0),
                     ux,
                     uy,
-                    light_intensity / 100.0,
+                    intensity,
                     l[0],
                     l[1],
                     l[2],
@@ -22294,6 +22310,7 @@ impl Gpu {
                     specular / 100.0,
                     *roughness,
                     metal / 100.0,
+                    if light_look == "rim" { 1.0 } else { 0.0 },
                 ];
                 let out = self.scratch("B-224 glass", w, h);
                 self.fx_step(

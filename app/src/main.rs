@@ -7275,6 +7275,8 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             specular: 25.0,
             roughness: 0.1,
             metal: 100.0,
+            // D-934: added from the menu, the rim look.
+            light_look: "rim".to_string(),
             map: None,
         }),
         // D-336: After Effects' start, the layer's own lightness, softened by 30.
@@ -10636,6 +10638,11 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             specular: number("specular")?,
             roughness: number("roughness")?,
             metal: number("metal")?,
+            light_look: if parameter(query, "light_look").is_some() {
+                word("light_look")?
+            } else {
+                "lit".to_string()
+            },
             map: None,
         }),
         // D-336: as CC Glass's, the layer travels as `map_layer`.

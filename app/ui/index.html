@@ -14534,7 +14534,9 @@ const EFFECT_WORDS = {
     choices: [['property', 'Property', [['alpha', 'Alpha'], ['luminance', 'Luminance'], ['intensity', 'Intensity'],
         ['red', 'Red'], ['green', 'Green'], ['blue', 'Blue']]],
       ['fit', 'Bump Map Placement', [['stretch', 'Stretch to Fit'], ['center', 'Centre'], ['tile', 'Tile']]],
-      ['light_type', 'Light Type', [['distant', 'Distant Light'], ['point', 'Point Light'], ['classic', 'Bevel (older projects)']]]],
+      ['light_type', 'Light Type', [['distant', 'Distant Light'], ['point', 'Point Light'], ['ae_lights', 'AE Lights'], ['classic', 'Bevel (older projects)']]],
+      // D-934: read for Distant and Point; a file without it is Lit.
+      ['light_look', 'Edge Look', [['lit', 'Lit'], ['rim', 'Rim']]]],
     colours: [['light_color', 'Light Color']],
   },
   // D-316. D-381: the rest, a file without them at their start.

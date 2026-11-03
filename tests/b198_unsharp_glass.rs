@@ -128,6 +128,7 @@ fn glass(
         specular: 25.0,
         roughness: 0.1,
         metal: 100.0,
+        light_look: "lit".into(),
         map: None,
     }
 }

@@ -2575,7 +2575,9 @@ pub enum Effect {
     /// light, which a file without it keeps), distant or point; `light_height`, -1000 to 1000;
     /// `light_position`, -1000 to 1000 per cent of the layer each way; `ambient`, `diffuse`,
     /// `specular` and `metal`, 0 to 100; `roughness`, 0.001 to 1. `map` is not a setting and is
-    /// never saved.
+    /// never saved. D-934: `light_type` may also be `ae_lights`, the bend unlit; `light_look`,
+    /// `lit` (D-561's, what a file without it reads) or `rim`, the flat surface kept and every
+    /// slope darkened, read for distant and point.
     Glass {
         layer: serde_json::Value,
         fit: String,
@@ -2594,6 +2596,7 @@ pub enum Effect {
         specular: f64,
         roughness: f64,
         metal: f64,
+        light_look: String,
         map: Option<crate::layer_map::Map>,
     },
     /// D-336: After Effects' CC Vector Blur, this program's own reading of CycoreFX's manual.
@@ -14128,8 +14131,11 @@ impl Effect {
             Effect::Glass { fit, .. } if !["center", "stretch", "tile"].contains(&fit.as_str()) => Some(format!(
                 "CC Glass's fit is \"center\", \"stretch\" or \"tile\", and this is \"{fit}\"."
             )),
-            Effect::Glass { light_type, .. } if !["classic", "distant", "point"].contains(&light_type.as_str()) => Some(format!(
-                "CC Glass's light type is classic, distant or point, and this is \"{light_type}\"."
+            Effect::Glass { light_type, .. } if !["classic", "distant", "point", "ae_lights"].contains(&light_type.as_str()) => Some(format!(
+                "CC Glass's light type is classic, distant, point or ae_lights, and this is \"{light_type}\"."
+            )),
+            Effect::Glass { light_look, .. } if !["lit", "rim"].contains(&light_look.as_str()) => Some(format!(
+                "CC Glass's edge look is \"lit\" or \"rim\", and this is \"{light_look}\"."
             )),
             Effect::Glass { light_color, .. } => hex_fault("CC Glass", "light colour", light_color),
             Effect::VectorBlur { kind, .. } if !VECTOR_BLUR_TYPES.contains(&kind.as_str()) => Some(format!(
@@ -18758,12 +18764,15 @@ pub(crate) fn apply_stack_at(
                 specular,
                 roughness,
                 metal,
+                light_look,
                 map,
                 ..
             } => crate::perf::time(crate::perf::Stage::EffectGlass, || {
                 let light = encoded(light_color).map(crate::grade::to_linear);
+                // D-934: AE Lights is the bend unlit, the classic light at no intensity.
+                let ae = light_type == "ae_lights";
                 // D-561: None is the classic light; else the point, if any, and the shares.
-                let full = (light_type != "classic").then(|| crate::layer_fx::GlassLight {
+                let full = (light_type != "classic" && !ae).then(|| crate::layer_fx::GlassLight {
                     point: (light_type == "point").then(|| {
                         radial_center(*light_position, (source.width(), source.height()), (ox, oy))
                     }),
@@ -18775,13 +18784,14 @@ pub(crate) fn apply_stack_at(
                         *roughness,
                         *metal / 100.0,
                     ],
+                    rim: light_look == "rim",
                 });
                 crate::layer_fx::glass(
                     source,
                     map.as_ref().map(|m| (&*m.0, (ox, oy))),
                     property,
                     (*softness, *height, *displacement),
-                    (*light_angle, light, *light_intensity / 100.0),
+                    (*light_angle, light, if ae { 0.0 } else { *light_intensity / 100.0 }),
                     full,
                 )
             }),

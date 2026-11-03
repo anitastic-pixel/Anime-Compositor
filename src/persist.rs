@@ -5725,6 +5725,7 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             specular,
             roughness,
             metal,
+            light_look,
             ..
         } => {
             params.insert("layer".into(), layer.clone());
@@ -5755,6 +5756,10 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
                 params.insert("specular".into(), num(*specular));
                 params.insert("roughness".into(), num(*roughness));
                 params.insert("metal".into(), num(*metal));
+            }
+            // D-934: the lit look, D-561's, is not written, so a file from before it saves the same.
+            if light_look != "lit" {
+                params.insert("light_look".into(), J::from(light_look.as_str()));
             }
         }
         Effect::VectorBlur {
@@ -11951,6 +11956,7 @@ fn parse_effect(
                 specular: number("specular", 25.0)?,
                 roughness: number("roughness", 0.1)?,
                 metal: number("metal", 100.0)?,
+                light_look: effect_word_or(params, "light_look", at, "lit")?,
                 map: None,
             })
         }

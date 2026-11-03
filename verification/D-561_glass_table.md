@@ -106,7 +106,7 @@ B-441: `core.glass` takes the rest of After Effects' CC Glass controls (Light Ty
 | fx_glass_027.json opened and saved holds what it held, out-of-range values, wrong words and keys included | the same | yes |
 | fx_glass_013.json is saved with its seventeen settings | {"ambient":75,"diffuse":90,"displacement":3,"fit":"stretch","height":100,"layer":"ramp","light_angle":-45,"light_color":"#ffffff","light_height":25,"light_intensity":100,"light_position":[50,50],"light_type":"distant","metal":100,"property":"luminance","roughness":0.1,"softness":0,"specular":25} | yes |
 | fx_glass_002.json, written before D-561, is saved with its nine settings as read, no light type added | {"displacement":20,"fit":"stretch","height":50,"layer":"","light_angle":-45,"light_color":"#ffffff","light_intensity":70,"property":"alpha","softness":10} | yes |
-| fx_glass_021.json is refused in a sentence naming CC Glass and its light type | CC Glass's light type is classic, distant or point, and this is "spot". | yes |
+| fx_glass_021.json is refused in a sentence naming CC Glass and its light type | CC Glass's light type is classic, distant, point or ae_lights, and this is "spot". | yes |
 | fx_glass_022.json is refused in a sentence naming CC Glass and its roughness | CC Glass's roughness runs from 0.001 to 1, and this is 0. | yes |
 | fx_glass_023.json is refused in a sentence naming CC Glass and its ambient | CC Glass's ambient runs from 0 to 100, and this is 101. | yes |
 | fx_glass_024.json is refused in a sentence naming CC Glass and its light height | CC Glass's light height runs from -1000 to 1000, and this is 1001. | yes |
@@ -123,7 +123,7 @@ B-441: `core.glass` takes the rest of After Effects' CC Glass controls (Light Ty
 | --- | --- | --- |
 | ambient 101 is refused with a sentence, and nothing changes | CC Glass's ambient runs from 0 to 100, and this is 101. | yes |
 | light position 50, -1001 is refused with a sentence, and nothing changes | CC Glass's light position runs from -1000 to 1000, and this is -1001. | yes |
-| light type spot is refused with a sentence, and nothing changes | CC Glass's light type is classic, distant or point, and this is "spot". | yes |
+| light type spot is refused with a sentence, and nothing changes | CC Glass's light type is classic, distant, point or ae_lights, and this is "spot". | yes |
 | metal keyed to 150 is refused with a sentence, and nothing changes | CC Glass's metal runs from 0 to 100, and this is 150. | yes |
 | the ramp, Luminance, softness 3, an orange point light 60 up, specular 70, roughness 0.4, metal 0 is taken | taken | yes |
 | the classic light is taken | taken | yes |
