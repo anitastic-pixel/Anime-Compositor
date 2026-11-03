@@ -4405,15 +4405,69 @@ async function toDrawing(later) {
 let copied = [];
 // W-25: whether Ctrl+V pastes keys or layers: whichever Ctrl+C copied last.
 let clip = 'keys';
+// D-989: the property whose name was pressed last, and the path copied with it: After Effects
+// copies a selected Path and pastes it into a selected Position as a motion path (tQ5wqg10x_I 1:12).
+let namedProp = null;
+let copiedPath = null;
+function namedPathCopy() {
+  const named = namedProp && isPath(namedProp.prop) && layers().find((l) => l.id === namedProp.layer);
+  if (!named || ![...pickedKeys].every((id) => id.startsWith(named.id + '|' + namedProp.prop + '|'))) return null;
+  const at = Number(namedProp.prop.split(':')[1]);
+  const space = layerSpace(named);
+  const per = perFramePixel();
+  // ponytail: a layer off this frame has no map, so its path is taken as the composition's own.
+  const toComp = (x, y) => (space ? space.toFrame(x, y).map((v) => v * per) : [x, y]);
+  const points = maskPath(named, at).map(([x, y, ix, iy, ox, oy]) => {
+    const [cx, cy] = toComp(x, y);
+    const [ax, ay] = toComp(x + ix, y + iy);
+    const [bx, by] = toComp(x + ox, y + oy);
+    return [cx, cy, ax - cx, ay - cy, bx - cx, by - cy];
+  });
+  return { points, closed: (pathsOf(named)[at] || {}).closed !== false };
+}
 function copyKeys() {
   clip = 'keys';
+  copiedPath = namedPathCopy();
   copied = [...pickedKeys].map(keyParts).flatMap(([layer, prop, at]) => {
     const key = layer && keysOf(layer, prop).find((k) => k.frame === at);
     return key ? [{ layer: layer.id, prop, key }] : [];
   });
   $('status').textContent = copied.length + (copied.length === 1 ? ' key copied' : ' keys copied');
 }
+// ---- B-869 begin
+// D-989: a path pasted into Position: a key on each of its points in order, back to the first
+// on a closed one, over two seconds from the playhead; the first and last keys fixed and those
+// between roving, each with the path's handles as its own. `rest` is a 3D position's depth.
+function motionSends(path, layerId, start, fps, fresh, rest = []) {
+  const points = path.closed && path.points.length > 1 ? [...path.points, path.points[0]] : path.points;
+  const n = points.length;
+  if (n < 2) return [];
+  const at = (i) => start + Math.round(i * 2 * fps / (n - 1));
+  const q = (i) => '?layer=' + encodeURIComponent(layerId) + '&frame=' + at(i) + '&drag=1';
+  const sends = fresh ? ['/keyframe.add_remove' + q(0) + '&prop=position'] : [];
+  points.forEach(([x, y, ...handles], i) => {
+    sends.push('/property.set_base' + q(i) + '&prop=position&value=' + encodeURIComponent([x, y, ...rest].map(number).join(',')));
+    if (handles.some((v) => v)) sends.push('/keyframe.set_path' + q(i) + '&handles=' + handles.map(number).join(','));
+  });
+  if (n > 2) sends.push('/keyframe.set_roving?roving=true&drag=1' + points.slice(1, -1)
+    .map((_, i) => '&key=' + encodeURIComponent(layerId + '|position|' + at(i + 1))).join(''));
+  return sends;
+}
+// ---- B-869 end
+function pasteMotion(start) {
+  const layer = layers().find((l) => l.id === namedProp.layer);
+  if (!layer || layer.locked) return;
+  if (isSplit(layer)) { $('status').textContent = 'Join Position\'s dimensions first to paste a path into it.'; return; }
+  const sends = motionSends(copiedPath, layer.id, start, compFps(composition()), !keysOf(layer, 'position').length,
+    transformValue(layer, 'position').slice(2));
+  $('status').textContent = sends.length ? '' : 'A path of one point is no motion.';
+  nudge = nudge.then(async () => {
+    for (const request of sends) await command(request);
+    await command('/property.drag_end');
+  });
+}
 function pasteKeys(start = frame, target = null) {
+  if (copiedPath && namedProp && namedProp.prop === 'position' && selection.includes(namedProp.layer)) return pasteMotion(start);
   const first = Math.min(...copied.map((c) => c.key.frame));
   // Owner playtest of B-13e, 2026-09-16: keys copied from the camera go back to the camera. A
   // layer left selected while a camera key was picked took them, and a camera value means
@@ -6446,7 +6500,12 @@ function maskRows(comp, layer, shapes = false) {
     name.className = 'name';
     name.textContent = mask.name + (at === maskPicked && layer.id === selectedLayer ? ' ◆' : '');
     name.title = 'Press to work on this ' + (shapes ? 'shape' : 'mask') + '’s points on the picture';
-    name.onclick = (e) => { e.stopPropagation(); select(layer.id, false); maskPicked = at; drawLayers(); drawBoxes(); };
+    // D-989: and names the path, for Ctrl+C to copy and paste into a Position.
+    name.onclick = (e) => {
+      e.stopPropagation(); select(layer.id, false); pickKey(null, false); maskPicked = at;
+      namedProp = { layer: layer.id, prop: (shapes ? 'shape:' : 'mask:') + at };
+      drawLayers(); drawBoxes();
+    };
     name.tabIndex = 0;
     name.setAttribute('role', 'button');
     name.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); name.onclick(e); } };
@@ -6676,6 +6735,7 @@ function propTrack(comp, layer, prop) {
     // Choosing its keys used to clear whatever layer the person had chosen and select nothing.
     if (layer.id !== CAMERA_ROW && !selection.includes(layer.id)) select(layer.id, e.shiftKey);
     pickKey(null, true);
+    namedProp = { layer: layer.id, prop };
   };
   const value = document.createElement('span');
   value.className = 'value';
@@ -6889,6 +6949,7 @@ const svgEl = (kind) => document.createElementNS($('boxes').namespaceURI, kind);
 // cannot show five numbers for three layers, and picking one of them silently would be worse
 // than saying which one it is.
 function select(id, add) {
+  namedProp = null;
   if (id) cameraPicked = false;
   if (!add || !id) selection = id ? [id] : [];
   else if (selection.includes(id)) selection = selection.filter((held) => held !== id);
@@ -21473,13 +21534,14 @@ addEventListener('keydown', (e) => {
   // W-30: with an effect's card clicked, Ctrl+C copies that effect and its settings.
   else if (e.ctrlKey && !typing && cardInHand() && (e.key === 'c' || e.key === 'C')) { e.preventDefault(); copyEffects([cardInHand()]); }
   else if (e.ctrlKey && !typing && pickedKeys.size && (e.key === 'c' || e.key === 'C')) { e.preventDefault(); copyKeys(); }
+  else if (e.ctrlKey && !typing && namedPathCopy() && (e.key === 'c' || e.key === 'C')) { e.preventDefault(); copyKeys(); $('status').textContent = 'Path copied'; }
   // W-25: with no keys chosen, Ctrl+C copies the selected layers, and Ctrl+V pastes whichever was
   // copied last. Ctrl+Alt+V hides and shows, Ctrl+L locks, Ctrl+K is the composition's settings
   // and Ctrl+Home and Ctrl+Alt+F centre and fit.
   else if (e.ctrlKey && !typing && selection.length && (e.key === 'c' || e.key === 'C')) { e.preventDefault(); copyLayers(); }
   else if (e.ctrlKey && e.altKey && !typing && e.code === 'Slash') { e.preventDefault(); replaceSource(); }
   else if (e.ctrlKey && e.altKey && !typing && e.code === 'KeyV') { e.preventDefault(); toggleLayers('visibility'); }
-  else if (e.ctrlKey && !typing && clip === 'keys' && copied.length && (e.key === 'v' || e.key === 'V')) { e.preventDefault(); pasteKeys(); }
+  else if (e.ctrlKey && !typing && clip === 'keys' && (copied.length || copiedPath) && (e.key === 'v' || e.key === 'V')) { e.preventDefault(); pasteKeys(); }
   else if (e.ctrlKey && !typing && clip === 'layers' && (e.key === 'v' || e.key === 'V')) { e.preventDefault(); pasteLayers(); }
   else if (e.ctrlKey && !typing && clip === 'effects' && (e.key === 'v' || e.key === 'V')) { e.preventDefault(); pasteCopiedEffects(); }
   else if (e.ctrlKey && !e.altKey && !typing && e.code === 'KeyL') { e.preventDefault(); toggleLayers('lock'); }
