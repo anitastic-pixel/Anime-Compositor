@@ -221158,6 +221158,8 @@ FX-PSPACE-072 (`fx_pspace_072.json`): Opacity Map Fade In And Out (D-837), the o
 
 FX-PSPACE-073 (`fx_pspace_073.json`): Fade In And Out on the burst: the newest and oldest faint, the middle-aged as FX-PSPACE-024 has them. Frames 12.
 
+FX-PSPACE-074 (`fx_pspace_074.json`): Direction Axis with Extra Angle 437, "1x+77" (D-1025): taken, not refused, and the same picture as at 360. Frames 12, 24.
+
 ### Contour Paint, Arrowheads (D-585)
 
 Contour Paint's Arrowheads (B-463), more cases of Contour Paint (D-470) in the same folder and expected file: `tools/contour_paint_reference.py` writes `Fixtures/contour_paint/expected_contour_paint.json`, tolerance 2e-5; the rule is in document 21. FX-CONTOUR-001 to 041 are unchanged in value, 014 and 018 byte-identical; FX-CONTOUR-027's description alone is reworded under D-566.

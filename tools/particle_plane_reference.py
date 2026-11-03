@@ -86,7 +86,7 @@ SETTINGS = [
     ("radius_x", 0, 10, 0.025), ("radius_y", 0, 10, 0.025),
     ("velocity", -10, 10, 1), ("inherit_velocity", -10000, 10000, 0),
     ("gravity", -10, 10, 0.5), ("resistance", 0, 100, 0),
-    ("direction", -36000, 36000, 0), ("extra", 0, 10, 0.5), ("extra_angle", 0, 360, 360),
+    ("direction", -36000, 36000, 0), ("extra", 0, 10, 0.5), ("extra_angle", 0, 36000, 360),
     ("birth_size", 0, 100, 0.15), ("death_size", 0, 100, 0.15), ("size_variation", 0, 100, 0),
     ("max_opacity", 0, 100, 75),
     ("custom_opacity_1", 0, 100, 100), ("custom_opacity_2", 0, 100, 100),
@@ -172,7 +172,7 @@ def born(run, k, b):
     def turned(t):
         return P.add(P.mul(a, math.cos(t)), P.mul(e1, math.sin(t)))
 
-    alpha = math.radians(run.at("extra_angle", b) / 2)
+    alpha = math.radians(min(run.at("extra_angle", b), 360) / 2)  # D-1025: held at a full turn
     if mode in ("direction", "fractal_uni"):
         way = turned(alpha * (2 * r(3) - 1))
     elif mode == "cone":

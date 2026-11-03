@@ -141,7 +141,7 @@ SETTINGS = [
     ("velocity", -10, 10, 1), ("inherit_velocity", -10000, 10000, 0),
     ("gravity", -10, 10, 0.5), ("resistance", 0, 100, 0),
     ("axis_x", -1, 1, 0), ("axis_y", -1, 1, -1), ("axis_z", -1, 1, 0),
-    ("extra", 0, 10, 0.5), ("extra_angle", 0, 360, 360),
+    ("extra", 0, 10, 0.5), ("extra_angle", 0, 36000, 360),
     ("gravity_x", -1, 1, 0), ("gravity_y", -1, 1, 1), ("gravity_z", -1, 1, 0),
     ("floor_position", -10, 10, 0.5), ("bounciness", 0, 100, 50),
     ("random_bounciness", 0, 100, 0), ("bounce_spread", 0, 100, 0),
@@ -335,7 +335,9 @@ def born(run, k, b):
         sin_t = math.sqrt(max(0.0, 1 - cos_t * cos_t))
         return add(mul(a, cos_t), mul(add(mul(e1, math.cos(phi)), mul(e2, math.sin(phi))), sin_t))
 
-    alpha = math.radians(run.at("extra_angle", b) / 2)
+    # D-1025: After Effects takes whole turns ("1x+77" is 437); a cone wider than every way is
+    # every way, so the spread holds at 360.
+    alpha = math.radians(min(run.at("extra_angle", b), 360) / 2)
     if mode in ("direction_axis", "fractal_uni"):
         way = cap(1 - r(3) * (1 - math.cos(alpha)))
     elif mode == "cone_axis":
@@ -963,6 +965,10 @@ CASES = {
     "FX-PSPACE-058": ("Lines, larger: the streak's length follows Birth Size.",
                       case(**dict(FLOW, particle_type="line", birth_size=0.6, death_size=0.6)),
                       [12]),
+    "FX-PSPACE-074": ("Direction Axis, Extra Angle 1x+77 (437): taken, not refused, and the same "
+                      "as 360, every way.",
+                      case(**dict(FLOW, animation="direction_axis", extra_angle=437,
+                                  producer_y=0.3)), [12, 24]),
 }
 FRAMES_OF = {fx: frames for fx, (_, _, frames) in CASES.items()}
 assert all(in_range(c) for _, c, _ in CASES.values())
@@ -1092,6 +1098,10 @@ def check(expected):
         assert abs(max(p[3] for p in fd) - opacity_map({"opacity_map": "fade_in_and_out"}, f)) < 1e-9, (fr, f)
     assert total(c["FX-PSPACE-073"]["12"]) < total(c["FX-PSPACE-024"]["12"])
     assert c["FX-PSPACE-047"]["20"] != c["FX-PSPACE-045"]["20"]
+    # D-1025: past a full turn the spread holds at a full turn
+    full = case(**dict(FLOW, animation="direction_axis", extra_angle=360, producer_y=0.3))
+    for f in (12, 24):
+        assert c["FX-PSPACE-074"][str(f)] == render(full, f), f
     # the camera's own plane is 1:1: a particle at depth 0 sits where the layer puts it
     see = camera(Run(CASES["FX-PSPACE-045"][1], 20), view_of(CASES["FX-PSPACE-045"][1]))
     s = see([0.1, -0.2, 0.0])
