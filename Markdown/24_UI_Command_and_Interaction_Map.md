@@ -31,7 +31,7 @@ Every state-changing UI action invokes a stable command ID through the command l
 | asset.set_interpretation | Interpret as: the colour space a still's or a sequence's files are stored in (D-909) | none | yes |
 | project.set_view | View > Colour view: ACES 2.0 SDR, Un-tone-mapped or Standard, the viewer's view with colour management on; refused with it off (D-915) | none | yes |
 | project.set_color_management | File > Project Settings: colour management Off, On working in ACEScg, or On working in linear Rec.709; turning it on is refused while a composition is in 8 bpc (AE) or 32 bpc (AE) (D-916) | none | yes |
-| item.set_label | A composition's or a footage item's label colour, 0 for none or 1 to 16 (D-254, D-936) | none | yes |
+| item.set_label | A composition's or a footage item's label colour, 0 for none or 1 to 16 (D-254, D-948) | none | yes |
 | project.collect | Collect the project and its media into one folder with a manifest (D-61) | none | no history item |
 | package.check | Check the files of the open package against its manifest (D-61) | none | no |
 | layer.create | Add raster layer | Ctrl+Alt+L | yes |
@@ -51,7 +51,7 @@ Every state-changing UI action invokes a stable command ID through the command l
 | layer.duplicate | Copy the selected layers, each in front of itself | Ctrl+D | yes |
 | layer.split | Split the selected layers at the playhead into two layers | Ctrl+Shift+D | yes |
 | layer.toggle_solo | Show only the soloed layers in the preview | none | no |
-| layer.set_label | Set a layer's label colour, 0 for none or 1 to 16 (W-24, D-936) | none | yes |
+| layer.set_label | Set a layer's label colour, 0 for none or 1 to 16 (W-24, D-948) | none | yes |
 | layer.replace_source | Replace the selected layer's picture, sequence or sound with the item selected in the Project panel, keeping its keys, effects and settings, as After Effects' Replace Layer Source (D-734) | Ctrl+Alt+/ | yes |
 | layer.set_blend_mode | Set a layer's blend mode | none | yes |
 | layer.set_gain | Set an audio layer's level in decibels, from -96 to 12 | none | yes |
