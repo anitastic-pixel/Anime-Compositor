@@ -398,6 +398,8 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | and the settings it sends for it - threshold, threshold_smooth, radius, amount, color, quality - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.style_inner_shadow` is an effect this build has | added | added | pass |
 | and the settings it sends for it - blend_mode, color, opacity, use_global_light, angle, distance, choke, size, noise - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.style_gradient_overlay` is an effect this build has | added | added | pass |
+| and the settings it sends for it - blend_mode, opacity, color_stops, opacity_stops, angle, style, reverse, scale, offset - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.style_drop_shadow` is an effect this build has | added | added | pass |
 | and the settings it sends for it - blend_mode, color, opacity, use_global_light, angle, distance, spread, size, noise - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.channel_wipe` is an effect this build has | added | added | pass |
@@ -673,4 +675,4 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | the panel's `core.compressor` is an effect this build has | added | added | pass |
 | and the settings it sends for it - threshold, ratio, knee, attack, release, makeup, output_limit, auto_release - are the ones the command reads | accepted | accepted | pass |
 
-**652 of 652 checks pass.**
+**654 of 654 checks pass.**

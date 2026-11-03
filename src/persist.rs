@@ -1967,6 +1967,43 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("size".into(), num(*size));
             params.insert("noise".into(), num(*noise));
         }
+        Effect::GradientOverlay {
+            blend_mode,
+            opacity,
+            color_stops,
+            opacity_stops,
+            angle,
+            style,
+            reverse,
+            scale,
+            offset,
+        } => {
+            params.insert("blend_mode".into(), J::from(blend_mode.as_str()));
+            params.insert("opacity".into(), num(*opacity));
+            params.insert(
+                "color_stops".into(),
+                J::Array(
+                    color_stops
+                        .iter()
+                        .map(|(at, c)| J::Array(vec![num(*at), J::from(c.as_str())]))
+                        .collect(),
+                ),
+            );
+            params.insert(
+                "opacity_stops".into(),
+                J::Array(
+                    opacity_stops
+                        .iter()
+                        .map(|p| J::Array(p.iter().map(|v| num(*v)).collect()))
+                        .collect(),
+                ),
+            );
+            params.insert("angle".into(), num(*angle));
+            params.insert("style".into(), J::from(style.as_str()));
+            params.insert("reverse".into(), J::from(reverse.as_str()));
+            params.insert("scale".into(), num(*scale));
+            params.insert("offset".into(), J::Array(offset.iter().map(|v| num(*v)).collect()));
+        }
         Effect::LensBlur {
             radius,
             edges,
@@ -8490,6 +8527,27 @@ fn effect_points(params: Option<&J>, key: &str, at: &str) -> Result<Vec<Vec<f64>
         .collect()
 }
 
+/// D-1005: a Gradient Overlay's colour stops, each [location, "#rrggbb"]; how many and whether
+/// each is right is the effect's check, but a stop of any other shape refuses the file.
+fn effect_color_stops(params: Option<&J>, at: &str) -> Result<Vec<(f64, String)>, Diagnostic> {
+    let params = effect_params(params, at)?;
+    let at = format!("{at}/parameters/color_stops");
+    as_array(field(params, &at, "color_stops")?, &at)?
+        .iter()
+        .enumerate()
+        .map(|(i, p)| {
+            let at = format!("{at}/{i}");
+            match as_array(p, &at)?.as_slice() {
+                [l, c] => Ok((
+                    as_f64(l, &format!("{at}/0"))?,
+                    as_str(c, &format!("{at}/1"))?.to_ascii_lowercase(),
+                )),
+                _ => Err(invalid(&at, "a location then a colour")),
+            }
+        })
+        .collect()
+}
+
 /// D-130: numbers of any count, so a wrong count is kept and reported, not a refused file.
 fn effect_list(params: Option<&J>, key: &str, at: &str) -> Result<Vec<f64>, Diagnostic> {
     let params = effect_params(params, at)?;
@@ -8982,6 +9040,7 @@ fn parse_effect(
         crate::effects::DROP_SHADOW,
         crate::effects::STYLE_INNER_SHADOW,
         crate::effects::STYLE_DROP_SHADOW,
+        crate::effects::STYLE_GRADIENT_OVERLAY,
         crate::effects::LENS_BLUR,
         crate::effects::RIM_LIGHT,
         crate::effects::OUTLINE,
@@ -9570,6 +9629,18 @@ fn parse_effect(
                 noise: effect_number(params, "noise", at)?,
             })
         }
+        // D-1005: the stops' colours read in small letters, as a new colour is.
+        crate::effects::STYLE_GRADIENT_OVERLAY => Some(crate::effects::Effect::GradientOverlay {
+            blend_mode: effect_word(params, "blend_mode", at)?,
+            opacity: effect_number(params, "opacity", at)?,
+            color_stops: effect_color_stops(params, at)?,
+            opacity_stops: effect_points(params, "opacity_stops", at)?,
+            angle: effect_number(params, "angle", at)?,
+            style: effect_word(params, "style", at)?,
+            reverse: effect_word(params, "reverse", at)?,
+            scale: effect_number(params, "scale", at)?,
+            offset: effect_array(params, "offset", "two numbers, x then y", at)?,
+        }),
         crate::effects::LENS_BLUR => Some(crate::effects::Effect::LensBlur {
             radius: effect_number(params, "radius", at)?,
             edges: effect_word(params, "edges", at)?,

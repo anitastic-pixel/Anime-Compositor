@@ -1976,6 +1976,7 @@
     <hr>
     <button data-run="Layer style: Drop Shadow"></button>
     <button data-run="Layer style: Inner Shadow"></button>
+    <button data-run="Layer style: Gradient Overlay"></button>
     <button data-run="Global Light angle"></button>
   </div></span>
   <span class="mi"><button class="mt" aria-haspopup="menu" aria-expanded="false">Effect</button><div class="drop" role="menu" aria-label="Effect" hidden>
@@ -5887,6 +5888,7 @@ function paletteLines() {
     // D-922: After Effects' Layer > Layer Styles, on every selected layer, and its Global Light.
     ['Layer style: Drop Shadow', '', () => applyToLayers('core.style_drop_shadow', selection.filter((id) => takesEffects(layerById(id))))],
     ['Layer style: Inner Shadow', '', () => applyToLayers('core.style_inner_shadow', selection.filter((id) => takesEffects(layerById(id))))],
+    ['Layer style: Gradient Overlay', '', () => applyToLayers('core.style_gradient_overlay', selection.filter((id) => takesEffects(layerById(id))))],
     ['Global Light angle', '', globalLightDialog],
     ['Key speed and influence', '', velocityDialog],
     ['Show effect controls', 'E', { key: 'e' }],
@@ -10826,6 +10828,7 @@ const EFFECT_NAMES = {
   'core.drop_shadow': 'Drop Shadow',
   // D-922: After Effects' Layer Styles, run after every effect.
   'core.style_inner_shadow': 'Inner Shadow',
+  'core.style_gradient_overlay': 'Gradient Overlay',
   'core.style_drop_shadow': 'Drop Shadow (Layer Style)',
   'core.lens_blur': 'Lens Blur',
   'core.rim_light': 'Rim Light',
@@ -11123,7 +11126,7 @@ const EFFECT_GROUPS = [
     'core.paint_bucket', 'core.cell_pattern', 'core.stroke', 'core.write_on', 'core.scribble', 'core.vegas', 'core.energy_stroke', 'core.cc_ball_action', 'core.particle_space', 'core.particle_plane', 'core.particle_playground', 'core.particle_emitter', 'core.particle_grid', 'core.bubbles', 'core.drizzle', 'core.hair', 'core.mercury', 'core.polygon_shards', 'core.foam', 'core.scatterize', 'core.star_burst']],
   ['Stylize', ['core.drop_shadow', 'core.radial_shadow', 'core.halftone', 'core.mosaic', 'core.emboss', 'core.bevel_alpha', 'core.bevel_edges', 'core.glass', 'core.find_edges',
     'core.posterize', 'core.threshold', 'core.channel_threshold', 'core.threshold_rgb', 'core.solarize', 'core.kaleidoscope', 'core.roughen_edges', 'core.brush_strokes', 'core.cartoon', 'core.block_load', 'core.burn_film', 'core.hex_tile', 'core.mr_smoothie', 'core.plastic', 'core.repeat_tile', 'core.scatter', 'core.strobe_light', 'core.texturize', 'core.contour_paint', 'core.reduce_interlace_flicker']],
-  ['Layer Styles', ['core.style_drop_shadow', 'core.style_inner_shadow']],
+  ['Layer Styles', ['core.style_drop_shadow', 'core.style_inner_shadow', 'core.style_gradient_overlay']],
   ['Camera & Lens', ['core.vignette', 'core.cc_vignette', 'core.chromatic_aberration', 'core.distance_gradation',
     'core.camera_shake', 'core.three_d_glasses', 'core.cc_spotlight', 'core.cc_cylinder', 'core.cc_environment', 'core.cc_sphere']],
   ['Time', ['core.echo', 'core.cc_wide_time', 'core.force_motion_blur', 'core.pixel_motion_blur', 'core.timewarp', 'core.time_difference', 'core.posterize_time', 'core.moment_map']],
@@ -11397,6 +11400,7 @@ const EFFECT_SEARCH = {
   'core.glass': 'cc glass refraction refract lens bump map shockwave water ripple heat distortion bevel light',
   'core.drop_shadow': 'shade',
   'core.style_inner_shadow': 'layer style inner shadow rim light edge glow photoshop global light choke',
+  'core.style_gradient_overlay': 'layer style gradient overlay ramp vignette colour stops opacity stops photoshop radial',
   'core.style_drop_shadow': 'layer style drop shadow photoshop global light spread',
   'core.halftone': 'dots screentone manga comic print',
   'core.mosaic': 'pixelate censor blocks',
@@ -11442,6 +11446,7 @@ const EFFECT_ABOUT = {
   'core.hue_saturation': 'Turns the colours around the colour wheel, and changes how strong and bright they are.',
   'core.gradient': 'Fills the layer with a blend between two colours.',
   'core.drop_shadow': 'Casts a soft shadow of the layer behind it.',
+  'core.style_gradient_overlay': 'After Effects\' Gradient Overlay layer style: a gradient of colour and opacity stops laid over the layer inside its own alpha, in a blend mode; Radial at Scale 150 in Overlay darkens the edges as a vignette does. Drawn after the effects and before the shadows.',
   'core.style_inner_shadow': 'After Effects\' Inner Shadow layer style: a shadow inside the layer\'s edge, away from the light; in Add or Color Dodge with a bright colour it is a rim light. Always runs after the effects. Use Global Light takes the composition\'s angle (Layer menu).',
   'core.style_drop_shadow': 'After Effects\' Drop Shadow layer style: the layer\'s shape, spread, blurred and moved away from the light, behind it. Always runs after the effects. Use Global Light takes the composition\'s angle (Layer menu).',
   'core.lens_blur': 'Out-of-focus blur like a real lens, with shaped bokeh highlights.',
@@ -11825,6 +11830,11 @@ const EFFECT_PARAMS = {
     ['choke', 'Choke', 1, 0.5, 'per cent, 0 to 100'],
     ['size', 'Size', 1, 0.5, 'pixels, 0 to 250'],
     ['noise', 'Noise', 1, 0.5, 'per cent, 0 to 100']],
+  // D-1005: After Effects' Gradient Overlay rows.
+  'core.style_gradient_overlay': [['opacity', 'Opacity', 1, 0.5, 'per cent, 0 to 100'],
+    ['angle', 'Angle', 1, 1, 'degrees counter-clockwise from the right; the gradient runs from location 0 to 100 along it', 'dial'],
+    ['scale', 'Scale', 1, 0.5, 'per cent, 10 to 150'],
+    ['offset', 'Offset', 2, 0.5, 'pixels from the layer\'s centre, x then y']],
   'core.style_drop_shadow': [['opacity', 'Opacity', 1, 0.5, 'per cent, 0 to 100'],
     ['angle', 'Angle', 1, 1, 'degrees counter-clockwise from the right, where the light comes from; the Global Light\'s when Use Global Light is on', 'dial'],
     ['distance', 'Distance', 1, 0.5, 'pixels, 0 to 1000'],
@@ -13847,6 +13857,18 @@ const EFFECT_WORDS = {
     choices: [['blend_mode', 'Blend Mode', BLENDS.filter((m) => !m.startsWith('stencil')).map((m) => [m, blendName(m)])],
       ['use_global_light', 'Use Global Light', [['on', 'On'], ['off', 'Off']]]],
     colours: [['color', 'Color']],
+  },
+  // D-1005: the Gradient Overlay's words, and its stops typed as a curve's points are, under the
+  // gradient editor.
+  'core.style_gradient_overlay': {
+    choices: [['blend_mode', 'Blend Mode', BLENDS.filter((m) => !m.startsWith('stencil')).map((m) => [m, blendName(m)])],
+      ['style', 'Style', [['linear', 'Linear'], ['radial', 'Radial'], ['angle', 'Angle'], ['reflected', 'Reflected'],
+        ['diamond', 'Diamond']]],
+      ['reverse', 'Reverse', [['off', 'Off'], ['on', 'On']]]],
+    texts: [['color_stops', 'Colour Stops', '0 #ffffff, 100 #000000', null,
+      'Each colour stop as its location, 0 to 100, then its colour, a comma between stops; 2 to 16 of them'],
+    ['opacity_stops', 'Opacity Stops', '0 100, 100 100', null,
+      'Each opacity stop as its location, 0 to 100, then its opacity in per cent, a comma between stops; 2 to 16 of them']],
   },
   'core.lens_blur': {
     choices: [['iris', 'Iris Shape', [['circle', 'Circle'], ['triangle', 'Triangle'], ['square', 'Square'],
@@ -16195,6 +16217,152 @@ function effectRow(layer, fx, at, of) {
       if (text.value.trim() !== was) { words[name] = text.value.trim(); sendParameters(); }
     };
     dd.append(text);
+    dl.append(dt, dd);
+  }
+  // D-1005: the Gradient Overlay's gradient editor, as After Effects' Gradient Editor: the bar
+  // over a checkerboard, opacity stops above it and colour stops below. Drag a stop to move it,
+  // click beside the bar to add one, Delete removes the chosen one (two are always kept). An
+  // edit is written into the stop lists the fields above show, and sent as they are.
+  if (fxKey(fx) === 'core.style_gradient_overlay') {
+    const read = (w) => (words[w] || '').split(',').map((p) => p.trim().split(/\s+/)).filter((p) => p.length === 2)
+      .map(([a, b]) => [Number(a), w === 'color_stops' ? b : Number(b)]);
+    const lists = { color_stops: read('color_stops'), opacity_stops: read('opacity_stops') };
+    const write = () => {
+      for (const w of ['color_stops', 'opacity_stops']) words[w] = lists[w].map((p) => p.join(' ')).join(', ');
+      window.gradientStop = { id: fx.instance_id, at: chosen };
+      sendParameters();
+    };
+    const along = (list, t, pick) => {
+      const s = [...list].sort((a, b) => a[0] - b[0]);
+      if (!s.length) return pick(null);
+      if (t <= s[0][0]) return pick(s[0][1]);
+      for (let i = 1; i < s.length; i++) {
+        if (t <= s[i][0]) {
+          const k = s[i][0] > s[i - 1][0] ? (t - s[i - 1][0]) / (s[i][0] - s[i - 1][0]) : 1;
+          return pick(s[i - 1][1], s[i][1], k);
+        }
+      }
+      return pick(s[s.length - 1][1]);
+    };
+    const rgb = (h) => [1, 3, 5].map((i) => parseInt((h || '#000000').slice(i, i + 2), 16) || 0);
+    const colourAt = (t) => along(lists.color_stops, t, (a, b, k = 0) =>
+      b === undefined ? rgb(a) : rgb(a).map((v, i) => v + (rgb(b)[i] - v) * k));
+    const opacityAt = (t) => along(lists.opacity_stops, t, (a, b, k = 0) => (b === undefined ? a ?? 100 : a + (b - a) * k));
+    // The chosen stop outlives the panel being drawn again after each edit.
+    const kept = window.gradientStop;
+    let chosen = kept && kept.id === fx.instance_id ? kept.at : null;
+    const dd = Object.assign(document.createElement('dd'), { className: 'wide' });
+    const box = document.createElement('div');
+    box.style.cssText = 'position:relative;height:44px;margin:4px 8px;user-select:none';
+    const bar = document.createElement('div');
+    bar.title = 'Click above the bar to add an opacity stop, below it to add a colour stop';
+    bar.style.cssText = 'position:absolute;left:0;right:0;top:12px;height:20px;border:1px solid #666;' +
+      'background:repeating-conic-gradient(#999 0 25%,#ddd 0 50%) 0 0/10px 10px';
+    const paint = document.createElement('div');
+    paint.style.cssText = 'position:absolute;inset:0';
+    bar.append(paint);
+    const edit = document.createElement('div');
+    edit.style.cssText = 'margin:4px 8px';
+    box.append(bar);
+    dd.append(box, edit);
+    const draw = () => {
+      const at = [...new Set([0, 100, ...lists.color_stops.map((p) => p[0]), ...lists.opacity_stops.map((p) => p[0])])]
+        .sort((a, b) => a - b);
+      paint.style.background = 'linear-gradient(to right,' + at.map((t) => {
+        const [r, g, b] = colourAt(t);
+        return `rgba(${Math.round(r)},${Math.round(g)},${Math.round(b)},${opacityAt(t) / 100}) ${t}%`;
+      }).join(',') + ')';
+      box.querySelectorAll('.gstop').forEach((s) => s.remove());
+      for (const w of ['opacity_stops', 'color_stops']) {
+        lists[w].forEach((p, i) => {
+          const s = Object.assign(document.createElement('button'), { className: 'gstop' });
+          const top = w === 'opacity_stops';
+          const fill = top ? `rgb(${Array(3).fill(Math.round(255 * (1 - p[1] / 100))).join(',')})` : p[1];
+          const picked = chosen && chosen[0] === w && chosen[1] === i;
+          s.style.cssText = `position:absolute;left:calc(${p[0]}% - 5px);${top ? 'top:0' : 'top:33px'};width:10px;height:11px;` +
+            `padding:0;border:${picked ? '2px solid #4af' : '1px solid #888'};background:${fill}`;
+          s.title = (top ? 'Opacity stop, ' + p[1] + ' per cent' : 'Colour stop, ' + p[1]) + ', at ' + p[0] +
+            '; drag to move it';
+          s.setAttribute('aria-label', label + (top ? ' opacity stop ' : ' colour stop ') + (i + 1));
+          s.onpointerdown = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            chosen = [w, i];
+            s.setPointerCapture(e.pointerId);
+            let moved = false;
+            s.onpointermove = (m) => {
+              const r = bar.getBoundingClientRect();
+              p[0] = Math.round(Math.min(100, Math.max(0, (m.clientX - r.left) / r.width * 100)) * 10) / 10;
+              moved = true;
+              s.style.left = `calc(${p[0]}% - 5px)`;
+            };
+            s.onpointerup = () => {
+              s.onpointermove = s.onpointerup = null;
+              if (moved) lists[w].sort((a, b) => a[0] - b[0]);
+              chosen = [w, lists[w].indexOf(p)];
+              if (moved) write(); else { draw(); stopFields(); }
+            };
+          };
+          box.append(s);
+        });
+      }
+    };
+    const stopFields = () => {
+      edit.textContent = '';
+      if (!chosen) return;
+      const [w, i] = chosen;
+      const p = lists[w][i];
+      if (!p) return;
+      const put = (title, input) => {
+        input.setAttribute('aria-label', label + ' stop ' + title);
+        input.onkeydown = (e) => e.stopPropagation();
+        edit.append(title + ' ', input, ' ');
+      };
+      const loc = Object.assign(document.createElement('input'), { type: 'number', min: 0, max: 100, step: 0.1, value: p[0] });
+      loc.style.width = '5em';
+      loc.onchange = () => { p[0] = Number(loc.value); lists[w].sort((a, b) => a[0] - b[0]); write(); };
+      put('Location', loc);
+      if (w === 'color_stops') {
+        const c = Object.assign(document.createElement('input'), { type: 'color', value: p[1] });
+        c.onchange = () => { p[1] = c.value.toLowerCase(); write(); };
+        put('Colour', c);
+      } else {
+        const o = Object.assign(document.createElement('input'), { type: 'number', min: 0, max: 100, step: 1, value: p[1] });
+        o.style.width = '5em';
+        o.onchange = () => { p[1] = Number(o.value); write(); };
+        put('Opacity', o);
+      }
+      const del = Object.assign(document.createElement('button'), { textContent: 'Delete stop' });
+      del.title = 'Take this stop away; a gradient keeps at least two of each';
+      del.disabled = lists[w].length <= 2;
+      del.onclick = () => { lists[w].splice(i, 1); chosen = null; write(); };
+      edit.append(del);
+    };
+    box.onpointerdown = (e) => {
+      const r = bar.getBoundingClientRect();
+      const t = Math.round(Math.min(100, Math.max(0, (e.clientX - r.left) / r.width * 100)) * 10) / 10;
+      const w = e.clientY < r.top + r.height / 2 ? 'opacity_stops' : 'color_stops';
+      if (lists[w].length >= 16) return;
+      const [cr, cg, cb] = colourAt(t).map((v) => Math.round(v).toString(16).padStart(2, '0'));
+      const p = [t, w === 'color_stops' ? '#' + cr + cg + cb : Math.round(opacityAt(t) * 10) / 10];
+      lists[w].push(p);
+      lists[w].sort((a, b) => a[0] - b[0]);
+      chosen = [w, lists[w].indexOf(p)];
+      write();
+    };
+    dd.onkeydown = (e) => {
+      if ((e.key === 'Delete' || e.key === 'Backspace') && chosen && e.target.tagName === 'BUTTON'
+        && lists[chosen[0]].length > 2) {
+        e.preventDefault();
+        e.stopPropagation();
+        lists[chosen[0]].splice(chosen[1], 1);
+        chosen = null;
+        write();
+      }
+    };
+    draw();
+    stopFields();
+    const dt = Object.assign(document.createElement('dt'), { textContent: 'Gradient', className: 'wide' });
     dl.append(dt, dd);
   }
   // D-700: Liquify brushed on the viewer. While the button is on, each drag on the picture goes

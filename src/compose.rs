@@ -4421,9 +4421,11 @@ fn resolve_rest(
     // D-922: the Layer Styles run after every effect, Inner Shadows before Drop Shadows, each in
     // its listed order; one with Use Global Light on takes the composition's angle. A Drop
     // Shadow's mode is drawn as Normal, said once a frame where that changes its pixels.
+    // D-1005: a Gradient Overlay is drawn first of the styles, the shadows over it.
     effects.sort_by_key(|i| match i.effect {
-        crate::effects::Effect::LayerStyle { inner: true, .. } => 1,
-        crate::effects::Effect::LayerStyle { .. } => 2,
+        crate::effects::Effect::GradientOverlay { .. } => 1,
+        crate::effects::Effect::LayerStyle { inner: true, .. } => 2,
+        crate::effects::Effect::LayerStyle { .. } => 3,
         _ => 0,
     });
     let mut drop_mode = None;

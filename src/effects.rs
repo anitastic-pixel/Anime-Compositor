@@ -919,6 +919,23 @@ pub enum Effect {
         size: f64,
         noise: f64,
     },
+    /// D-1005: the Layer Style Gradient Overlay, `core.style_gradient_overlay`. `blend_mode` as
+    /// a Layer Style's, `style` (linear, radial, angle, reflected, diamond) and `reverse` (off,
+    /// on) kept as written; `color_stops`, [location, "#rrggbb"], and `opacity_stops`,
+    /// [location, opacity], kept as written so a wrong count or value is reported; `opacity`,
+    /// 0 to 100; `angle`, -3600 to 3600; `scale`, 10 to 150; `offset`, pixels. Drawn first of
+    /// the styles (compose sorts them).
+    GradientOverlay {
+        blend_mode: String,
+        opacity: f64,
+        color_stops: Vec<(f64, String)>,
+        opacity_stops: Vec<Vec<f64>>,
+        angle: f64,
+        style: String,
+        reverse: String,
+        scale: f64,
+        offset: [f64; 2],
+    },
     /// D-116: `radius`, 0 to 200 pixels, and `edges`, "transparent" or "repeat", kept as
     /// written so a wrong one is reported. D-121: `iris`, "circle" or "triangle" to "decagon",
     /// kept as written; `roundness`, 0 to 100; `rotation`, -3600 to 3600 degrees clockwise from
@@ -4924,6 +4941,7 @@ pub const GRADIENT: &str = "core.gradient";
 pub const DROP_SHADOW: &str = "core.drop_shadow";
 pub const STYLE_INNER_SHADOW: &str = "core.style_inner_shadow";
 pub const STYLE_DROP_SHADOW: &str = "core.style_drop_shadow";
+pub const STYLE_GRADIENT_OVERLAY: &str = "core.style_gradient_overlay";
 
 /// D-922: a Layer Style's blend mode, any layer mode's word but the two stencils.
 pub fn style_mode(word: &str) -> Option<crate::model::BlendMode> {
@@ -7888,6 +7906,18 @@ impl Effect {
                 (if *inner { "choke" } else { "spread" }, vec![spread], 0.0, 100.0),
                 ("size", vec![size], 0.0, 250.0),
                 ("noise", vec![noise], 0.0, 100.0),
+            ],
+            Effect::GradientOverlay {
+                opacity,
+                angle,
+                scale,
+                offset,
+                ..
+            } => vec![
+                ("opacity", vec![opacity], 0.0, 100.0),
+                ("angle", vec![angle], -3600.0, 3600.0),
+                ("scale", vec![scale], 10.0, 150.0),
+                ("offset", offset.iter_mut().collect(), -100000.0, 100000.0),
             ],
             Effect::LensBlur {
                 radius,
@@ -12137,6 +12167,7 @@ impl Effect {
                 *distance = scale(*distance);
                 *size = scale(*size);
             }
+            Effect::GradientOverlay { offset, .. } => *offset = offset.map(&scale),
             // D-211: the light is a share of the drawing and the distance a ratio; only the
             // softening is in pixels.
             Effect::RadialShadow { softness, .. } => *softness = scale(*softness),
@@ -12206,6 +12237,7 @@ impl Effect {
             Effect::DropShadow { .. } => "Drop Shadow",
             Effect::LayerStyle { inner: true, .. } => "Inner Shadow",
             Effect::LayerStyle { .. } => "Drop Shadow (Layer Style)",
+            Effect::GradientOverlay { .. } => "Gradient Overlay",
             Effect::LensBlur { .. } => "Lens Blur",
             Effect::RimLight { .. } => "Rim Light",
             Effect::Outline { .. } => "Outline",
@@ -12499,6 +12531,7 @@ impl Effect {
             Effect::DropShadow { .. } => DROP_SHADOW,
             Effect::LayerStyle { inner: true, .. } => STYLE_INNER_SHADOW,
             Effect::LayerStyle { .. } => STYLE_DROP_SHADOW,
+            Effect::GradientOverlay { .. } => STYLE_GRADIENT_OVERLAY,
             Effect::LensBlur { .. } => LENS_BLUR,
             Effect::RimLight { .. } => RIM_LIGHT,
             Effect::Outline { .. } => OUTLINE,
@@ -14062,6 +14095,14 @@ impl Effect {
                         })
                     })
             }
+            Effect::GradientOverlay {
+                blend_mode,
+                color_stops,
+                opacity_stops,
+                style,
+                reverse,
+                ..
+            } => gradient_overlay_fault(blend_mode, color_stops, opacity_stops, style, reverse),
             Effect::RadialShadow {
                 color,
                 render,
@@ -15800,6 +15841,48 @@ fn basic_text_fault(e: &Effect) -> Option<String> {
         })
 }
 
+/// D-1005: what is wrong with a Gradient Overlay's words and stops, or `None`.
+fn gradient_overlay_fault(
+    blend_mode: &str,
+    color_stops: &[(f64, String)],
+    opacity_stops: &[Vec<f64>],
+    style: &str,
+    reverse: &str,
+) -> Option<String> {
+    let name = "Gradient Overlay";
+    if style_mode(blend_mode).is_none() {
+        return Some(format!("{name}'s blend mode is a layer mode but the stencils, and this is \"{blend_mode}\"."));
+    }
+    if !["linear", "radial", "angle", "reflected", "diamond"].contains(&style) {
+        return Some(format!("{name}'s style is linear, radial, angle, reflected or diamond, and this is \"{style}\"."));
+    }
+    if !["off", "on"].contains(&reverse) {
+        return Some(format!("{name}'s reverse is \"on\" or \"off\", and this is \"{reverse}\"."));
+    }
+    let places = |what: &str, at: Vec<f64>| -> Option<String> {
+        if !(2..=16).contains(&at.len()) {
+            return Some(format!("{name} takes 2 to 16 {what} stops, and this has {}.", at.len()));
+        }
+        if let Some(l) = at.iter().find(|l| !(0.0..=100.0).contains(*l)) {
+            return Some(format!("{name}'s {what} stops sit at 0 to 100, and one is at {l}."));
+        }
+        at.windows(2).find(|w| w[1] < w[0]).map(|w| {
+            format!("{name}'s {what} stops go along from 0 to 100, and {} comes after {}.", w[1], w[0])
+        })
+    };
+    if let Some(c) = color_stops.iter().find_map(|(_, c)| hex_fault(name, "stop colour", c)) {
+        return Some(c);
+    }
+    if let Some(p) = opacity_stops.iter().find(|p| p.len() != 2) {
+        return Some(format!("Each opacity stop of {name} is two numbers, location then opacity, and this one is {p:?}."));
+    }
+    if let Some(p) = opacity_stops.iter().find(|p| !(0.0..=100.0).contains(&p[1])) {
+        return Some(format!("{name}'s stop opacity runs from 0 to 100, and this is {}.", p[1]));
+    }
+    places("colour", color_stops.iter().map(|s| s.0).collect())
+        .or_else(|| places("opacity", opacity_stops.iter().map(|s| s[0]).collect()))
+}
+
 fn hex_fault(effect: &str, what: &str, c: &str) -> Option<String> {
     crate::selective_blur::parse_hex(c)
         .is_none()
@@ -16871,6 +16954,42 @@ pub(crate) fn apply_stack_at(
                     ox += r;
                     oy += r;
                 }
+            }
+            Effect::GradientOverlay {
+                blend_mode,
+                opacity,
+                color_stops,
+                opacity_stops,
+                angle,
+                style,
+                reverse,
+                scale,
+                offset,
+            } => {
+                let colors: Vec<(f64, [f64; 3])> = color_stops
+                    .iter()
+                    .map(|(at, c)| {
+                        let c = encoded(c);
+                        (*at, if display { c } else { c.map(crate::grade::to_linear) })
+                    })
+                    .collect();
+                let opacities: Vec<(f64, f64)> =
+                    opacity_stops.iter().map(|p| (p[0], p[1])).collect();
+                crate::layer_fx::gradient_overlay(
+                    source,
+                    &crate::layer_fx::GradientOverlay {
+                        colors,
+                        opacities,
+                        opacity: *opacity,
+                        angle: *angle,
+                        style: style.clone(),
+                        reverse: reverse == "on",
+                        scale: *scale,
+                        offset: *offset,
+                    },
+                    style_mode(blend_mode).unwrap_or(crate::model::BlendMode::Normal),
+                    display,
+                );
             }
             // D-211: the light is in per cent of the drawing's own box, however an effect above
             // grew it, and the layer grows to hold the shadow.
@@ -21276,6 +21395,7 @@ pub(crate) fn on_display(effect: &Effect, bits: Bits) -> bool {
                 | Effect::Fill { .. }
                 | Effect::Mosaic { .. }
                 | Effect::LayerStyle { .. }
+                | Effect::GradientOverlay { .. }
         );
     bits != Bits::Linear
         && (mixes

@@ -289,6 +289,84 @@ pub(crate) fn inner_shadow(
         });
 }
 
+/// D-1005: a Gradient Overlay's settings, valid and at this frame: the stops' colours linear, or
+/// display values in 8 bpc.
+pub(crate) struct GradientOverlay {
+    pub colors: Vec<(f64, [f64; 3])>,
+    pub opacities: Vec<(f64, f64)>,
+    pub opacity: f64,
+    pub angle: f64,
+    pub style: String,
+    pub reverse: bool,
+    pub scale: f64,
+    pub offset: [f64; 2],
+}
+
+/// D-1005: straight between the stops round `at`, 0 to 100, held past the ends; of two at one
+/// place the later wins at it.
+fn along<const N: usize>(stops: &[(f64, [f64; N])], at: f64) -> [f64; N] {
+    if at < stops[0].0 {
+        return stops[0].1;
+    }
+    for w in stops.windows(2) {
+        let ((a, ca), (b, cb)) = (w[0], w[1]);
+        if a <= at && at < b {
+            let f = (at - a) / (b - a);
+            return std::array::from_fn(|c| ca[c] + (cb[c] - ca[c]) * f);
+        }
+    }
+    stops[stops.len() - 1].1
+}
+
+/// D-1005: where the pixel centre `(px, py)` of a `w` by `h` box falls along the gradient, 0 to 1.
+pub(crate) fn gradient_place(g: &GradientOverlay, w: f64, h: f64, px: f64, py: f64) -> f64 {
+    let a = g.angle.to_radians();
+    let (ca, sa) = (a.cos(), a.sin());
+    let dx = px + 0.5 - w / 2.0 - g.offset[0];
+    let dy = py + 0.5 - h / 2.0 - g.offset[1];
+    let du = dx * ca - dy * sa;
+    let dv = dx * sa + dy * ca;
+    let length = ((w * ca).abs() + (h * sa).abs()) * g.scale / 100.0;
+    let t = match g.style.as_str() {
+        "linear" => 0.5 + du / length,
+        "reflected" => du.abs() / (length / 2.0),
+        "radial" => dx.hypot(dy) / (length / 2.0),
+        "diamond" => (du.abs() + dv.abs()) / (length / 2.0),
+        _ => ((-dy).atan2(dx).to_degrees() - g.angle).rem_euclid(360.0) / 360.0,
+    };
+    (if g.reverse { 1.0 - t } else { t }).clamp(0.0, 1.0)
+}
+
+/// D-1005: the Gradient Overlay laid on the layer in `mode`, keeping the layer's alpha, as an
+/// Inner Shadow's colour is. Never grows.
+pub(crate) fn gradient_overlay(
+    source: &mut WorkingBuffer,
+    g: &GradientOverlay,
+    mode: crate::model::BlendMode,
+    display: bool,
+) {
+    let (w, h) = (source.width(), source.height());
+    let opacities: Vec<(f64, [f64; 1])> = g.opacities.iter().map(|(a, q)| (*a, [*q])).collect();
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, px)| {
+            let t = gradient_place(g, w as f64, h as f64, (i % w) as f64, (i / w) as f64);
+            let c = along(&g.colors, 100.0 * t);
+            let k = along(&opacities, 100.0 * t)[0] / 100.0 * g.opacity / 100.0;
+            let src = [(c[0] * k) as f32, (c[1] * k) as f32, (c[2] * k) as f32, k as f32];
+            let out = crate::composite::blend_pixel_kept(
+                mode,
+                src,
+                [px[0], px[1], px[2], px[3]],
+                false,
+                display,
+            );
+            px.copy_from_slice(&out);
+        });
+}
+
 /// D-922: Drop Shadow as a Layer Style: the dilated, blurred covering moved away from the light,
 /// in the colour, laid behind the layer. The layer grows by `ceil(distance)`, the disc's whole
 /// steps and the blur's reach on every side, returned.

@@ -3871,6 +3871,21 @@ const EFFECT_KINDS: &[(&str, &[(&str, &str)])] = &[
             ("noise", "10"),
         ],
     ),
+    // D-1005: the Gradient Overlay's stops travel as the page writes them.
+    (
+        "core.style_gradient_overlay",
+        &[
+            ("blend_mode", "overlay"),
+            ("opacity", "80"),
+            ("color_stops", "0%20%23232444,%2050%20%23ff8000,%20100%20%23232444"),
+            ("opacity_stops", "65.6%200,%20100%20100"),
+            ("angle", "45"),
+            ("style", "radial"),
+            ("reverse", "on"),
+            ("scale", "150"),
+            ("offset", "2,%20-3"),
+        ],
+    ),
     (
         "core.style_drop_shadow",
         &[
