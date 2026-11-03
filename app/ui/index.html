@@ -12551,9 +12551,23 @@ const EFFECT_PARAMS = {
     ['blend_with_original', 'Blend With Original', 1, 1, '%, 0 to 100'],
     ['random_seed', 'Random Seed', 1, 1, 'a whole number, 0 to 100000, a different set of strokes']],
   // D-453.
-  // D-455: Noise Reduction Settings and Unsharp Mask; the rest of After Effects’ groups are not built.
-  'core.remove_grain': [['noise_reduction', 'Noise Reduction', 1, 0.1, '0 to 3, how strongly the measured grain is smoothed; 0 leaves the layer as it is'],
+  // D-455: Noise Reduction Settings and Unsharp Mask. D-966: the Preview Region, Fine Tuning,
+  // Channel Noise Reduction and Temporal Filtering, each at its neutral value for a file without
+  // it; After Effects' Sampling group and Box Color are not built.
+  'core.remove_grain': [['preview_center', 'Preview Region Center', 2, 1, '% of the width and height, -1000 to 1000, the middle of the Preview region', '', [50, 50]],
+    ['preview_width', 'Preview Region Width', 1, 1, 'pixels, 1 to 10000', '', 200],
+    ['preview_height', 'Preview Region Height', 1, 1, 'pixels, 1 to 10000', '', 200],
+    ['noise_reduction', 'Noise Reduction', 1, 0.1, '0 to 3, how strongly the measured grain is smoothed; 0 leaves the layer as it is'],
     ['passes', 'Passes', 1, 1, '1 to 4, each pass smooths wider than the last'],
+    ['chroma_suppression', 'Chroma Suppression', 1, 0.1, '0 to 5, how much harder colour grain is smoothed than light-and-dark grain', '', 0],
+    ['texture', 'Texture', 1, 0.05, '0 to 1, how much of the grain is let back through; 1 the layer as it was', '', 0],
+    ['noise_size_bias', 'Noise Size Bias', 1, 0.1, '-1 to 1, above 0 the later, wider passes smooth harder; below 0 the first, finer ones', '', 0],
+    ['clean_solid_areas', 'Clean Solid Areas', 1, 0.1, '0 to 3, one more pass that smooths flat areas harder; 0 none', '', 0],
+    ['red_noise_reduction', 'Red Noise Reduction', 1, 0.1, '0 to 5, times the red grain measured; 0 leaves red as it is', '', 1],
+    ['green_noise_reduction', 'Green Noise Reduction', 1, 0.1, '0 to 5, times the green grain measured', '', 1],
+    ['blue_noise_reduction', 'Blue Noise Reduction', 1, 0.1, '0 to 5, times the blue grain measured', '', 1],
+    ['temporal_amount', 'Temporal Filtering Amount', 1, 1, '%, 0 to 100, how far each pixel moves toward its neighbours in time', '', 100],
+    ['motion_sensitivity', 'Motion Sensitivity', 1, 0.05, '0 to 1, how near a colour in the frame before or after must be to count; lower keeps moving things sharp', '', 0.9],
     ['unsharp_amount', 'Unsharp Mask Amount', 1, 1, '0 to 500, how much the result is sharpened; 0 not at all'],
     ['unsharp_radius', 'Unsharp Mask Radius', 1, 0.1, 'pixels, 0 to 100, how wide the sharpening reaches'],
     ['unsharp_threshold', 'Unsharp Mask Threshold', 1, 1, '0 to 255 levels, differences smaller than this are not sharpened']],
@@ -13867,8 +13881,12 @@ const EFFECT_WORDS = {
   },
   'core.median': { choices: [['operate_on_alpha', 'Operate on Alpha', [['off', 'Off'], ['on', 'On']]]] },
   'core.dust_scratches': { choices: [['operate_on_alpha', 'Operate on Alpha', [['off', 'Off'], ['on', 'On']]]] },
-  // D-455: After Effects’ words; Multichannel as it is added.
-  'core.remove_grain': { choices: [['mode', 'Mode', [['multichannel', 'Multichannel'], ['single_channel', 'Single Channel']]]] },
+  // D-455: After Effects’ words; Multichannel as it is added. D-966: Final Output as added (After
+  // Effects adds it in Preview), Show Box on and Temporal Filtering off.
+  'core.remove_grain': { choices: [['viewing_mode', 'Viewing Mode', [['final_output', 'Final Output'], ['preview', 'Preview'], ['noise_samples', 'Noise Samples'], ['blending_matte', 'Blending Matte']]],
+    ['show_box', 'Show Box', [['on', 'On'], ['off', 'Off']]],
+    ['mode', 'Mode', [['multichannel', 'Multichannel'], ['single_channel', 'Single Channel']]],
+    ['temporal_filtering', 'Temporal Filtering', [['off', 'Off'], ['on', 'On']]]] },
   // D-461: After Effects' words; Tile and unlocked as it is added.
   // D-462: After Effects' words; the layer itself, Luminance and ABA as it is added.
   // D-467: After Effects' words; no texture and Tile Texture as it is added.

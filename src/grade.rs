@@ -906,17 +906,20 @@ pub(crate) fn grain_levels(picture: &WorkingBuffer) -> [f64; 3] {
 /// D-455: Remove Grain's range spreads h per channel, for a measured noise: 2 n sigma_c (the
 /// ratio from Zhang and Gunturk, IEEE TIP 17(12), 2008), or with Multichannel one spread for all
 /// three, 2 n sqrt(mean of sigma_c^2). None when nothing would be removed (n 0, no noise, or not
-/// yet measured).
+/// yet measured). D-966: each sigma_c first scaled by its Channel Noise Reduction.
 pub(crate) fn grain_spreads(e: &crate::effects::Effect) -> Option<[f64; 3]> {
     let crate::effects::Effect::RemoveGrain {
         noise_reduction: n,
         mode,
         noise: Some(s),
+        more,
         ..
     } = e
     else {
         return None;
     };
+    let r = more.channels();
+    let s: [f64; 3] = std::array::from_fn(|c| r[c] * s[c]);
     let h = if mode == "multichannel" {
         [2.0 * n * ((s[0] * s[0] + s[1] * s[1] + s[2] * s[2]) / 3.0).sqrt(); 3]
     } else {
@@ -932,10 +935,18 @@ pub(crate) fn grain_spreads(e: &crate::effects::Effect) -> Option<[f64; 3]> {
 /// spread k and a bell on the colour difference of spread [`grain_spreads`] (Multichannel one
 /// bell on the mean squared difference, Single Channel one per channel, a channel with spread 0
 /// kept). Back through the curve at the pixel's covering, then the Unsharp Mask as Sharpen's
-/// (`layer_fx::sharpen`). The settings are already valid.
+/// (`layer_fx::sharpen`). The settings are already valid. D-966: Temporal Filtering before the
+/// passes (the layer's frames before and after in `around`), Chroma Suppression in the colour
+/// bell, Noise Size Bias on each pass's spreads, Clean Solid Areas one more pass, Texture after,
+/// and the Viewing Mode last; `(ox, oy)` is the drawing's corner in a buffer grown by the effects
+/// before (`tools/remove_grain_more_reference.py`).
 // ponytail: each pass weighs its whole disc, about 200 taps at the fourth pass; a separable or
 // guided approximation would be the upgrade, at the price of the rule.
-pub(crate) fn remove_grain(source: &mut WorkingBuffer, e: &crate::effects::Effect) {
+pub(crate) fn remove_grain(
+    source: &mut WorkingBuffer,
+    e: &crate::effects::Effect,
+    (ox, oy): (usize, usize),
+) {
     let crate::effects::Effect::RemoveGrain {
         noise_reduction,
         passes,
@@ -944,10 +955,32 @@ pub(crate) fn remove_grain(source: &mut WorkingBuffer, e: &crate::effects::Effec
         unsharp_radius,
         unsharp_threshold,
         noise,
+        more,
+        around,
     } = e
     else {
         return;
     };
+    let (w, ht) = (source.width(), source.height());
+    match more.viewing_mode.as_str() {
+        // D-966: ours samples the whole layer, so the drawing's edge is outlined.
+        "noise_samples" => {
+            let (x0, y0) = (ox as isize, oy as isize);
+            let (x1, y1) = ((w - ox) as isize, (ht - oy) as isize);
+            grain_edge(source, |x, y| x >= x0 && x < x1 && y >= y0 && y < y1);
+            return;
+        }
+        // D-966: ours has no Blend with Original matte, so it is the covering.
+        "blending_matte" => {
+            source.data_mut().par_chunks_exact_mut(4).for_each(|p| {
+                let a = p[3];
+                p[..3].fill(a);
+            });
+            return;
+        }
+        _ => {}
+    }
+    let given = (more.viewing_mode == "preview").then(|| source.clone());
     let mut measured = e.clone();
     if noise.is_none() && *noise_reduction > 0.0 {
         if let crate::effects::Effect::RemoveGrain { noise, .. } = &mut measured {
@@ -955,33 +988,20 @@ pub(crate) fn remove_grain(source: &mut WorkingBuffer, e: &crate::effects::Effec
         }
     }
     if let Some(h) = grain_spreads(&measured) {
-        let (w, ht) = (source.width(), source.height());
         let multi = mode == "multichannel";
-        let inv = h.map(|h| if h > 0.0 { 1.0 / (2.0 * h * h) } else { 0.0 });
         let cover: Vec<f64> = source.data().chunks_exact(4).map(|p| p[3] as f64).collect();
-        let mut enc: Vec<[f64; 3]> = source
-            .data()
-            .par_chunks_exact(4)
-            .map(|p| {
-                let a = p[3] as f64;
-                if a > 0.0 {
-                    std::array::from_fn(|c| to_srgb((p[c] as f64 / a).clamp(0.0, 1.0)))
-                } else {
-                    [0.0; 3]
-                }
-            })
-            .collect();
-        for k in 1..=passes.floor() as isize {
-            let r = 2 * k;
-            let taps: Vec<(isize, isize, f64)> = (-r..=r)
-                .flat_map(|dy| (-r..=r).map(move |dx| (dx, dy)))
-                .filter(|&(dx, dy)| dx * dx + dy * dy <= r * r)
-                .map(|(dx, dy)| {
-                    (
-                        dx,
-                        dy,
-                        (-((dx * dx + dy * dy) as f64) / (2.0 * (k * k) as f64)).exp(),
-                    )
+        let given_enc = grain_encoded(source);
+        let mut enc = given_enc.clone();
+        let amount = more.temporal_amount / 100.0;
+        let mh = h.map(|h| more.motion_sensitivity * h);
+        if more.temporal_filtering == "on" && amount > 0.0 && mh.iter().any(|&v| v > 0.0) {
+            let inv = mh.map(|h| if h > 0.0 { 1.0 / (2.0 * h * h) } else { 0.0 });
+            let others: Vec<(Vec<[f64; 3]>, Vec<f64>)> = around
+                .iter()
+                .filter(|m| m.0.width() == w && m.0.height() == ht)
+                .map(|m| {
+                    let a = m.0.data().chunks_exact(4).map(|p| p[3] as f64).collect();
+                    (grain_encoded(&m.0), a)
                 })
                 .collect();
             enc = (0..w * ht)
@@ -991,33 +1011,21 @@ pub(crate) fn remove_grain(source: &mut WorkingBuffer, e: &crate::effects::Effec
                     if cover[i] <= 0.0 {
                         return own;
                     }
-                    let (x, y) = ((i % w) as isize, (i / w) as isize);
-                    let (mut sum, mut weight) = ([0.0f64; 3], [0.0f64; 3]);
-                    for &(dx, dy, g) in &taps {
-                        let (tx, ty) = (x + dx, y + dy);
-                        if tx < 0 || ty < 0 || tx >= w as isize || ty >= ht as isize {
+                    let (mut sum, mut weight) = (own, [1.0f64; 3]);
+                    for (e, a) in &others {
+                        if a[i] <= 0.0 {
                             continue;
                         }
-                        let j = ty as usize * w + tx as usize;
-                        if cover[j] <= 0.0 {
-                            continue;
-                        }
-                        let (t, ga) = (enc[j], g * cover[j]);
-                        let d: [f64; 3] = std::array::from_fn(|c| t[c] - own[c]);
-                        let wt: [f64; 3] = if multi {
-                            [ga * (-(d[0] * d[0] + d[1] * d[1] + d[2] * d[2]) / 3.0 * inv[0]).exp();
-                                3]
-                        } else {
-                            std::array::from_fn(|c| ga * (-d[c] * d[c] * inv[c]).exp())
-                        };
+                        let d: [f64; 3] = std::array::from_fn(|c| e[i][c] - own[c]);
+                        let b = grain_bell(d, inv, multi, 0.0);
                         for c in 0..3 {
-                            sum[c] += wt[c] * t[c];
-                            weight[c] += wt[c];
+                            sum[c] += a[i] * b[c] * e[i][c];
+                            weight[c] += a[i] * b[c];
                         }
                     }
                     std::array::from_fn(|c| {
-                        if h[c] > 0.0 {
-                            sum[c] / weight[c]
+                        if mh[c] > 0.0 {
+                            own[c] + amount * (sum[c] / weight[c] - own[c])
                         } else {
                             own[c]
                         }
@@ -1025,18 +1033,173 @@ pub(crate) fn remove_grain(source: &mut WorkingBuffer, e: &crate::effects::Effec
                 })
                 .collect();
         }
+        let (s, b) = (more.chroma_suppression, more.noise_size_bias);
+        let count = passes.floor() as isize;
+        for k in 1..=count {
+            let u = if count == 1 {
+                0.0
+            } else {
+                2.0 * (k - 1) as f64 / (count - 1) as f64 - 1.0
+            };
+            let hk = h.map(|h| h * 2f64.powf(b * u));
+            enc = grain_pass(&enc, &cover, (w, ht), k, hk, multi, s);
+        }
+        if more.clean_solid_areas > 0.0 {
+            let hc = h.map(|h| more.clean_solid_areas * h);
+            enc = grain_pass(&enc, &cover, (w, ht), 1, hc, multi, s);
+        }
+        let t = more.texture;
         source
             .data_mut()
             .par_chunks_exact_mut(4)
-            .zip(enc.par_iter())
-            .for_each(|(px, e)| {
+            .zip(enc.par_iter().zip(given_enc.par_iter()))
+            .for_each(|(px, (e, o))| {
                 let a = px[3] as f64;
                 if a > 0.0 {
-                    (0..3).for_each(|c| px[c] = (to_linear(e[c]) * a) as f32);
+                    (0..3).for_each(|c| {
+                        let v = if t > 0.0 { e[c] + t * (o[c] - e[c]) } else { e[c] };
+                        px[c] = (to_linear(v) * a) as f32
+                    });
                 }
             });
     }
     crate::layer_fx::sharpen(source, *unsharp_amount, *unsharp_radius, *unsharp_threshold);
+    // D-966: Preview, the result inside the region and the layer as given outside it.
+    if let Some(given) = given {
+        let (cx, cy) = crate::effects::radial_center(more.preview_center, (w, ht), (ox, oy));
+        let (hw, hh) = (more.preview_width / 2.0, more.preview_height / 2.0);
+        let inside = |x: isize, y: isize| {
+            (x as f64 + 0.5 - cx).abs() < hw && (y as f64 + 0.5 - cy).abs() < hh
+        };
+        source
+            .data_mut()
+            .par_chunks_exact_mut(4)
+            .zip(given.data().par_chunks_exact(4))
+            .enumerate()
+            .for_each(|(i, (px, g))| {
+                if !inside((i % w) as isize, (i / w) as isize) {
+                    px.copy_from_slice(g);
+                }
+            });
+        if more.show_box == "on" {
+            grain_edge(source, inside);
+        }
+    }
+}
+
+/// D-455: each pixel's straight colour through the sRGB curve, held in 0 to 1 (0 where empty).
+fn grain_encoded(source: &WorkingBuffer) -> Vec<[f64; 3]> {
+    source
+        .data()
+        .par_chunks_exact(4)
+        .map(|p| {
+            let a = p[3] as f64;
+            if a > 0.0 {
+                std::array::from_fn(|c| to_srgb((p[c] as f64 / a).clamp(0.0, 1.0)))
+            } else {
+                [0.0; 3]
+            }
+        })
+        .collect()
+}
+
+/// D-455: a tap's colour bell, `inv` each channel's 1 / 2h^2. D-966: Chroma Suppression `s`
+/// divides the difference's part away from its mean over the channels by 1 + s.
+fn grain_bell(d: [f64; 3], inv: [f64; 3], multi: bool, s: f64) -> [f64; 3] {
+    if multi {
+        let dd = if s == 0.0 {
+            (d[0] * d[0] + d[1] * d[1] + d[2] * d[2]) / 3.0
+        } else {
+            let y = (d[0] + d[1] + d[2]) / 3.0;
+            y * y + d.iter().map(|v| (v - y) * (v - y)).sum::<f64>() / 3.0 / ((1.0 + s) * (1.0 + s))
+        };
+        [(-dd * inv[0]).exp(); 3]
+    } else {
+        let d = if s == 0.0 {
+            d
+        } else {
+            let y = (d[0] + d[1] + d[2]) / 3.0;
+            d.map(|v| y + (v - y) / (1.0 + s))
+        };
+        std::array::from_fn(|c| (-d[c] * d[c] * inv[c]).exp())
+    }
+}
+
+/// D-455: one bilateral pass of size k over `enc`, colour spreads `h`.
+fn grain_pass(
+    enc: &[[f64; 3]],
+    cover: &[f64],
+    (w, ht): (usize, usize),
+    k: isize,
+    h: [f64; 3],
+    multi: bool,
+    s: f64,
+) -> Vec<[f64; 3]> {
+    let inv = h.map(|h| if h > 0.0 { 1.0 / (2.0 * h * h) } else { 0.0 });
+    let r = 2 * k;
+    let taps: Vec<(isize, isize, f64)> = (-r..=r)
+        .flat_map(|dy| (-r..=r).map(move |dx| (dx, dy)))
+        .filter(|&(dx, dy)| dx * dx + dy * dy <= r * r)
+        .map(|(dx, dy)| {
+            (
+                dx,
+                dy,
+                (-((dx * dx + dy * dy) as f64) / (2.0 * (k * k) as f64)).exp(),
+            )
+        })
+        .collect();
+    (0..w * ht)
+        .into_par_iter()
+        .map(|i| {
+            let own = enc[i];
+            if cover[i] <= 0.0 {
+                return own;
+            }
+            let (x, y) = ((i % w) as isize, (i / w) as isize);
+            let (mut sum, mut weight) = ([0.0f64; 3], [0.0f64; 3]);
+            for &(dx, dy, g) in &taps {
+                let (tx, ty) = (x + dx, y + dy);
+                if tx < 0 || ty < 0 || tx >= w as isize || ty >= ht as isize {
+                    continue;
+                }
+                let j = ty as usize * w + tx as usize;
+                if cover[j] <= 0.0 {
+                    continue;
+                }
+                let (t, ga) = (enc[j], g * cover[j]);
+                let d: [f64; 3] = std::array::from_fn(|c| t[c] - own[c]);
+                let b = grain_bell(d, inv, multi, s);
+                for c in 0..3 {
+                    sum[c] += ga * b[c] * t[c];
+                    weight[c] += ga * b[c];
+                }
+            }
+            std::array::from_fn(|c| {
+                if h[c] > 0.0 {
+                    sum[c] / weight[c]
+                } else {
+                    own[c]
+                }
+            })
+        })
+        .collect()
+}
+
+/// D-966: the pixels `inside` names that have a 4-neighbour outside it, opaque white.
+fn grain_edge(source: &mut WorkingBuffer, inside: impl Fn(isize, isize) -> bool + Sync) {
+    let w = source.width();
+    source
+        .data_mut()
+        .par_chunks_exact_mut(4)
+        .enumerate()
+        .for_each(|(i, p)| {
+            let (x, y) = ((i % w) as isize, (i / w) as isize);
+            if inside(x, y)
+                && !(inside(x - 1, y) && inside(x + 1, y) && inside(x, y - 1) && inside(x, y + 1))
+            {
+                p.fill(1.0);
+            }
+        });
 }
 
 /// D-456: this program's own Deband, by document 21's rule (`tools/deband_reference.py`). Each

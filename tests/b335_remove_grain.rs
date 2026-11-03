@@ -41,6 +41,8 @@ fn removing(noise_reduction: f64, passes: f64, mode: &str) -> Effect {
         unsharp_radius: 1.0,
         unsharp_threshold: 0.0,
         noise: None,
+        more: Default::default(),
+        around: Vec::new(),
     }
 }
 

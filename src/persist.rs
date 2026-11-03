@@ -1337,6 +1337,79 @@ fn noise_more_json(
     }
 }
 
+/// D-966: Remove Grain's further settings, as D-647's written only if moved from neutral, keyed
+/// or already in the file.
+fn grain_more_json(
+    more: &crate::effects::GrainMore,
+    instance: &crate::effects::EffectInstance,
+    params: &mut Map<String, J>,
+) {
+    let start = crate::effects::GrainMore::default();
+    let numbers = [
+        ("preview_width", more.preview_width, start.preview_width),
+        ("preview_height", more.preview_height, start.preview_height),
+        ("red_noise_reduction", more.red_noise_reduction, 1.0),
+        ("green_noise_reduction", more.green_noise_reduction, 1.0),
+        ("blue_noise_reduction", more.blue_noise_reduction, 1.0),
+        ("chroma_suppression", more.chroma_suppression, 0.0),
+        ("texture", more.texture, 0.0),
+        ("noise_size_bias", more.noise_size_bias, 0.0),
+        ("clean_solid_areas", more.clean_solid_areas, 0.0),
+        ("temporal_amount", more.temporal_amount, start.temporal_amount),
+        ("motion_sensitivity", more.motion_sensitivity, start.motion_sensitivity),
+    ];
+    for (key, value, start) in numbers {
+        if value != start || instance.tracks.contains_key(key) || params.contains_key(key) {
+            params.insert(key.into(), num(value));
+        }
+    }
+    if more.preview_center != start.preview_center
+        || instance.tracks.contains_key("preview_center")
+        || params.contains_key("preview_center")
+    {
+        params.insert(
+            "preview_center".into(),
+            J::Array(more.preview_center.iter().map(|v| num(*v)).collect()),
+        );
+    }
+    let words = [
+        ("viewing_mode", &more.viewing_mode, &start.viewing_mode),
+        ("show_box", &more.show_box, &start.show_box),
+        ("temporal_filtering", &more.temporal_filtering, &start.temporal_filtering),
+    ];
+    for (key, value, start) in words {
+        if value != start || params.contains_key(key) {
+            params.insert(key.into(), J::from(value.as_str()));
+        }
+    }
+}
+
+/// D-966: Remove Grain's further settings; a file without them reads them neutral, so an older
+/// file draws as it did.
+fn grain_more(params: Option<&J>, at: &str) -> Result<crate::effects::GrainMore, Diagnostic> {
+    let d = crate::effects::GrainMore::default();
+    Ok(crate::effects::GrainMore {
+        viewing_mode: effect_word_or(params, "viewing_mode", at, &d.viewing_mode)?,
+        preview_center: match params.and_then(|p| p.get("preview_center")) {
+            Some(_) => effect_array(params, "preview_center", "two numbers, x then y", at)?,
+            None => d.preview_center,
+        },
+        preview_width: effect_number_or(params, "preview_width", at, d.preview_width)?,
+        preview_height: effect_number_or(params, "preview_height", at, d.preview_height)?,
+        show_box: effect_word_or(params, "show_box", at, &d.show_box)?,
+        red_noise_reduction: effect_number_or(params, "red_noise_reduction", at, 1.0)?,
+        green_noise_reduction: effect_number_or(params, "green_noise_reduction", at, 1.0)?,
+        blue_noise_reduction: effect_number_or(params, "blue_noise_reduction", at, 1.0)?,
+        chroma_suppression: effect_number_or(params, "chroma_suppression", at, 0.0)?,
+        texture: effect_number_or(params, "texture", at, 0.0)?,
+        noise_size_bias: effect_number_or(params, "noise_size_bias", at, 0.0)?,
+        clean_solid_areas: effect_number_or(params, "clean_solid_areas", at, 0.0)?,
+        temporal_filtering: effect_word_or(params, "temporal_filtering", at, &d.temporal_filtering)?,
+        temporal_amount: effect_number_or(params, "temporal_amount", at, d.temporal_amount)?,
+        motion_sensitivity: effect_number_or(params, "motion_sensitivity", at, d.motion_sensitivity)?,
+    })
+}
+
 /// D-647: Turbulent Noise's further settings; a file without them reads them as added (D-304).
 /// D-743: Fractal Noise's too, which before D-743 were always as added, so an older file draws
 /// as it did.
@@ -3564,6 +3637,7 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             unsharp_amount,
             unsharp_radius,
             unsharp_threshold,
+            more,
             ..
         } => {
             params.insert("noise_reduction".into(), num(*noise_reduction));
@@ -3572,6 +3646,7 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("unsharp_amount".into(), num(*unsharp_amount));
             params.insert("unsharp_radius".into(), num(*unsharp_radius));
             params.insert("unsharp_threshold".into(), num(*unsharp_threshold));
+            grain_more_json(more, instance, &mut params);
         }
         // D-447: the frame is never saved.
         Effect::NoiseGate {
@@ -10501,6 +10576,8 @@ fn parse_effect(
             unsharp_radius: effect_number(params, "unsharp_radius", at)?,
             unsharp_threshold: effect_number(params, "unsharp_threshold", at)?,
             noise: None,
+            more: grain_more(params, at)?,
+            around: Vec::new(),
         }),
         crate::effects::NOISE_GATE => Some(crate::effects::Effect::NoiseGate {
             threshold: effect_number(params, "threshold", at)?,

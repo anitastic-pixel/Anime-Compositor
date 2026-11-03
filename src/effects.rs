@@ -3185,6 +3185,9 @@ pub enum Effect {
     /// "single_channel"; `unsharp_amount`, 0 to 500 per cent; `unsharp_radius`, 0 to 100 pixels;
     /// `unsharp_threshold`, 0 to 255 levels. `noise` is not a setting and is never saved:
     /// compose measures the layer as it reaches the effect into it (None: measured in place).
+    /// D-966: `more`, the further groups ([`GrainMore`]). `around` is not a setting and is never
+    /// saved: with Temporal Filtering on, compose draws the layer as it reaches the effect at the
+    /// frames before and after into it (empty: no neighbours).
     RemoveGrain {
         noise_reduction: f64,
         passes: f64,
@@ -3193,6 +3196,8 @@ pub enum Effect {
         unsharp_radius: f64,
         unsharp_threshold: f64,
         noise: Option<[f64; 3]>,
+        more: GrainMore,
+        around: Vec<crate::layer_map::Map>,
     },
     /// D-447: after After Effects' Brush Strokes (`grade::brush_strokes`, document 21).
     /// `stroke_angle`, -100000 to 100000 degrees (0 up, 90 right); `brush_size`, 0.5 to 20
@@ -6573,6 +6578,74 @@ impl Default for NoiseMore {
     }
 }
 
+/// D-966: Remove Grain's Viewing Mode, Preview Region, Channel Noise Reduction, Fine Tuning and
+/// Temporal Filtering. The default is each setting's neutral value, read when a file does not
+/// write it, at which D-455's picture is unchanged. `viewing_mode`, one of [`GRAIN_VIEWS`];
+/// `preview_center`, per cent of the drawing, -1000 to 1000; `preview_width` and
+/// `preview_height`, 1 to 10000 pixels; `show_box` and `temporal_filtering`, "off" or "on";
+/// `red_`, `green_` and `blue_noise_reduction` and `chroma_suppression`, 0 to 5; `texture`, 0
+/// to 1; `noise_size_bias`, -1 to 1; `clean_solid_areas`, 0 to 3; `temporal_amount`, 0 to 100
+/// per cent; `motion_sensitivity`, 0 to 1.
+#[derive(Clone, PartialEq, Debug)]
+pub struct GrainMore {
+    pub viewing_mode: String,
+    pub preview_center: [f64; 2],
+    pub preview_width: f64,
+    pub preview_height: f64,
+    pub show_box: String,
+    pub red_noise_reduction: f64,
+    pub green_noise_reduction: f64,
+    pub blue_noise_reduction: f64,
+    pub chroma_suppression: f64,
+    pub texture: f64,
+    pub noise_size_bias: f64,
+    pub clean_solid_areas: f64,
+    pub temporal_filtering: String,
+    pub temporal_amount: f64,
+    pub motion_sensitivity: f64,
+}
+
+impl Default for GrainMore {
+    fn default() -> Self {
+        GrainMore {
+            viewing_mode: "final_output".into(),
+            preview_center: [50.0; 2],
+            preview_width: 200.0,
+            preview_height: 200.0,
+            show_box: "on".into(),
+            red_noise_reduction: 1.0,
+            green_noise_reduction: 1.0,
+            blue_noise_reduction: 1.0,
+            chroma_suppression: 0.0,
+            texture: 0.0,
+            noise_size_bias: 0.0,
+            clean_solid_areas: 0.0,
+            temporal_filtering: "off".into(),
+            temporal_amount: 100.0,
+            motion_sensitivity: 0.9,
+        }
+    }
+}
+
+impl GrainMore {
+    /// D-966: whether the card can draw it: the final output, no temporal filtering.
+    pub(crate) fn on_card(&self) -> bool {
+        self.viewing_mode == "final_output" && self.temporal_filtering == "off"
+    }
+
+    /// D-966: each channel's noise scale.
+    pub(crate) fn channels(&self) -> [f64; 3] {
+        [
+            self.red_noise_reduction,
+            self.green_noise_reduction,
+            self.blue_noise_reduction,
+        ]
+    }
+}
+
+/// D-966: Remove Grain's viewing modes.
+pub const GRAIN_VIEWS: [&str; 4] = ["final_output", "preview", "noise_samples", "blending_matte"];
+
 /// D-647: Turbulent Noise's Overflow, in [`crate::grade::Fractal`]'s order.
 pub const OVERFLOWS: [&str; 4] = ["allow_hdr", "clip", "soft_clamp", "wrap_back"];
 
@@ -9081,6 +9154,7 @@ impl Effect {
                 unsharp_amount,
                 unsharp_radius,
                 unsharp_threshold,
+                more,
                 ..
             } => vec![
                 ("noise_reduction", vec![noise_reduction], 0.0, 3.0),
@@ -9088,6 +9162,19 @@ impl Effect {
                 ("unsharp_amount", vec![unsharp_amount], 0.0, 500.0),
                 ("unsharp_radius", vec![unsharp_radius], 0.0, 100.0),
                 ("unsharp_threshold", vec![unsharp_threshold], 0.0, 255.0),
+                // D-966.
+                ("preview_center", more.preview_center.iter_mut().collect(), -1000.0, 1000.0),
+                ("preview_width", vec![&mut more.preview_width], 1.0, 10000.0),
+                ("preview_height", vec![&mut more.preview_height], 1.0, 10000.0),
+                ("red_noise_reduction", vec![&mut more.red_noise_reduction], 0.0, 5.0),
+                ("green_noise_reduction", vec![&mut more.green_noise_reduction], 0.0, 5.0),
+                ("blue_noise_reduction", vec![&mut more.blue_noise_reduction], 0.0, 5.0),
+                ("chroma_suppression", vec![&mut more.chroma_suppression], 0.0, 5.0),
+                ("texture", vec![&mut more.texture], 0.0, 1.0),
+                ("noise_size_bias", vec![&mut more.noise_size_bias], -1.0, 1.0),
+                ("clean_solid_areas", vec![&mut more.clean_solid_areas], 0.0, 3.0),
+                ("temporal_amount", vec![&mut more.temporal_amount], 0.0, 100.0),
+                ("motion_sensitivity", vec![&mut more.motion_sensitivity], 0.0, 1.0),
             ],
             Effect::NoiseGate {
                 threshold,
@@ -11368,7 +11455,16 @@ impl Effect {
                 grain.scale_distances(&scale as &dyn Fn(f64) -> f64)
             }
             // D-455: the Unsharp Mask's radius, as Sharpen's; the denoise's discs are kept.
-            Effect::RemoveGrain { unsharp_radius, .. } => *unsharp_radius = scale(*unsharp_radius),
+            // D-966: and the Preview Region's size.
+            Effect::RemoveGrain {
+                unsharp_radius,
+                more,
+                ..
+            } => {
+                *unsharp_radius = scale(*unsharp_radius);
+                more.preview_width = scale(more.preview_width);
+                more.preview_height = scale(more.preview_height);
+            }
             // D-456: the blur and the diffusion are distances; the thresholds are levels.
             Effect::Deband {
                 blur_amount,
@@ -14751,6 +14847,21 @@ impl Effect {
             Effect::RemoveGrain { mode, .. } if !REMOVE_GRAIN_MODES.contains(&mode.as_str()) => Some(format!(
                 "Remove Grain's mode is \"multichannel\" or \"single_channel\", and this is \"{mode}\"."
             )),
+            // D-966.
+            Effect::RemoveGrain { more, .. } if !GRAIN_VIEWS.contains(&more.viewing_mode.as_str()) => {
+                let quoted = GRAIN_VIEWS.map(|m| format!("\"{m}\"")).join(", ");
+                Some(format!(
+                    "Remove Grain's viewing mode is one of {quoted}, and this is \"{}\".",
+                    more.viewing_mode
+                ))
+            }
+            Effect::RemoveGrain { more, .. } => [
+                ("show box", &more.show_box),
+                ("temporal filtering", &more.temporal_filtering),
+            ]
+            .into_iter()
+            .find(|(_, v)| !["off", "on"].contains(&v.as_str()))
+            .map(|(name, v)| format!("Remove Grain's {name} is \"off\" or \"on\", and this is \"{v}\".")),
             Effect::BrushStrokes { paint_surface: v, .. } if !BRUSH_SURFACES.contains(&v.as_str()) => Some(format!(
                 "Brush Strokes's paint surface is one of {}, and this is \"{v}\".",
                 BRUSH_SURFACES.join(", ")
@@ -18097,7 +18208,7 @@ pub(crate) fn apply_stack_at(
             }
             e @ Effect::RemoveGrain { .. } => {
                 crate::perf::time(crate::perf::Stage::EffectRemoveGrain, || {
-                    crate::grade::remove_grain(source, e)
+                    crate::grade::remove_grain(source, e, (ox, oy))
                 })
             }
             // D-456: the dither in the drawing's own space, however an effect above grew it.

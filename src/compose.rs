@@ -1513,6 +1513,8 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
         // D-455: so does Remove Grain's Unsharp Mask.
         && !matches!(&instance.effect, crate::effects::Effect::RemoveGrain { unsharp_amount, unsharp_threshold, .. }
             if *unsharp_amount != 0.0 && *unsharp_threshold != 0.0)
+        // D-966: and its views other than Final Output, and Temporal Filtering.
+        && !matches!(&instance.effect, crate::effects::Effect::RemoveGrain { more, .. } if !more.on_card())
         // D-470: Contour Paint's snapped flow is a step, which the card's last-bit rounding would
         // tip either way along the strokes, so it stays here (D-122's reason).
         && !matches!(&instance.effect, crate::effects::Effect::ContourPaint { quantize_flow_angles, .. } if *quantize_flow_angles != 0.0)
@@ -2044,9 +2046,11 @@ fn card_effect(
                 E::RemoveGrain {
                     unsharp_amount,
                     unsharp_radius,
+                    more,
                     ..
                 } => {
-                    crate::grade::grain_spreads(&effect).is_none()
+                    more.viewing_mode == "final_output"
+                        && crate::grade::grain_spreads(&effect).is_none()
                         && (*unsharp_amount <= 0.0 || *unsharp_radius <= 0.0)
                 }
                 E::Deband {
@@ -7207,7 +7211,8 @@ fn fill_noise(
     cache: &mut CelCache,
 ) {
     for i in 0..effects.len() {
-        let drawn = |cache: &mut CelCache| {
+        let drawn = |cache: &mut CelCache, frame: i32| {
+            holder.timing().local_frame(frame)?;
             let mut upto = holder.clone();
             upto.effects.truncate(i);
             let mut inside = FrameLog::new(usize::MAX);
@@ -7247,7 +7252,7 @@ fn fill_noise(
                     posterization_level.floor() as usize,
                     reduction_method == "k_means",
                 );
-                drawn(cache).map_or_else(Vec::new, |p| {
+                drawn(cache, frame).map_or_else(Vec::new, |p| {
                     crate::layer_fx::contour_palette(&p.source, levels, k_means)
                 })
             };
@@ -7258,24 +7263,45 @@ fn fill_noise(
             }
             continue;
         }
-        let n = match &effects[i] {
+        let (n, temporal) = match &effects[i] {
             e if !e.enabled || !e.is_valid() => continue,
             crate::effects::EffectInstance {
                 effect:
                     crate::effects::Effect::RemoveGrain {
-                        noise_reduction, ..
+                        noise_reduction,
+                        more,
+                        ..
                     },
                 ..
-            } => *noise_reduction,
+            } => (
+                *noise_reduction,
+                more.temporal_filtering == "on" && more.temporal_amount > 0.0,
+            ),
             _ => continue,
         };
         let noise = if n > 0.0 {
-            drawn(cache).map_or([0.0; 3], |p| crate::grade::grain_levels(&p.source))
+            drawn(cache, frame).map_or([0.0; 3], |p| crate::grade::grain_levels(&p.source))
         } else {
             [0.0; 3]
         };
-        if let crate::effects::Effect::RemoveGrain { noise: slot, .. } = &mut effects[i].effect {
+        // D-966: Temporal Filtering's frames before and after, where the layer has them.
+        let near: Vec<crate::layer_map::Map> = if temporal && n > 0.0 {
+            [frame - 1, frame + 1]
+                .into_iter()
+                .filter_map(|g| drawn(cache, g))
+                .map(|p| crate::layer_map::Map(p.source))
+                .collect()
+        } else {
+            Vec::new()
+        };
+        if let crate::effects::Effect::RemoveGrain {
+            noise: slot,
+            around,
+            ..
+        } = &mut effects[i].effect
+        {
             *slot = Some(noise);
+            *around = near;
         }
     }
 }

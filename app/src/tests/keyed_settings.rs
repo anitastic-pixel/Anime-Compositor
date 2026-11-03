@@ -639,3 +639,35 @@ fn b845_remove_grain_is_added_with_three_passes() {
         other => panic!("{other:?}"),
     }
 }
+
+#[test]
+fn b846_remove_grain_further_settings() {
+    // D-966: added with Chroma Suppression 1 and Texture 0.1, After Effects' values, in Final
+    // Output; a window that sends none of the further settings gets them neutral.
+    match new_effect(REMOVE_GRAIN).expect("a Remove Grain") {
+        Effect::RemoveGrain { more, .. } => {
+            assert_eq!((more.chroma_suppression, more.texture), (1.0, 0.1));
+            assert_eq!(more.viewing_mode, "final_output");
+            assert_eq!(more.temporal_filtering, "off");
+            assert_eq!(more.noise_size_bias, 0.0);
+        }
+        other => panic!("{other:?}"),
+    }
+    let base = "noise_reduction=1&passes=3&mode=multichannel&unsharp_amount=0&unsharp_radius=1&unsharp_threshold=0";
+    match effect_parameters(REMOVE_GRAIN, Some(base)).expect("taken") {
+        Effect::RemoveGrain { more, .. } => {
+            assert_eq!(more, anime_compositor::effects::GrainMore::default())
+        }
+        other => panic!("{other:?}"),
+    }
+    let sent = format!("{base}&viewing_mode=preview&preview_center=25,75&texture=0.5&temporal_filtering=on&motion_sensitivity=0.3");
+    match effect_parameters(REMOVE_GRAIN, Some(&sent)).expect("taken") {
+        Effect::RemoveGrain { more, .. } => {
+            assert_eq!(more.viewing_mode, "preview");
+            assert_eq!(more.preview_center, [25.0, 75.0]);
+            assert_eq!((more.texture, more.motion_sensitivity), (0.5, 0.3));
+            assert_eq!(more.temporal_filtering, "on");
+        }
+        other => panic!("{other:?}"),
+    }
+}

@@ -6441,6 +6441,13 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             unsharp_radius: 1.0,
             unsharp_threshold: 0.0,
             noise: None,
+            // D-966: Chroma Suppression 1 and Texture 0.1, as After Effects adds it.
+            more: anime_compositor::effects::GrainMore {
+                chroma_suppression: 1.0,
+                texture: 0.1,
+                ..Default::default()
+            },
+            around: Vec::new(),
         }),
         // D-456: this program's own starting values (CelFX gives none): threshold 4 and
         // softness 2 levels, blur 8, diffusion 1, noise 1, every reduction 100, reseeding every
@@ -7587,6 +7594,45 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
                 start.sub_offset
             },
             center_subscale: choice("center_subscale", &start.center_subscale)?,
+        })
+    };
+    // D-966: Remove Grain's further settings, each neutral when the page sends none.
+    let grain_more = || -> Result<anime_compositor::effects::GrainMore, String> {
+        let d = anime_compositor::effects::GrainMore::default();
+        let num = |key: &str, start: f64| {
+            if parameter(query, key).is_some() {
+                number(key)
+            } else {
+                Ok(start)
+            }
+        };
+        let choice = |key: &str, start: &str| {
+            if parameter(query, key).is_some() {
+                word(key)
+            } else {
+                Ok(start.to_string())
+            }
+        };
+        Ok(anime_compositor::effects::GrainMore {
+            viewing_mode: choice("viewing_mode", &d.viewing_mode)?,
+            preview_center: if parameter(query, "preview_center").is_some() {
+                pair("preview_center")?
+            } else {
+                d.preview_center
+            },
+            preview_width: num("preview_width", d.preview_width)?,
+            preview_height: num("preview_height", d.preview_height)?,
+            show_box: choice("show_box", &d.show_box)?,
+            red_noise_reduction: num("red_noise_reduction", 1.0)?,
+            green_noise_reduction: num("green_noise_reduction", 1.0)?,
+            blue_noise_reduction: num("blue_noise_reduction", 1.0)?,
+            chroma_suppression: num("chroma_suppression", 0.0)?,
+            texture: num("texture", 0.0)?,
+            noise_size_bias: num("noise_size_bias", 0.0)?,
+            clean_solid_areas: num("clean_solid_areas", 0.0)?,
+            temporal_filtering: choice("temporal_filtering", &d.temporal_filtering)?,
+            temporal_amount: num("temporal_amount", d.temporal_amount)?,
+            motion_sensitivity: num("motion_sensitivity", d.motion_sensitivity)?,
         })
     };
     // D-130, D-366: a tone as the page sends it, red, green and blue with commas. How many
@@ -9746,6 +9792,8 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             unsharp_radius: number("unsharp_radius")?,
             unsharp_threshold: number("unsharp_threshold")?,
             noise: None,
+            more: grain_more()?,
+            around: Vec::new(),
         }),
         // D-456: the frame is set by compose each frame.
         DEBAND => Ok(Effect::Deband {

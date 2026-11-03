@@ -8666,7 +8666,9 @@ fn bilat(@builtin(global_invocation_id) id: vec3<u32>) {
 // on its distance and one on its colour difference, with `flag` 1 one bell on the mean of the
 // three squared differences, else one per channel. k: each channel's 1 / 2h^2, below 0 keeping
 // the channel; the distance's 1 / 2s^2; then from `n` the disc's rows. Mode 2: back through the
-// curve, times the covering. Summed in single precision, as Bilateral Blur's.
+// curve, times the covering. Summed in single precision, as Bilateral Blur's. D-966: k[4] the
+// Chroma Suppression, the colour difference's part away from its mean divided by 1 + it; mode 2
+// first moves Texture k[0] of the way back to `other`, the encoded layer as given.
 @compute @workgroup_size(16, 16)
 fn degrain(@builtin(global_invocation_id) id: vec3<u32>) {
     let size = vec2<i32>(textureDimensions(input));
@@ -8686,9 +8688,16 @@ fn degrain(@builtin(global_invocation_id) id: vec3<u32>) {
         return;
     }
     if F.mode == 2u {
-        textureStore(output, id.xy, vec4(f32(to_linear(f64(s.x)) * a), f32(to_linear(f64(s.y)) * a), f32(to_linear(f64(s.z)) * a), s.w));
+        var e = vec3(f64(s.x), f64(s.y), f64(s.z));
+        let t = k[0];
+        if t > 0.0lf {
+            let o = textureLoad(other, p, 0);
+            e = e + t * (vec3(f64(o.x), f64(o.y), f64(o.z)) - e);
+        }
+        textureStore(output, id.xy, vec4(f32(to_linear(e.x) * a), f32(to_linear(e.y) * a), f32(to_linear(e.z) * a), s.w));
         return;
     }
+    let cs = f32(k[4]);
     let inv = vec3(f32(k[0]), f32(k[1]), f32(k[2]));
     let bell = max(inv, vec3(0.0));
     let k3 = f32(k[3]);
@@ -8706,10 +8715,22 @@ fn degrain(@builtin(global_invocation_id) id: vec3<u32>) {
                 continue;
             }
             let near = exp(-f32(dx * dx + dy * dy) * k3) * t.w;
-            let d = t.xyz - s.xyz;
-            var x = near * exp(-d * d * bell);
+            var d = t.xyz - s.xyz;
+            var x = vec3(0.0);
             if F.flag == 1u {
-                x = vec3(near * exp(-dot(d, d) / 3.0 * bell.x));
+                var dd = dot(d, d) / 3.0;
+                if cs != 0.0 {
+                    let y = (d.x + d.y + d.z) / 3.0;
+                    let c = d - vec3(y);
+                    dd = y * y + dot(c, c) / 3.0 / ((1.0 + cs) * (1.0 + cs));
+                }
+                x = vec3(near * exp(-dd * bell.x));
+            } else {
+                if cs != 0.0 {
+                    let y = (d.x + d.y + d.z) / 3.0;
+                    d = vec3(y) + (d - vec3(y)) / (1.0 + cs);
+                }
+                x = near * exp(-d * d * bell);
             }
             sum += x * t.xyz;
             weight += x;
@@ -13692,7 +13713,7 @@ impl Gpu {
                 median: pass("median", &[0, 1, 2, 3]),
                 smart: pass("smart", &[0, 1, 2, 3, 4]),
                 bilat: pass("bilat", &[0, 1, 2, 3, 4]),
-                degrain: pass("degrain", &[0, 1, 2, 3]),
+                degrain: pass("degrain", &[0, 1, 2, 3, 4]),
                 deband: pass("deband", &[0, 1, 2, 3, 4, 5]),
                 rough: pass("rough", &[0, 1, 2, 3]),
                 rshadow: pass("rshadow", &[0, 1, 2, 3, 4]),
@@ -15471,30 +15492,50 @@ impl Gpu {
                 mode,
                 unsharp_amount,
                 unsharp_radius,
+                more,
                 ..
             } => {
                 // D-455, as grade::remove_grain: the colour encoded, each pass, back, then
-                // Sharpen's pass; compose sends one only with its noise and no threshold.
+                // Sharpen's pass; compose sends one only with its noise and no threshold. D-966:
+                // each pass's spreads by the Noise Size Bias, Chroma Suppression in k[4], the
+                // Clean Solid Areas pass, and Texture back to the encoded layer as given;
+                // compose sends one only in Final Output without Temporal Filtering.
                 let mut pic = still.clone();
                 if let Some(spread) = crate::grade::grain_spreads(&f.instance.effect) {
-                    let mut cur = self.scratch("D-455 encoded", w, h);
+                    let given = self.scratch("D-455 encoded", w, h);
                     self.fx_step(
                         steps,
                         &passes.degrain,
                         FxParams::default(),
                         Some(still),
-                        Some(&cur),
+                        Some(&given),
                         Some(&[0.0]),
-                        None,
+                        Some(still),
                         none,
                         tiles(w, h),
                     );
-                    for k in 1..=count.floor() as usize {
-                        let mut kk: Vec<f64> = spread
+                    let n = count.floor() as usize;
+                    let mut runs: Vec<(usize, [f64; 3])> = (1..=n)
+                        .map(|k| {
+                            let u = if n == 1 {
+                                0.0
+                            } else {
+                                2.0 * (k - 1) as f64 / (n - 1) as f64 - 1.0
+                            };
+                            (k, spread.map(|s| s * 2f64.powf(more.noise_size_bias * u)))
+                        })
+                        .collect();
+                    if more.clean_solid_areas > 0.0 {
+                        runs.push((1, spread.map(|s| more.clean_solid_areas * s)));
+                    }
+                    let mut cur = given.clone();
+                    for (k, hk) in runs {
+                        let mut kk: Vec<f64> = hk
                             .iter()
                             .map(|&s| if s > 0.0 { 1.0 / (2.0 * s * s) } else { -1.0 })
                             .collect();
                         kk.push(1.0 / (2.0 * (k * k) as f64));
+                        kk.push(more.chroma_suppression);
                         kk.extend(
                             crate::layer_fx::disc_runs((2 * k) as f64)
                                 .iter()
@@ -15504,7 +15545,7 @@ impl Gpu {
                             mode: 1,
                             flag: (mode == "multichannel") as u32,
                             r: 2 * k as i32,
-                            n: 4,
+                            n: 5,
                             ..Default::default()
                         };
                         let next = self.scratch("D-455 pass", w, h);
@@ -15515,7 +15556,7 @@ impl Gpu {
                             Some(&cur),
                             Some(&next),
                             Some(&kk),
-                            None,
+                            Some(still),
                             none,
                             tiles(w, h),
                         );
@@ -15532,8 +15573,8 @@ impl Gpu {
                         p,
                         Some(&cur),
                         Some(&back),
-                        Some(&[0.0]),
-                        None,
+                        Some(&[more.texture]),
+                        Some(&given),
                         none,
                         tiles(w, h),
                     );
