@@ -1522,6 +1522,11 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
         // ponytail: high and pinned on the processor; a card pass when a timing asks for it.
         && !matches!(&instance.effect, crate::effects::Effect::Bulge { vertical_radius, taper_radius, antialiasing, pin_all_edges, .. }
             if *vertical_radius != 0.0 || *taper_radius != 0.0 || antialiasing != "low" || pin_all_edges != "off")
+        // D-937: Add Grain's Preview, and Match Grain's, is drawn here.
+        // ponytail: processor only; a card box when a timing asks for it.
+        && !matches!(&instance.effect, crate::effects::Effect::AddGrain { viewing_mode, .. } if viewing_mode == "preview")
+        && !matches!(&instance.effect, crate::effects::Effect::MatchGrain { grain, .. }
+            if matches!(&**grain, crate::effects::Effect::AddGrain { viewing_mode, .. } if viewing_mode == "preview"))
         // D-307: the card turns the master only; D-776's Colorize is drawn here.
         // ponytail: Colorize on the processor; a card mode if it shows up slow (lane w7d).
         && !matches!(&instance.effect, crate::effects::Effect::HueSaturation { ranges, colorize, .. }

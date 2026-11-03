@@ -738,12 +738,18 @@ pub(crate) fn add_grain(
         animation_speed,
         animate_smoothly,
         random_seed,
+        viewing_mode,
         frame,
     } = e
     else {
         return;
     };
+    // D-937: Preview puts back what came outside its box.
+    let before = (viewing_mode == "preview").then(|| source.data().to_vec());
     if *intensity == 0.0 {
+        if let Some(b) = before {
+            preview_box(source, &b, (ox, oy));
+        }
         return;
     }
     let w = source.width();
@@ -811,6 +817,28 @@ pub(crate) fn add_grain(
             }
         })
     });
+    if let Some(b) = before {
+        preview_box(source, &b, (ox, oy));
+    }
+}
+
+/// D-937: Add Grain's Preview, by document 21's rule. The box min(200, w) by min(200, h) round
+/// the middle of the drawing (its corner at `(ox, oy)` in `source`, grown evenly): its one-pixel
+/// edge opaque white, the grain inside, and outside it `before`, the pixels as they came.
+/// ponytail: 200 buffer pixels, so a draft's box looks larger; scale it if that matters.
+fn preview_box(source: &mut WorkingBuffer, before: &[f32], (ox, oy): (usize, usize)) {
+    let w = source.width();
+    let (dw, dh) = (w - 2 * ox, source.height() - 2 * oy);
+    let (bw, bh) = (dw.min(200), dh.min(200));
+    let (x0, y0) = (ox + (dw - bw) / 2, oy + (dh - bh) / 2);
+    for (i, p) in source.data_mut().chunks_exact_mut(4).enumerate() {
+        let (x, y) = (i % w, i / w);
+        if !((x0..x0 + bw).contains(&x) && (y0..y0 + bh).contains(&y)) {
+            p.copy_from_slice(&before[4 * i..4 * i + 4]);
+        } else if x == x0 || x == x0 + bw - 1 || y == y0 || y == y0 + bh - 1 {
+            p.copy_from_slice(&[1.0; 4]);
+        }
+    }
 }
 
 /// D-454: the grain in `picture`, per channel of its straight colour through the sRGB curve,

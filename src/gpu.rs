@@ -15810,6 +15810,7 @@ impl Gpu {
                 animate_smoothly,
                 random_seed,
                 frame,
+                ..
             } => {
                 let base = crate::grade::mix(random_seed.floor() as u64);
                 let phase = *frame as f64 * animation_speed;

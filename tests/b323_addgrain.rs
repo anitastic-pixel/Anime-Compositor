@@ -54,6 +54,7 @@ fn grain(n: [f64; 14], w: [&str; 3]) -> Effect {
         animation_speed,
         animate_smoothly,
         random_seed,
+        viewing_mode: "final_output".to_string(),
         frame: 0,
     }
 }

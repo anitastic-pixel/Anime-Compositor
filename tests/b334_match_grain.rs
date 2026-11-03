@@ -52,6 +52,7 @@ fn matched(layer: J, intensity: f64, blending_mode: &str) -> Effect {
             animation_speed: 1.0,
             animate_smoothly: "on".into(),
             random_seed: 0.0,
+            viewing_mode: "final_output".into(),
             frame: 0,
         }),
         map: None,

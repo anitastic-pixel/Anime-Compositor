@@ -6469,6 +6469,7 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             animation_speed,
             animate_smoothly,
             random_seed,
+            viewing_mode,
             ..
         } => {
             params.insert("intensity".into(), num(*intensity));
@@ -6491,6 +6492,10 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
                 J::from(animate_smoothly.as_str()),
             );
             params.insert("random_seed".into(), num(*random_seed));
+            // D-937: written only when not Final Output.
+            if viewing_mode != "final_output" {
+                params.insert("viewing_mode".into(), J::from(viewing_mode.as_str()));
+            }
         }
         // D-454: Add Grain's settings as Add Grain writes them, and the source layer; the map is
         // never saved.
@@ -12969,6 +12974,7 @@ fn add_grain_from(params: Option<&J>, at: &str) -> Result<crate::effects::Effect
         animation_speed: effect_number(params, "animation_speed", at)?,
         animate_smoothly: effect_word(params, "animate_smoothly", at)?,
         random_seed: effect_number(params, "random_seed", at)?,
+        viewing_mode: effect_word_or(params, "viewing_mode", at, "final_output")?,
         frame: 0,
     })
 }

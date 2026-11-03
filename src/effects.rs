@@ -3065,6 +3065,8 @@ pub enum Effect {
         animation_speed: f64,
         animate_smoothly: String,
         random_seed: f64,
+        /// D-937: "final_output" or "preview", After Effects' box of 200 by 200 (`grade::add_grain`).
+        viewing_mode: String,
         frame: i32,
     },
     /// D-450: after After Effects' Noise Alpha (`grade::noise_alpha`, document 21). `noise`, one
@@ -15013,6 +15015,9 @@ impl Effect {
             )),
             Effect::AddGrain { animate_smoothly: v, .. } if !["on", "off"].contains(&v.as_str()) => Some(format!(
                 "Add Grain's animate smoothly is \"on\" or \"off\", and this is \"{v}\"."
+            )),
+            Effect::AddGrain { viewing_mode: v, .. } if !["final_output", "preview"].contains(&v.as_str()) => Some(format!(
+                "Add Grain's viewing mode is \"final_output\" or \"preview\", and this is \"{v}\"."
             )),
             // D-454: its source layer, then Add Grain's own checks under its name.
             Effect::MatchGrain { layer, grain, .. } => (!layer.is_string())

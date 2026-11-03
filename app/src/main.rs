@@ -6421,6 +6421,8 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             animation_speed: 1.0,
             animate_smoothly: "on".to_string(),
             random_seed: 0.0,
+            // D-937: Final Output, not After Effects' Preview, so an export shows no box.
+            viewing_mode: "final_output".to_string(),
             frame: 0,
         }),
         // D-454: Add Grain's starting values, and no noise source until one is chosen.
@@ -9722,6 +9724,11 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             animation_speed: number("animation_speed")?,
             animate_smoothly: word("animate_smoothly")?,
             random_seed: number("random_seed")?,
+            viewing_mode: if parameter(query, "viewing_mode").is_some() {
+                word("viewing_mode")?
+            } else {
+                "final_output".to_string()
+            },
             frame: 0,
         }),
         // D-454: the noise source travels as `map_layer`, the rest as Add Grain's.
