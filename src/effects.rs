@@ -5735,7 +5735,7 @@ pub const PARTICLE_SPACE_SETTINGS: [(&str, f64, f64, f64); 46] = [
     ("axis_y", -1.0, 1.0, -1.0),
     ("axis_z", -1.0, 1.0, 0.0),
     ("extra", 0.0, 10.0, 0.5),
-    ("extra_angle", 0.0, 360.0, 360.0),
+    ("extra_angle", 0.0, 36000.0, 360.0), // D-1025: whole turns taken
     ("gravity_x", -1.0, 1.0, 0.0),
     ("gravity_y", -1.0, 1.0, 1.0),
     ("gravity_z", -1.0, 1.0, 0.0),
@@ -5901,7 +5901,7 @@ pub const PARTICLE_PLANE_SETTINGS: [(&str, f64, f64, f64); 25] = [
     ("resistance", 0.0, 100.0, 0.0),
     ("direction", -36000.0, 36000.0, 0.0),
     ("extra", 0.0, 10.0, 0.5),
-    ("extra_angle", 0.0, 360.0, 360.0),
+    ("extra_angle", 0.0, 36000.0, 360.0), // D-1025: whole turns taken
     ("birth_size", 0.0, 100.0, 0.15),
     ("death_size", 0.0, 100.0, 0.15),
     ("size_variation", 0.0, 100.0, 0.0),

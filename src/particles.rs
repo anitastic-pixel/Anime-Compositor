@@ -326,7 +326,8 @@ impl Run<'_> {
                 mul(add(mul(e1, phi.cos()), mul(e2, phi.sin())), sin_t),
             )
         };
-        let alpha = (self.at(EXTRA_ANGLE, b) / 2.0).to_radians();
+        // D-1025: a cone past a full turn is every way, so the width holds at 360.
+        let alpha = (self.at(EXTRA_ANGLE, b).min(360.0) / 2.0).to_radians();
         // D-612: flat, turned in the plane from the axis towards a right angle clockwise of it.
         let side = if r(4) < 0.5 { 1.0 } else { -1.0 };
         let right = [-a[1], a[0], 0.0];

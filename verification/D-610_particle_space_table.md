@@ -193,6 +193,9 @@ B-490, the particle engine's first effect (P0-6), after the purpose of CycoreFX'
 | FX-PSPACE-072: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-PSPACE-073 frame 12: Fade In And Out on the burst: the newest and oldest faint, the middle-aged as FX-PSPACE-024 has them. | largest difference 2.7e-8 | yes |
 | FX-PSPACE-073: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-PSPACE-074 frame 12: Direction Axis, Extra Angle 1x+77 (437): taken, not refused, and the same as 360, every way. | largest difference 2.9e-8 | yes |
+| FX-PSPACE-074 frame 24: Direction Axis, Extra Angle 1x+77 (437): taken, not refused, and the same as 360, every way. | largest difference 2.9e-8 | yes |
+| FX-PSPACE-074: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 
 ## The particles themselves: where each is and how fast it goes
 
@@ -389,6 +392,7 @@ B-490, the particle engine's first effect (P0-6), after the purpose of CycoreFX'
 | fx_pspace_071.json, frames [20] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
 | fx_pspace_072.json, frames [11, 20] at Full and Draft | largest difference 0 of 255; on the card in 4 of 4 frames; refused by the card: false; the same warnings: true | yes |
 | fx_pspace_073.json, frames [12] at Full and Draft | largest difference 0 of 255; on the card in 2 of 2 frames; refused by the card: false; the same warnings: true | yes |
+| fx_pspace_074.json, frames [12, 24] at Full and Draft | largest difference 0 of 255; on the card in 4 of 4 frames; refused by the card: false; the same warnings: true | yes |
 | the reference shot, Particle Space as added: the processor's frame 100 differs from the shot without it, so the comparisons below test the effect | 2073600 pixels changed | yes |
 | the reference shot, Particle Space as added on three layers, frame 0, Full | largest difference 0 of 255, 0 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Particle Space as added on three layers, frame 100, Full | largest difference 1 of 255, 30 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
@@ -424,4 +428,4 @@ B-490, the particle engine's first effect (P0-6), after the purpose of CycoreFX'
 
 ## Result
 
-390 of 390 checks pass.
+394 of 394 checks pass.
