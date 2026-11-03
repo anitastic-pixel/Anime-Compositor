@@ -151,23 +151,23 @@ B-240, after CycoreFX's CC Radial Blur: each pixel averaged along a circle round
 | the reference shot, Spin & Zoom Blur as added (Straight Zoom 10, quality 50, about the middle) on three layers, frame 0, Full | largest difference 1 of 255, 22967 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Spin & Zoom Blur as added (Straight Zoom 10, quality 50, about the middle) on three layers, frame 100, Full | largest difference 1 of 255, 22803 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Spin & Zoom Blur as added (Straight Zoom 10, quality 50, about the middle) on three layers, frame 239, Full | largest difference 1 of 255, 22560 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Spin & Zoom Blur as added (Straight Zoom 10, quality 50, about the middle) on three layers, frame 0, Draft | largest difference 1 of 255, 1155 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Spin & Zoom Blur as added (Straight Zoom 10, quality 50, about the middle) on three layers, frame 100, Draft | largest difference 1 of 255, 1136 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Spin & Zoom Blur as added (Straight Zoom 10, quality 50, about the middle) on three layers, frame 239, Draft | largest difference 1 of 255, 1121 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Spin & Zoom Blur as added (Straight Zoom 10, quality 50, about the middle) on three layers, frame 0, Draft | largest difference 1 of 255, 1133 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Spin & Zoom Blur as added (Straight Zoom 10, quality 50, about the middle) on three layers, frame 100, Draft | largest difference 1 of 255, 1104 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Spin & Zoom Blur as added (Straight Zoom 10, quality 50, about the middle) on three layers, frame 239, Draft | largest difference 1 of 255, 1096 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Spin & Zoom Blur Rotate 30, quality 80, about 30, 40: the processor's frame 100 differs from the shot without it, so the comparisons below test the effect | 2050815 pixels changed | yes |
 | the reference shot, Spin & Zoom Blur Rotate 30, quality 80, about 30, 40 on three layers, frame 0, Full | largest difference 1 of 255, 20499 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Spin & Zoom Blur Rotate 30, quality 80, about 30, 40 on three layers, frame 100, Full | largest difference 1 of 255, 19981 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Spin & Zoom Blur Rotate 30, quality 80, about 30, 40 on three layers, frame 239, Full | largest difference 1 of 255, 20081 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Spin & Zoom Blur Rotate 30, quality 80, about 30, 40 on three layers, frame 0, Draft | largest difference 1 of 255, 1131 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Spin & Zoom Blur Rotate 30, quality 80, about 30, 40 on three layers, frame 100, Draft | largest difference 1 of 255, 1079 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Spin & Zoom Blur Rotate 30, quality 80, about 30, 40 on three layers, frame 239, Draft | largest difference 1 of 255, 1145 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Spin & Zoom Blur Rotate 30, quality 80, about 30, 40 on three layers, frame 0, Draft | largest difference 1 of 255, 1038 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Spin & Zoom Blur Rotate 30, quality 80, about 30, 40 on three layers, frame 100, Draft | largest difference 1 of 255, 1002 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Spin & Zoom Blur Rotate 30, quality 80, about 30, 40 on three layers, frame 239, Draft | largest difference 1 of 255, 1059 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Spin & Zoom Blur Fading Zoom -40, quality 20: the processor's frame 100 differs from the shot without it, so the comparisons below test the effect | 2053778 pixels changed | yes |
 | the reference shot, Spin & Zoom Blur Fading Zoom -40, quality 20 on three layers, frame 0, Full | largest difference 1 of 255, 21800 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Spin & Zoom Blur Fading Zoom -40, quality 20 on three layers, frame 100, Full | largest difference 1 of 255, 21039 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Spin & Zoom Blur Fading Zoom -40, quality 20 on three layers, frame 239, Full | largest difference 1 of 255, 21128 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Spin & Zoom Blur Fading Zoom -40, quality 20 on three layers, frame 0, Draft | largest difference 1 of 255, 1718 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Spin & Zoom Blur Fading Zoom -40, quality 20 on three layers, frame 100, Draft | largest difference 1 of 255, 1704 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Spin & Zoom Blur Fading Zoom -40, quality 20 on three layers, frame 239, Draft | largest difference 1 of 255, 1690 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Spin & Zoom Blur Fading Zoom -40, quality 20 on three layers, frame 0, Draft | largest difference 1 of 255, 1666 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Spin & Zoom Blur Fading Zoom -40, quality 20 on three layers, frame 100, Draft | largest difference 1 of 255, 1669 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Spin & Zoom Blur Fading Zoom -40, quality 20 on three layers, frame 239, Draft | largest difference 1 of 255, 1640 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 
 ## Pictures: a car wheel spun and zoomed, in `verification/D-361 pictures/`
 
