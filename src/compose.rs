@@ -1536,6 +1536,10 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
         // D-758: the card mixes 4-Color Gradient's weights without jitter only.
         // ponytail: hash the jitter on the card if a jittered gradient is slow here.
         && !matches!(&instance.effect, crate::effects::Effect::FourColorGradient { jitter, .. } if *jitter != 0.0)
+        // D-1029: the card lays Gradient without Ramp Scatter or Blend With Original only.
+        // ponytail: processor only; hash the scatter on the card if a scattered ramp is slow here.
+        && !matches!(&instance.effect, crate::effects::Effect::Gradient { ramp_scatter, blend_with_original, .. }
+            if *ramp_scatter != 0.0 || *blend_with_original != 0.0)
         // D-306: the card pushes both ways, unpinned, only.
         && !matches!(&instance.effect, crate::effects::Effect::TurbulentDisplace { displacement, pinning, .. }
             if displacement != "turbulent" || pinning != "none")
@@ -1710,8 +1714,9 @@ fn card_effect(
                 E::Gradient {
                     start_opacity,
                     end_opacity,
+                    blend_with_original,
                     ..
-                } => [*start_opacity, *end_opacity] == [0.0; 2],
+                } => [*start_opacity, *end_opacity] == [0.0; 2] || *blend_with_original >= 100.0,
                 E::RimLight { intensity, .. } => *intensity == 0.0,
                 E::Outline { width, .. } => *width == 0.0,
                 E::Noise { amount, .. }

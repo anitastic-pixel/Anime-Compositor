@@ -68,7 +68,7 @@ D-114, accepted by the owner on 2026-09-26 in the batch of ten. Every expected p
 | Check | The build's answer | Matches |
 | --- | --- | --- |
 | it grows the drawing's bounds by nothing: each pixel is coloured where it is | 0 | yes |
-| a half-size draft preview changes nothing: the points are shares of the drawing, not distances | Gradient { shape: "linear", start: [50.0, 0.0], end: [50.0, 100.0], start_color: "#ffffff", end_color: "#6450a0", start_opacity: 0.0, end_opacity: 50.0, blend: "multiply" } | yes |
+| a half-size draft preview changes nothing: the points are shares of the drawing, not distances | Gradient { shape: "linear", start: [50.0, 0.0], end: [50.0, 100.0], start_color: "#ffffff", end_color: "#6450a0", start_opacity: 0.0, end_opacity: 50.0, blend: "multiply", ramp_scatter: 0.0, blend_with_original: 0.0 } | yes |
 
 ## The file
 

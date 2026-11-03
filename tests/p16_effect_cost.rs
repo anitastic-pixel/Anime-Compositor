@@ -278,6 +278,8 @@ fn cases() -> Vec<(&'static str, Effect)> {
                 start_opacity: 100.0,
                 end_opacity: 20.0,
                 blend: "screen".into(),
+                ramp_scatter: 0.0,
+                blend_with_original: 0.0,
             },
         ),
         (

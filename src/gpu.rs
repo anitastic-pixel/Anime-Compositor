@@ -15790,6 +15790,8 @@ impl Gpu {
                 start_opacity,
                 end_opacity,
                 blend: b,
+                // D-1029: either above 0 is drawn on the processor (compose.rs).
+                ..
             } => {
                 let (sx, sy) = crate::effects::radial_center(*start, (w, h), f.origin);
                 let (ex, ey) = crate::effects::radial_center(*end, (w, h), f.origin);

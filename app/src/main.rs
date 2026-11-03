@@ -4571,6 +4571,8 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             start_opacity: 0.0,
             end_opacity: 50.0,
             blend: "multiply".to_string(),
+            ramp_scatter: 0.0,
+            blend_with_original: 0.0,
         }),
         // D-115: black at half strength, five pixels down and to the right, hard-edged.
         DROP_SHADOW => Some(Effect::DropShadow {
@@ -7978,6 +7980,12 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             start_opacity: number("start_opacity")?,
             end_opacity: number("end_opacity")?,
             blend: word("blend")?,
+            ramp_scatter: if parameter(query, "ramp_scatter").is_some() { number("ramp_scatter")? } else { 0.0 },
+            blend_with_original: if parameter(query, "blend_with_original").is_some() {
+                number("blend_with_original")?
+            } else {
+                0.0
+            },
         }),
         DROP_SHADOW => Ok(Effect::DropShadow {
             color: word("color")?,

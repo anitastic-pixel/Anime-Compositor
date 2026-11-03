@@ -1899,8 +1899,16 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             start_opacity,
             end_opacity,
             blend,
+            ramp_scatter,
+            blend_with_original,
         } => {
             params.insert("shape".into(), J::from(shape.as_str()));
+            // D-1029: written only once moved or keyed, or in the file already.
+            for (key, v) in [("ramp_scatter", ramp_scatter), ("blend_with_original", blend_with_original)] {
+                if *v != 0.0 || instance.tracks.contains_key(key) || params.contains_key(key) {
+                    params.insert(key.into(), num(*v));
+                }
+            }
             params.insert(
                 "start".into(),
                 J::Array(start.iter().map(|c| num(*c)).collect()),
@@ -9533,6 +9541,9 @@ fn parse_effect(
             start_opacity: effect_number(params, "start_opacity", at)?,
             end_opacity: effect_number(params, "end_opacity", at)?,
             blend: effect_word(params, "blend", at)?,
+            // D-1029: a file from before them draws as it did.
+            ramp_scatter: effect_number_or(params, "ramp_scatter", at, 0.0)?,
+            blend_with_original: effect_number_or(params, "blend_with_original", at, 0.0)?,
         }),
         crate::effects::DROP_SHADOW => Some(crate::effects::Effect::DropShadow {
             color: effect_word(params, "color", at)?.to_ascii_lowercase(),

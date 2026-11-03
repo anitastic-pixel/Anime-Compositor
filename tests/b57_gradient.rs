@@ -23,6 +23,8 @@ fn grad(change: impl FnOnce(&mut Effect)) -> Effect {
         start_opacity: 0.0,
         end_opacity: 50.0,
         blend: "multiply".into(),
+        ramp_scatter: 0.0,
+        blend_with_original: 0.0,
     };
     change(&mut e);
     e
@@ -51,7 +53,7 @@ fn b57_gradient() {
     );
 
     t.heading("FX-GRAD-001 to 022 (document 25)");
-    t.fixtures("expected_gradient.json");
+    t.fixtures_numbered("expected_gradient.json", 1..=22);
 
     t.heading("How far it reaches");
     let all = grad(|_| {});

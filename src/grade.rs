@@ -524,7 +524,9 @@ pub(crate) fn paraffin_span(
 }
 
 /// D-114's settings, read once for a frame: the two points in the buffer's pixels, the two
-/// colours encoded 0 to 1, and the two strengths 0 to 100.
+/// colours encoded 0 to 1, and the two strengths 0 to 100. D-1029: `scatter`, 0 to 256, and
+/// `blend_original`, 0 to 100; `origin`, the drawing's corner in the buffer, so the scatter's
+/// grain is fixed to the drawing.
 pub(crate) struct Gradient {
     pub radial: bool,
     pub start: (f64, f64),
@@ -532,16 +534,23 @@ pub(crate) struct Gradient {
     pub colors: [[f64; 3]; 2],
     pub opacity: [f64; 2],
     pub blend: String,
+    pub scatter: f64,
+    pub blend_original: f64,
+    pub origin: (usize, usize),
 }
 
 /// D-114: a colour gradient laid over each pixel that shows, from `start` to `end`, mixed in by
 /// its blend at its strength; each pixel keeps its own covering, so nothing spills past the
-/// cel. The settings are already valid.
+/// cel. The settings are already valid. D-1029: each pixel's place along it is moved, before
+/// it is clamped, by `scatter` / 512 of [`unit`] at its place in the drawing, and the strength
+/// is multiplied by 1 - `blend_original` / 100.
 pub(crate) fn gradient(source: &mut WorkingBuffer, g: &Gradient) {
-    if g.opacity == [0.0, 0.0] {
+    if g.opacity == [0.0, 0.0] || g.blend_original >= 100.0 {
         return;
     }
     let w = source.width();
+    let (scatter, seed, keep) = (g.scatter / 512.0, self::mix(0), 1.0 - g.blend_original / 100.0);
+    let (ox, oy) = (g.origin.0 as i64, g.origin.1 as i64);
     let (sx, sy) = g.start;
     let (ex, ey) = (g.end.0 - sx, g.end.1 - sy);
     let ll = ex * ex + ey * ey;
@@ -556,15 +565,18 @@ pub(crate) fn gradient(source: &mut WorkingBuffer, g: &Gradient) {
                 return;
             }
             let (dx, dy) = ((i % w) as f64 + 0.5 - sx, (i / w) as f64 + 0.5 - sy);
-            let t = if ll == 0.0 {
+            let mut t = if ll == 0.0 {
                 1.0
             } else if g.radial {
                 (dx * dx + dy * dy).sqrt() / ll.sqrt()
             } else {
                 (dx * ex + dy * ey) / ll
+            };
+            if scatter != 0.0 {
+                t += scatter * unit(seed, (i % w) as i64 - ox, (i / w) as i64 - oy, 0, 0);
             }
-            .clamp(0.0, 1.0);
-            let o = (g.opacity[0] + t * (g.opacity[1] - g.opacity[0])) / 100.0;
+            let t = t.clamp(0.0, 1.0);
+            let o = (g.opacity[0] + t * (g.opacity[1] - g.opacity[0])) / 100.0 * keep;
             for c in 0..3 {
                 let [c0, c1] = [g.colors[0][c], g.colors[1][c]];
                 let color = to_linear(c0 + t * (c1 - c0));

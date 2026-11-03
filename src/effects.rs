@@ -872,6 +872,9 @@ pub enum Effect {
     /// and height, each -1000 to 1000; `start_color` and `end_color`, `#rrggbb`;
     /// `start_opacity` and `end_opacity`, 0 to 100; and `blend`, "normal", "multiply",
     /// "screen" or "add". The words and colours are kept as written, so a wrong one is reported.
+    /// D-1029: `ramp_scatter`, 0 to 256, a grain along the ramp against banding, and
+    /// `blend_with_original`, 0 to 100, the result mixed back with the layer; each 0 when a file
+    /// leaves it out.
     Gradient {
         shape: String,
         start: [f64; 2],
@@ -881,6 +884,8 @@ pub enum Effect {
         start_opacity: f64,
         end_opacity: f64,
         blend: String,
+        ramp_scatter: f64,
+        blend_with_original: f64,
     },
     /// D-115: `color`, `#rrggbb`, kept as written so a wrong one is reported; `opacity`, 0 to
     /// 100; `direction`, -3600 to 3600 degrees clockwise from up; `distance`, 0 to 1000 pixels;
@@ -7840,12 +7845,16 @@ impl Effect {
                 end,
                 start_opacity,
                 end_opacity,
+                ramp_scatter,
+                blend_with_original,
                 ..
             } => vec![
                 ("start", start.iter_mut().collect(), -1000.0, 1000.0),
                 ("end", end.iter_mut().collect(), -1000.0, 1000.0),
                 ("start_opacity", vec![start_opacity], 0.0, 100.0),
                 ("end_opacity", vec![end_opacity], 0.0, 100.0),
+                ("ramp_scatter", vec![ramp_scatter], 0.0, 256.0),
+                ("blend_with_original", vec![blend_with_original], 0.0, 100.0),
             ],
             Effect::DropShadow {
                 opacity,
@@ -16779,6 +16788,8 @@ pub(crate) fn apply_stack_at(
                 start_opacity,
                 end_opacity,
                 blend,
+                ramp_scatter,
+                blend_with_original,
             } => {
                 let g = crate::grade::Gradient {
                     radial: shape == "radial",
@@ -16787,6 +16798,9 @@ pub(crate) fn apply_stack_at(
                     colors: [encoded(start_color), encoded(end_color)],
                     opacity: [*start_opacity, *end_opacity],
                     blend: blend.clone(),
+                    scatter: *ramp_scatter,
+                    blend_original: *blend_with_original,
+                    origin: (ox, oy),
                 };
                 crate::perf::time(crate::perf::Stage::EffectGradient, || {
                     crate::grade::gradient(source, &g)
