@@ -30,3 +30,12 @@ Checked by `cargo test --test b814_glass_look` (33 of 33, `B-814_glass_look_tabl
 pixel of FX-GLASS-028 to 038 against `tools/glass_look_reference.py`, the wrong word refused,
 round trips and tiles. The old cases still pass: `b441_glass`, `b198_unsharp_glass` (5 of 5) and
 `b224_gpu_maps` (card against processor).
+
+Tutorial sheet: `verification/B-814 pictures/glass_vs_tutorial.png`, the Liquid Glass tutorial
+(n0g4HXxx03s, 2:00-3:20) beside ours, rendered by the release app (lane w12c's pill project,
+processor, full size). Top row, Effect Light: the middle of the pill, mean level (R, G, B) in a
+flat patch, is tutorial (67, 90, 154), Lit before (75, 107, 184), Rim after (67, 97, 167): the
+middle now keeps the background's own colour as the tutorial's does. The bottom rim band is
+tutorial (40, 60, 120), Lit (55, 85, 165), Rim (53, 82, 160): darker than before but still not
+as dark as the tutorial's rim (differs; the rim's floor is noted as a gap in D-934). Bottom row,
+AE Lights: the bend alone, the same as lane w12c's ambient-only stand-in, now one menu choice.
