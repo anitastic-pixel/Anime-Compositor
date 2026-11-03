@@ -224385,3 +224385,29 @@ FX-GLASS-036 (`fx_glass_036.json`): Rim with the classic light, Displacement 20,
 FX-GLASS-037 (`fx_glass_037.json`): Edge Look written `lit`: D-561's look, the same as FX-GLASS-001. Frames 0.
 
 FX-GLASS-038 (`fx_glass_038.json`): An edge look written "dark". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Bulge antialiasing and pin all edges (D-935)
+
+Bulge's `antialiasing` and `pin_all_edges` (`core.bulge`, B-815), the rules ours. The cases are FX-BULGE-001's drawing and composition, 16 by 10. `tools/bulge_quality_reference.py` works the expected frames, `expected_bulge_quality.json`. `expected_bulge.json` is not touched. Tolerance 2e-5.
+
+FX-BULGE-024 (`fx_bulge_024.json`): Antialiasing High on FX-BULGE-004 (radius 6, height 1): each pixel the mean of four reads a quarter pixel either way, so the swollen stripes' edges come out softer; every pixel whose four points are all past the circle, the drawing's two ends among them, is kept exactly. Frames 0.
+
+FX-BULGE-025 (`fx_bulge_025.json`): Antialiasing High on FX-BULGE-007 (radius 6, height -4), the hard pinch where one read per pixel jumps furthest: the four reads smooth it. Frames 0.
+
+FX-BULGE-026 (`fx_bulge_026.json`): Antialiasing written Low: FX-BULGE-004 exactly. Frames 0.
+
+FX-BULGE-027 (`fx_bulge_027.json`): Antialiasing High at height 0: the drawing, untouched. Frames 0.
+
+FX-BULGE-028 (`fx_bulge_028.json`): Pin All Edges on FX-BULGE-001 (radius 50, height 1, every pixel in reach): the border pixels, rows 0 and 9 and columns 0 and 15, are kept exactly, and the pull fades in over the 2.5 pixels inside them, so the empty top and bottom rows and the right-hand column stay empty. Frames 0.
+
+FX-BULGE-029 (`fx_bulge_029.json`): Pin All Edges on FX-BULGE-004 (radius 6): the circle reaches the top and bottom rows, which are kept; rows 1 and 8 swell less; columns 0, 1, 14 and 15, out of reach, are kept as before. Frames 0.
+
+FX-BULGE-030 (`fx_bulge_030.json`): Pin All Edges and Antialiasing High together on FX-BULGE-001: the border kept, the inside swollen and smoothed. Frames 0.
+
+FX-BULGE-031 (`fx_bulge_031.json`): FX-BULGE-028 moved three pixels right: the same, moved; the pinned edges are the drawing's own, and the three columns left of it stay empty. Frames 0.
+
+FX-BULGE-032 (`fx_bulge_032.json`): Pin All Edges written off: FX-BULGE-001 exactly. Frames 0.
+
+FX-BULGE-033 (`fx_bulge_033.json`): Antialiasing written "medium". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-BULGE-034 (`fx_bulge_034.json`): Pin All Edges written "yes". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
