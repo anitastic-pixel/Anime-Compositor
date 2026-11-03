@@ -4645,7 +4645,8 @@ pub enum Effect {
     /// `end`, 0 to 100 per cent; `offset`, -100 to 100; `amount`, -100 to 100; `based_on`,
     /// "characters", "characters_excluding_spaces" or "words"; `shape`, "square", "ramp_up",
     /// "ramp_down", "triangle", "round" or "smooth"; `smoothness`, `ease_high` and `ease_low`, 0
-    /// to 100 per cent. It has no pixel work: compose hands it to the text's drawing.
+    /// to 100 per cent. It has no pixel work: compose hands it to the text's drawing. D-990:
+    /// `blur`, x then y, 0 to 1,000 pixels, each picked letter blurred by it.
     TextAnimator {
         position: [f64; 2],
         scale: [f64; 2],
@@ -4654,6 +4655,7 @@ pub enum Effect {
         fill: String,
         color: [f64; 3],
         tracking: f64,
+        blur: [f64; 2],
         start: f64,
         end: f64,
         offset: f64,
@@ -10111,6 +10113,7 @@ impl Effect {
                 opacity,
                 color,
                 tracking,
+                blur,
                 start,
                 end,
                 offset,
@@ -10126,6 +10129,7 @@ impl Effect {
                 ("opacity", vec![opacity], 0.0, 100.0),
                 ("color", color.iter_mut().collect(), 0.0, 1.0),
                 ("tracking", vec![tracking], -1000.0, 1000.0),
+                ("blur", blur.iter_mut().collect(), 0.0, 1000.0),
                 ("start", vec![start], 0.0, 100.0),
                 ("end", vec![end], 0.0, 100.0),
                 ("offset", vec![offset], -100.0, 100.0),

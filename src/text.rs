@@ -587,7 +587,8 @@ struct Turn {
 /// from 0, line breaks left out; `anchor` is on its baseline halfway across its advance; `moved`,
 /// `scale` (a factor each way) and `turn` (degrees, clockwise) are about the anchor; `amounts`
 /// is how much each animator picked it; `bounds` is its outline's box, left, top, right, bottom,
-/// as drawn, `None` for a character with no outline.
+/// as drawn, `None` for a character with no outline. D-990: `blur`, x then y, the pixels it is
+/// blurred by.
 #[derive(Clone, PartialEq, Debug)]
 pub struct Placed {
     pub index: usize,
@@ -598,6 +599,7 @@ pub struct Placed {
     pub turn: f64,
     pub opacity: f64,
     pub color: [f64; 3],
+    pub blur: [f64; 2],
     pub amounts: Vec<f64>,
     pub bounds: Option<[f64; 4]>,
 }
@@ -735,6 +737,7 @@ fn animate(
         turn: 0.0,
         opacity: 1.0,
         color: text.color,
+        blur: [0.0; 2],
         amounts: Vec::new(),
         bounds: None,
     };
@@ -748,6 +751,7 @@ fn animate(
             fill,
             color,
             tracking,
+            blur,
             ..
         } = a
         else {
@@ -758,6 +762,7 @@ fn animate(
         p.moved = [p.moved[0] + v * position[0], p.moved[1] + v * position[1]];
         p.turn += v * rotation;
         room += v * tracking / 1000.0 * text.size;
+        p.blur = [p.blur[0] + v * blur[0], p.blur[1] + v * blur[1]];
         p.scale = [
             p.scale[0] * (1.0 + v * (scale[0] / 100.0 - 1.0)),
             p.scale[1] * (1.0 + v * (scale[1] / 100.0 - 1.0)),
@@ -770,6 +775,7 @@ fn animate(
             }
         }
     }
+    p.blur = p.blur.map(|b| b.max(0.0));
     (p, room)
 }
 
@@ -816,19 +822,21 @@ fn animated_rows(
     } else {
         0.0
     };
-    // The characters by opacity and colour, in the order each first comes; one not seen is left.
-    let mut groups: Vec<(f64, [f64; 3], Vec<Vec<(f64, f64)>>)> = Vec::new();
+    // The characters by opacity, colour and blur (D-990), in the order each first comes; one not
+    // seen is left.
+    type Group = (f64, [f64; 3], Vec<Vec<(f64, f64)>>, [f64; 2]);
+    let mut groups: Vec<Group> = Vec::new();
     for (p, range) in &laid.chars {
         if p.opacity <= 0.0 {
             continue;
         }
         let i = match groups
             .iter()
-            .position(|g| g.0 == p.opacity && g.1 == p.color)
+            .position(|g| g.0 == p.opacity && g.1 == p.color && g.3 == p.blur)
         {
             Some(i) => i,
             None => {
-                groups.push((p.opacity, p.color, Vec::new()));
+                groups.push((p.opacity, p.color, Vec::new(), p.blur));
                 groups.len() - 1
             }
         };
@@ -878,10 +886,11 @@ fn animated_rows(
         Vec<f32>,
         Option<Vec<f32>>,
         std::ops::Range<usize>,
+        [f64; 2],
     );
     let fields: Vec<Field> = groups
         .iter()
-        .map(|(opacity, color, contours)| {
+        .map(|(opacity, color, contours, blur)| {
             let mut ink = fill_rows(contours, w, h, window.clone());
             if bold > 0.0 {
                 union(&mut ink, &around(contours, bold, w, h, window.clone()));
@@ -897,9 +906,22 @@ fn animated_rows(
                 ink,
                 lined,
                 band(&mut contours.iter().flatten().map(|p| p.1)),
+                *blur,
             )
         })
         .collect();
+    // D-990: the columns a group's outlines paint, as `band` the rows.
+    let columns = |contours: &[Vec<(f64, f64)>]| {
+        let (lo, hi) = contours
+            .iter()
+            .flatten()
+            .fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), p| {
+                (lo.min(p.0), hi.max(p.0))
+            });
+        let l = (lo - reach - 2.0).floor().clamp(0.0, w as f64) as usize;
+        let r = (hi + reach + 3.0).ceil().clamp(0.0, w as f64) as usize;
+        l..r.max(l)
+    };
     let rows = |data: &mut [f32],
                 field: &[f32],
                 band: &std::ops::Range<usize>,
@@ -922,7 +944,7 @@ fn animated_rows(
     if let (Some(s), false) = (&text.shadow, fields.is_empty()) {
         // Every group's letters, each as seen.
         let mut under = vec![0.0f32; w * h];
-        for (opacity, _, ink, lined, band) in &fields {
+        for (opacity, _, ink, lined, band, _) in &fields {
             let f = lined.as_ref().unwrap_or(ink);
             for i in band.start * w..band.end * w {
                 under[i] = under[i].max(f[i] * *opacity as f32);
@@ -960,14 +982,63 @@ fn animated_rows(
         }
     }
     if let Some(s) = &text.stroke {
-        for (opacity, _, _, lined, band) in &fields {
-            if let Some(f) = lined {
+        for (opacity, _, _, lined, band, blur) in &fields {
+            if let (Some(f), true) = (lined, *blur == [0.0; 2]) {
                 rows(picture.data_mut(), f, band, s.color, *opacity);
             }
         }
     }
-    for (opacity, color, ink, _, band) in &fields {
-        rows(picture.data_mut(), ink, band, *color, *opacity);
+    for ((opacity, color, ink, lined, band, blur), group) in fields.iter().zip(&groups) {
+        if *blur == [0.0; 2] {
+            rows(picture.data_mut(), ink, band, *color, *opacity);
+            continue;
+        }
+        // D-990: a blurred group's stroke and fill drawn apart, blurred, and laid over.
+        let rows_in = band.start.clamp(r0, r0 + rh)..band.end.clamp(r0, r0 + rh);
+        let cols = columns(&group.2);
+        let (pw, ph) = (cols.len(), rows_in.len());
+        if pw == 0 || ph == 0 {
+            continue;
+        }
+        let mut part = WorkingBuffer::transparent(pw, ph);
+        let stroke = text
+            .stroke
+            .as_ref()
+            .zip(lined.as_ref())
+            .map(|(s, f)| (f, s.color));
+        for (field, c) in stroke.into_iter().chain([(ink, *color)]) {
+            let mut cut = vec![0.0f32; pw * ph];
+            for y in 0..ph {
+                let s = (rows_in.start + y - r0) * w + cols.start;
+                cut[y * pw..(y + 1) * pw].copy_from_slice(&field[s..s + pw]);
+            }
+            crate::shape::paint(part.data_mut(), &cut, pw, c, *opacity, None);
+        }
+        // Each pass grows the part by its radius on every side.
+        let grow = if blur[0] == blur[1] {
+            crate::effects::blur(&mut part, blur[0] / 2.0)
+        } else {
+            crate::effects::blur_axes(
+                &mut part,
+                &crate::effects::gaussian_weights(blur[0] / 2.0),
+                (true, false),
+            ) + crate::effects::blur_axes(
+                &mut part,
+                &crate::effects::gaussian_weights(blur[1] / 2.0),
+                (false, true),
+            )
+        };
+        let (sw, sh) = (part.width(), part.data());
+        let data = picture.data_mut();
+        for y in rows_in.start.saturating_sub(grow).max(r0)..(rows_in.end + grow).min(r0 + rh) {
+            for x in cols.start.saturating_sub(grow)..(cols.end + grow).min(w) {
+                let j = ((y + grow - rows_in.start) * sw + x + grow - cols.start) * 4;
+                let i = ((y - r0) * w + x) * 4;
+                for c in 0..4 {
+                    data[i + c] = sh[j + c] + data[i + c] * (1.0 - sh[j + 3]);
+                }
+            }
+        }
     }
     Some((picture, r0))
 }

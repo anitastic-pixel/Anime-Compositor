@@ -7435,6 +7435,7 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             fill: "off".to_string(),
             color: [1.0, 0.0, 0.0],
             tracking: 0.0,
+            blur: [0.0, 0.0],
             start: 0.0,
             end: 100.0,
             offset: 0.0,
@@ -10855,6 +10856,12 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
                     .ok_or_else(|| format!("color needs three numbers, like 1, 0.5, 0. Not \"{text}\"."))?
             },
             tracking: number("tracking")?,
+            // D-990: a window from before it sends none.
+            blur: if parameter(query, "blur").is_some() {
+                pair("blur")?
+            } else {
+                [0.0, 0.0]
+            },
             start: number("start")?,
             end: number("end")?,
             offset: number("offset")?,

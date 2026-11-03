@@ -11333,7 +11333,7 @@ const EFFECT_SEARCH = {
   'core.fog_3d': 'fog 3d mist haze atmosphere depth distance z zdepth exr render pass scattering density gradient background',
   'core.depth_of_field': 'depth of field dof focus defocus focal plane bokeh lens blur z zdepth exr render pass camera',
   'core.cryptomatte': 'cryptomatte crypto matte object material asset name names pick select isolate cut out exr render pass aov psyop blender redshift arnold vray coverage soft edge keyed colors',
-  'core.text_animator': 'text animator animate range selector per character letter word typewriter type on fade in by character wave tracking offset',
+  'core.text_animator': 'text animator animate range selector per character letter word typewriter type on fade in by character wave tracking offset blur',
   'core.stretch_levels': 'stretch levels auto levels automatic black white point clip histogram flicker deflicker temporal smoothing scene detect',
   'core.stretch_contrast': 'stretch contrast auto contrast automatic black white point clip histogram flicker deflicker temporal smoothing scene detect',
   'core.stretch_color': 'stretch color colour auto color automatic white balance colour cast neutral midtones grey histogram flicker deflicker temporal smoothing scene detect',
@@ -12134,6 +12134,8 @@ const EFFECT_PARAMS = {
     ['opacity', 'Opacity', 1, 1, 'per cent, 0 to 100; 0 with the range moving is a typewriter'],
     ['color', 'Fill Color', 3, 0.01, 'linear RGB, used when Fill Color is on'],
     ['tracking', 'Tracking Amount', 1, 1, 'thousandths of the size added after each picked letter'],
+    // D-990.
+    ['blur', 'Blur', 2, 0.5, 'pixels, x then y, 0 to 1000, each picked letter blurred by', '', [0, 0]],
     ['start', 'Start', 1, 0.5, 'per cent of the line, 0 to 100'],
     ['end', 'End', 1, 0.5, 'per cent of the line, 0 to 100'],
     ['offset', 'Offset', 1, 0.5, 'per cent, -100 to 100, slides Start and End together'],

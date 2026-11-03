@@ -7490,6 +7490,7 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("focal_bias".into(), num(*focal_bias));
         }
         Effect::TextAnimator {
+            blur,
             position,
             scale,
             rotation,
@@ -7515,6 +7516,13 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("fill".into(), J::from(fill.as_str()));
             params.insert("color".into(), list(color));
             params.insert("tracking".into(), num(*tracking));
+            // D-990: saved only when set, keyed or already in the file.
+            if *blur != [0.0; 2]
+                || instance.tracks.contains_key("blur")
+                || params.contains_key("blur")
+            {
+                params.insert("blur".into(), list(blur));
+            }
             params.insert("start".into(), num(*start));
             params.insert("end".into(), num(*end));
             params.insert("offset".into(), num(*offset));
@@ -12847,6 +12855,7 @@ fn parse_effect(
             fill: effect_word(params, "fill", at)?,
             color: effect_array(params, "color", "a linear RGB triple", at)?,
             tracking: effect_number(params, "tracking", at)?,
+            blur: effect_pair_or(params, "blur", at, [0.0; 2])?,
             start: effect_number(params, "start", at)?,
             end: effect_number(params, "end", at)?,
             offset: effect_number(params, "offset", at)?,
