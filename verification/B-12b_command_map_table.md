@@ -269,4 +269,4 @@ Whether document 24's shortcuts conflict with Windows or with the web view, whic
 | and Alt+G presses | $('checker') | $('checker') | pass |
 | and Shift+/ presses | $('fit') | $('fit') | pass |
 
-**241 of 241 checks pass.**
+**242 of 242 checks pass.**
