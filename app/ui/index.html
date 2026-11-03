@@ -793,6 +793,7 @@
   /* W-22: a layer being dragged up the list, and where a drawing dragged from the bin will land. */
   #layers li.lifted { opacity: 0.6; }
   #layers li.dropabove { box-shadow: inset 0 2px 0 #6ea8fe; }
+  #layers li.dropon { outline: 2px solid #6ea8fe; outline-offset: -2px; }
   #layers li.dropbelow { box-shadow: inset 0 -2px 0 #6ea8fe; }
   /* W-23: the layer's number, and the menu a right click on its row opens. */
   .rownum { min-width: 1.4em; text-align: right; color: #909096; font-size: 11px; }
@@ -3821,12 +3822,14 @@ function drawAssets() {
     li.onclick = () => { selectedAsset = asset.id; projShown = 'asset'; drawPanels(); };
     // W-22: a drawing dragged onto the layer list becomes a layer where it is let go: above a
     // row is in front of that layer, below it behind, anywhere else on the timeline in front.
+    // D-970: with Alt held as it is let go onto a layer's row, it becomes that layer's source
+    // instead, as After Effects' Alt-drag replaces a layer's source (D-734's Replace Layer Source).
     li.onpointerdown = (e) => {
       if (e.button !== 0 || !doc) return;
       const [x0, y0] = [e.clientX, e.clientY];
       let moved = false;
       let mark = null;
-      const unmark = () => { if (mark) mark.classList.remove('dropabove', 'dropbelow'); mark = null; };
+      const unmark = () => { if (mark) mark.classList.remove('dropabove', 'dropbelow', 'dropon'); mark = null; };
       li.setPointerCapture(e.pointerId);
       li.onpointermove = (m) => {
         if (!moved && Math.hypot(m.clientX - x0, m.clientY - y0) < 4) return;
@@ -3836,7 +3839,7 @@ function drawAssets() {
         mark = layerRowAt(m.clientX, m.clientY);
         if (mark) {
           const r = mark.getBoundingClientRect();
-          mark.classList.add(m.clientY < r.top + r.height / 2 ? 'dropabove' : 'dropbelow');
+          mark.classList.add(m.altKey ? 'dropon' : m.clientY < r.top + r.height / 2 ? 'dropabove' : 'dropbelow');
         }
       };
       li.onpointerup = (m) => {
@@ -3847,8 +3850,13 @@ function drawAssets() {
         const all = layers();
         const at = mark ? all.findIndex((l) => l.id === mark.dataset.id) : -1;
         const to = at < 0 ? all.length : mark.classList.contains('dropabove') ? at + 1 : at;
+        const onto = m.altKey && mark ? mark.dataset.id : null;
         unmark();
         if (!moved || !(over && over.closest('#sheet'))) return;
+        if (onto) {
+          command('/layer.replace_source?layer=' + encodeURIComponent(onto) + '&asset=' + encodeURIComponent(asset.id));
+          return;
+        }
         command('/layer.create?asset=' + encodeURIComponent(asset.id)
           + '&name=' + encodeURIComponent(asset.name) + '&to=' + to);
       };
