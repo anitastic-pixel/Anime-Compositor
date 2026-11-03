@@ -115,3 +115,119 @@ fn b906_drawing_keys() {
         &rows,
     );
 }
+
+/// D-1028 / B-907: Ctrl+D with a mask chosen copies the mask, keys and mode included, just below
+/// it, named as a new mask is.
+#[test]
+fn b907_mask_duplicate() {
+    let mut rows: Rows = Vec::new();
+    let source = repo("Fixtures/projects/cel_holds_project.json");
+    let viewer = Mutex::new(open(&source).unwrap_or_else(|d| panic!("open: {}", d.message)));
+    let cel_of = || -> serde_json::Value {
+        let answer: serde_json::Value = serde_json::from_str(&state(&viewer)).expect("JSON");
+        answer["project"]["compositions"][0]["layers"]
+            .as_array()
+            .expect("layers")
+            .iter()
+            .find(|l| l["name"] == "Cel")
+            .cloned()
+            .expect("the Cel layer")
+    };
+    let cel = cel_of()["id"].as_str().unwrap_or_default().to_string();
+    let run = |what: &str| -> String {
+        let (id, query) = what.split_once('?').expect("a query");
+        edit_command(&viewer, id, Some(query)).expect("a command the window answers")
+    };
+    let masks = || -> String {
+        cel_of()["masks"]
+            .as_array()
+            .cloned()
+            .unwrap_or_default()
+            .iter()
+            .map(|m| {
+                format!(
+                    "{} {} {} points {} keys, feather {}{}",
+                    m["name"].as_str().unwrap_or("?"),
+                    m["mode"].as_str().unwrap_or("?"),
+                    m["path"]["base"]["points"].as_array().map_or(0, |p| p.len()),
+                    m["path"]["keyframes"].as_array().map_or(0, |k| k.len()),
+                    m["feather_px"],
+                    if m["inverted"] == serde_json::Value::Bool(true) { ", inverted" } else { "" },
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("; ")
+    };
+    let square = "0,0,0,0,0,0;100,0,0,0,0,0;100,100,0,0,0,0;0,100,0,0,0,0";
+    run(&format!("mask.add?layer={cel}&points={square}"));
+    run(&format!("mask.add?layer={cel}&points={square}"));
+    run(&format!("mask.set?layer={cel}&mask=0&mode=subtract&feather=8&inverted=1"));
+    run(&format!("mask.add_remove_key?layer={cel}&mask=0&frame=0"));
+    run(&format!(
+        "mask.set_path?layer={cel}&mask=0&frame=10&points=10,0,0,0,0,0;100,0,0,0,0,0;100,100,0,0,0,0;0,100,0,0,0,0"
+    ));
+    let before = masks();
+    rows.push((
+        "Two masks to start: Mask 1 subtract, feathered, inverted, its path keyed at 0 and 10".into(),
+        "Mask 1 subtract 4 points 2 keys, feather 8, inverted; Mask 2 add 4 points 0 keys, feather 0".into(),
+        before.clone(),
+    ));
+    run(&format!("mask.duplicate?layer={cel}&mask=0"));
+    rows.push((
+        "Ctrl+D on Mask 1: the copy sits just below it, named Mask 3 (the next free), mode, feather, inverted and keys kept"
+            .into(),
+        "Mask 1 subtract 4 points 2 keys, feather 8, inverted; Mask 3 subtract 4 points 2 keys, feather 8, inverted; \
+         Mask 2 add 4 points 0 keys, feather 0"
+            .into(),
+        masks(),
+    ));
+    rows.push(("The copy's path is the original's, key for key".into(), "true".into(), {
+        let m = cel_of()["masks"].clone();
+        (m[0]["path"] == m[1]["path"]).to_string()
+    }));
+    rows.push(("One entry to undo, named for the new mask".into(), "Draw Mask 3".into(), held_labels(&viewer)));
+    let _ = edit_command(&viewer, "edit.undo", None);
+    rows.push(("Undo takes the copy back".into(), before.clone(), masks()));
+    rows.push((
+        "A mask that is not there is refused, with how many there are".into(),
+        "Which mask? \"Cel\" has 2.".into(),
+        run(&format!("mask.duplicate?layer={cel}&mask=7")),
+    ));
+    rows.push(("and nothing changed".into(), before, masks()));
+    pins(
+        &mut rows,
+        &[
+            ("Ctrl+D and Edit > Duplicate copy the chosen mask first", "  if (duplicateMask()) return;"),
+            (
+                "only with a mask chosen, one layer chosen, and a layer of masks rather than shapes",
+                "if (!maskChosen || selection.length !== 1 || !layer || drawsShapes(layer) || !masksOf(layer)[maskPicked]) return false;",
+            ),
+            ("the copy becomes the mask chosen", "    maskPicked = at + 1;"),
+            ("a mask's name in the timeline chooses it (a shape's does not)", "maskPicked = at; maskChosen = !shapes;"),
+            ("a double-click on its outline chooses it", "  maskChosen = !drawsShapes(layer); // D-1028"),
+            ("choosing a layer lets the mask go", "function select(id, add) {\n  maskChosen = false;"),
+            ("and so does choosing several", "function choose(ids) {\n  maskChosen = false;"),
+        ],
+    );
+    table(
+        "B-907_mask_duplicate_table.md",
+        "B-907: Ctrl+D with a mask chosen copies the mask (D-1028)",
+        "b907_mask_duplicate",
+        "After Effects: with a mask selected, Edit > Duplicate (Ctrl+D) copies it, everything \
+         included, just below it. The first rows run the window's own command on \
+         `Fixtures/projects/cel_holds_project.json`; the last rows pin how the page sends it.",
+        &rows,
+    );
+}
+
+fn held_labels(viewer: &Mutex<Viewer>) -> String {
+    viewer
+        .lock()
+        .expect("the viewer lock")
+        .document
+        .undo_labels()
+        .last()
+        .cloned()
+        .unwrap_or_default()
+        .to_string()
+}

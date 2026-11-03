@@ -165,6 +165,7 @@ const SENT: &[&str] = &[
     "mask.add",
     "mask.add_remove_key",
     "mask.delete",
+    "mask.duplicate",
     "mask.set",
     "mask.set_path",
     "media.import",
@@ -706,6 +707,8 @@ const REACHED: &[(&str, &str)] = &[
     ("mask.set_path", "a command the window answers"),
     ("mask.set", "a command the window answers"),
     ("mask.delete", "a command the window answers"),
+    // D-1028: Ctrl+D with a mask chosen.
+    ("mask.duplicate", "a command the window answers"),
     // D-78, accepted on 2026-09-21 and built in the core by B-25b; B-25c put all six in the
     // window, each the twin of its mask command.
     ("layer.add_shape", "a command the window answers"),

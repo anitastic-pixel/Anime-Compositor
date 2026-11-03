@@ -5455,6 +5455,7 @@ function pastProps(li) {
 
 // W-22: several layers chosen at once. Selection's first is the one the inspector shows.
 function choose(ids) {
+  maskChosen = false;
   selection = ids;
   selectedLayer = selection[0] || null;
   drawPanels();
@@ -5491,7 +5492,25 @@ function snapFrames() {
 // W-22: Ctrl+D copies the selected layers, each in front of itself; Ctrl+Shift+D splits them at
 // the playhead. Copies are one entry to undo, by the transaction the bracket keys use; a split
 // is one entry per layer split.
+// ---- B-907 begin
+// D-1028: with a mask chosen on the one chosen layer, by its name in the timeline or its outline
+// on the picture, Ctrl+D copies the mask just below it, as After Effects' Edit > Duplicate does,
+// and the copy becomes the one chosen. Choosing a layer again lets the mask go.
+let maskChosen = false;
+function duplicateMask() {
+  const layer = selected();
+  if (!maskChosen || selection.length !== 1 || !layer || drawsShapes(layer) || !masksOf(layer)[maskPicked]) return false;
+  const at = maskPicked;
+  nudge = nudge.then(async () => {
+    await command('/mask.duplicate?layer=' + encodeURIComponent(layer.id) + '&mask=' + at);
+    maskPicked = at + 1;
+    drawLayers(); drawBoxes();
+  });
+  return true;
+}
+// ---- B-907 end
 function duplicateLayers() {
+  if (duplicateMask()) return;
   const taken = selection.slice();
   if (!taken.length) return;
   nudge = nudge.then(async () => {
@@ -6504,6 +6523,7 @@ function maskRows(comp, layer, shapes = false) {
     name.onclick = (e) => {
       e.stopPropagation(); select(layer.id, false); pickKey(null, false); maskPicked = at;
       namedProp = { layer: layer.id, prop: (shapes ? 'shape:' : 'mask:') + at };
+      maskChosen = !shapes;
       drawLayers(); drawBoxes();
     };
     name.tabIndex = 0;
@@ -6950,6 +6970,7 @@ const svgEl = (kind) => document.createElementNS($('boxes').namespaceURI, kind);
 // than saying which one it is.
 function select(id, add) {
   namedProp = null;
+  maskChosen = false;
   if (id) cameraPicked = false;
   if (!add || !id) selection = id ? [id] : [];
   else if (selection.includes(id)) selection = selection.filter((held) => held !== id);
@@ -8936,6 +8957,7 @@ stage.ondblclick = (e) => {
   const at = onPoint ? maskPicked : order.find((a) => pathsOf(layer)[a] && onLine(a));
   if (at === undefined) { if (freeBox && !e.shiftKey) { freeBox = null; drawBoxes(); } return; }
   const keep = e.shiftKey && freeBoxOn(layer) ? freeBox.parts : [];
+  maskChosen = !drawsShapes(layer); // D-1028
   if (at !== maskPicked) { maskPicked = at; drawLayers(); drawInspector(); }
   openFreeBox(layer, null, keep);
 };

@@ -11038,6 +11038,7 @@ const ANSWERS: &[&str] = &[
     "mask.add",
     "mask.add_remove_key",
     "mask.delete",
+    "mask.duplicate",
     "mask.set",
     "mask.set_path",
     "media.import",
@@ -13734,7 +13735,7 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                 // refuses it too - `sets_a_picture` names SET_MASKS - and this says it in the
                 // words of the thing the person was doing, before a shape is even read.
                 "mask.add" | "mask.set_path" | "mask.set" | "mask.delete"
-                | "mask.add_remove_key" => {
+                | "mask.add_remove_key" | "mask.duplicate" => {
                     if layer.kind == LayerKind::Audio {
                         return Some(format!(
                             "\"{}\" is a sound layer, so it has no masks.",
@@ -13763,6 +13764,16 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                     match id {
                         "mask.delete" => {
                             masks.remove(at);
+                        }
+                        // D-1028: Ctrl+D on a mask. The copy keeps everything, keys and
+                        // mode included, sits just below it, and is named as a new mask is.
+                        "mask.duplicate" => {
+                            let mut copy = masks[at].clone();
+                            copy.name = (1..)
+                                .map(|n| format!("Mask {n}"))
+                                .find(|name| masks.iter().all(|m| &m.name != name))
+                                .expect("the numbers do not run out");
+                            masks.insert(at + 1, copy);
                         }
                         // B-24d: the stopwatch. No keys at all and the path starts moving, from
                         // the shape it has now; a key under the playhead comes off, and the last
