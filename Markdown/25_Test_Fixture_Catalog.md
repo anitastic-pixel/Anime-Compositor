@@ -216255,6 +216255,22 @@ FX-ADDGRAIN-040 (`fx_addgrain_040.json`): Animate Smoothly "On", in capitals, ke
 
 FX-ADDGRAIN-041 (`fx_addgrain_041.json`): Shadows keyed to 20 at frame 4, above 10. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
+### Add Grain viewing mode (D-937)
+
+Add Grain's `viewing_mode` (`core.add_grain`, B-817). FX-ADDGRAIN-042 to 044 are a strip 220 by 12 (`media/strip.png`), its composition the same size, wider than the 200-pixel box; 045 and 046 are FX-ADDGRAIN-001's card and composition, 16 by 10. `tools/addgrain_view_reference.py` works the expected frames, `expected_addgrain_view.json`. `expected_addgrain.json` is not touched. Tolerance 2e-5.
+
+FX-ADDGRAIN-042 (`fx_addgrain_042.json`): Preview on a strip 220 by 12, wider than the box: columns 10 to 209 are the box, its edge (columns 10 and 209, rows 0 and 11) opaque white and the grain inside it FX-ADDGRAIN-043's exactly; columns 0 to 9 and 210 to 219 are the strip untouched. Frames 0, 2.
+
+FX-ADDGRAIN-043 (`fx_addgrain_043.json`): Final Output written on the strip: the grain everywhere, D-443 exactly. Frames 0, 2.
+
+FX-ADDGRAIN-044 (`fx_addgrain_044.json`): Preview at intensity 0 on the strip: the box is drawn and nothing else changes. Frames 0.
+
+FX-ADDGRAIN-045 (`fx_addgrain_045.json`): Preview on the 16 by 10 card, smaller than the box: the box is the card's own edge, its border pixels white (the empty ones too), the grain inside FX-ADDGRAIN-001's frame 0. Frames 0.
+
+FX-ADDGRAIN-046 (`fx_addgrain_046.json`): Preview after a Motion Tile of 300 per cent, the layer moved three pixels right: the box is still the drawing's edge, in the drawing's own space, so columns 0 to 2 show the tiles round it untouched, column 3 and rows 0 and 9 are white. Frames 0.
+
+FX-ADDGRAIN-047 (`fx_addgrain_047.json`): Viewing Mode "noise_samples", After Effects' Remove Grain word, which this Add Grain has not got. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
 ### Vegas (D-444)
 
 Vegas, after After Effects' Vegas (Generate), `core.vegas` (B-324). Every case is a composition 16 by 10 holding Lightning Bolt's night with masks of mode None, as Path Stroke's cases are (`Fixtures/vegas/media/`), or Path Stroke's shape layers; `tools/vegas_reference.py` works the expected frames, `Fixtures/vegas/expected_vegas.json`, tolerance 2e-5; the rule is in document 21. By the owner's decision of 2026-10-10, "Masks only for now", Stroke Image Contours is refused with a sentence; no case has a mask of fewer than three points.
