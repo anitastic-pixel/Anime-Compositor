@@ -34,7 +34,7 @@ In a composition at 8 bpc or 32 bpc (After Effects), and only there:
 - D-747 (audit row 17) adds After Effects' further Glow controls, a file without them meaning
   After Effects' starting values, which draw as before. Glow Dimensions spreads the light along
   one axis only. Glow Colors A & B recolours the blurred light: v, its brightest channel held to
-  0..1, gives u = frac(loops (1 - v) + phase / 360), f is u (sawtooth A>B), 1 - u (B>A),
+  0..1, gives u = frac(loops (1 - v) + phase / 360), f is 1 - u (sawtooth A>B), u (B>A),
   1 - |2u - 1| (triangle A>B>A) or |2u - 1| (B>A>B), bent to f^(ln 0.5 / ln m), m the midpoint
   held to 0.001..0.999, and the light becomes A + (B - A) f, the colours as written, times v, at
   its covering. Composite Original None leaves the light alone; Add and Screen lay it on as
@@ -42,6 +42,12 @@ In a composition at 8 bpc or 32 bpc (After Effects), and only there:
   (1 - as) ad cd + (1 - ad) as cs + as ad B(cd, cs) on straight colours, the light the source
   and the picture the backdrop On Top, the other way round Behind. Our basis; After Effects
   publishes no formula.
+- D-986 (wave 12, lane T) turned the two sawtooths round: After Effects' Sawtooth B>A gives
+  the brightest light Color A and the faintest Color B (RIS86giOG-Q at 2:30, Color A blue and
+  B black: blue light on the letters, a thin rim, and its radius 153 glow barely seen), where
+  D-747 had A at the brightest for A>B. Glow Based On Alpha Channel: a pixel glows when its
+  covering, in 8-bit steps, is at least the threshold's share of 255, whatever its colour,
+  and its light is the pixel's, as Color Channels'.
 
 Every case is glow_reference's 16 by 10 composition and drawings. The projects go into
 `Fixtures/glow_display`, the expected frames into `Fixtures/glow_display/expected_glow_display.json`.
@@ -119,7 +125,7 @@ def colored(g, look):
     """D-747: Glow Colors A & B on the premultiplied light `g`."""
     v = min(1.0, max(0.0, max(g[:3])))
     u = (look["color_loops"] * (1 - v) + look["color_phase"] / 360) % 1.0
-    f = {"sawtooth_ab": u, "sawtooth_ba": 1 - u, "triangle_bab": abs(2 * u - 1)}.get(
+    f = {"sawtooth_ab": 1 - u, "sawtooth_ba": u, "triangle_bab": abs(2 * u - 1)}.get(
         look["color_looping"], 1 - abs(2 * u - 1))
     m = min(max(look["midpoint"] / 100, 1e-3), 1 - 1e-3)
     f = f ** (math.log(0.5) / math.log(m))
@@ -148,6 +154,13 @@ def glow(px, c, top):
             e = display(p, top)
             source.append([held(e[i] / a) * a if on[i] else 0.0 for i in range(3)]
                           + [a if any(on) else 0.0])
+        elif c["based_on"] == "alpha":
+            # D-986: Alpha Channel, the covering in 8-bit steps against the threshold.
+            if a > 0 and round(a * 255) * 100 >= threshold * 255:
+                e = display(p, top)
+                source.append([held(e[i] / a) * a for i in range(3)] + [a])
+            else:
+                source.append([0.0] * 4)
         elif not G.glows(q, c, threshold, c["tolerance"]):
             source.append([0.0] * 4)
         elif c["tint"]:
@@ -295,8 +308,8 @@ CASES = {
                       "only, so a row with nothing that glows stays as it was.",
                       case(effects=[("glow", glow_settings(threshold=0, radius=4, intensity=0.1, look={"dimensions": "horizontal"}))])),
     "FX-GLDISP-011": ("D-747, Glow Colors A & B, Sawtooth A>B, A #ff0000, B #0000ff, intensity 1, on black, "
-                      "Composite Original None: the brightest light is red, the faintest "
-                      "towards blue, each at the light's own strength.",
+                      "Composite Original None: D-986, the brightest light is blue (B), the faintest "
+                      "towards red (A), each at the light's own strength.",
                       case(effects=[BLACK, ("glow", glow_settings(threshold=0, radius=4, intensity=1, look={
                           "composite": "none", "glow_colors": "a_and_b", "color_looping": "sawtooth_ab",
                           "color_a": "#ff0000", "color_b": "#0000ff"}))])),
@@ -321,6 +334,20 @@ CASES = {
                       "then held to 8 bits.",
                       case("eight", [BLACK, ("glow", glow_settings(operation="multiply", look={
                           "composite": "on_top", "dimensions": "vertical"}))])),
+    "FX-GLDISP-017": ("D-986, Glow Based On Alpha Channel, threshold 60, on black: every patch "
+                      "is fully covered, so all three glow, the dark purple too, whose "
+                      "brightest channel is under 60 per cent.",
+                      case(effects=[BLACK, ("glow", glow_settings(based_on="alpha", threshold=60, radius=4, intensity=1))])),
+    "FX-GLDISP-018": ("D-986, Alpha Channel, threshold 60, on the patches half covering (128 of "
+                      "255, under 60 per cent): nothing glows, so nothing changes.",
+                      case(effects=[("glow", glow_settings(based_on="alpha", threshold=60, radius=4, intensity=1))],
+                           drawing="faint")),
+    "FX-GLDISP-019": ("D-986, RIS86giOG-Q's glow: Glow Colors A & B, Sawtooth B>A, Color A "
+                      "#1e78ff, Color B #000000, intensity 2.6, threshold 60, radius 4, on black: "
+                      "the brightest light is Color A, blue, and it fades to nothing fast.",
+                      case(effects=[BLACK, ("glow", glow_settings(threshold=60, radius=4, intensity=2.6, look={
+                          "glow_colors": "a_and_b", "color_looping": "sawtooth_ba",
+                          "color_a": "#1e78ff", "color_b": "#000000"}))])),
 }
 
 
@@ -421,11 +448,20 @@ def check(expected):
     lit_rows = {y for y in range(H) if any(plain[at(x, y)][3] > 0 for x in range(W))}
     for y in set(range(H)) - lit_rows:
         assert all(c["FX-GLDISP-010"][at(x, y)] == [0.0] * 4 for x in range(W)), y
-    # A & B: the faintest light leans to blue, the strongest to red.
+    # A & B, Sawtooth A>B (D-986): the faintest light leans to red (A), the strongest to blue (B).
     eleven = [display(p, math.inf) for p in c["FX-GLDISP-011"]]
     lit = [p for p in eleven if max(p[:3]) > 1e-3]
     hi, lo = max(lit, key=lambda p: max(p[:3])), min(lit, key=lambda p: max(p[:3]))
-    assert hi[0] > hi[2] and lo[2] > lo[0], (hi, lo)
+    assert hi[2] > hi[0] and lo[0] > lo[2], (hi, lo)
+    # D-986: Alpha Channel lights the dark patch (columns 11 to 13), which Bright parts does not.
+    seventeen, two_black = c["FX-GLDISP-017"], render(case(effects=[BLACK]))
+    assert seventeen[at(12, 4)][2] > two_black[at(12, 4)][2] + 1e-3
+    assert lum(seventeen[at(15, 4)]) > 0
+    faint = [G.working(p) for row in G.DRAWINGS["faint"] for p in row]
+    assert c["FX-GLDISP-018"] == faint
+    # Sawtooth B>A: Color A, blue, is what is added on the yellow patch.
+    p, q = (display(v[at(3, 4)], math.inf) for v in (c["FX-GLDISP-019"], two_black))
+    assert p[2] - q[2] > 4 * (p[0] - q[0]) > 0, (p, q)
     # Normal Behind on an opaque picture changes nothing.
     black = render(case(effects=[BLACK]))
     assert all(max(abs(a - b) for a, b in zip(p, q)) < 1e-9
