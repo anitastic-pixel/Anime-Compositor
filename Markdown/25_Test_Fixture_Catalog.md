@@ -224411,3 +224411,11 @@ FX-BULGE-032 (`fx_bulge_032.json`): Pin All Edges written off: FX-BULGE-001 exac
 FX-BULGE-033 (`fx_bulge_033.json`): Antialiasing written "medium". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-BULGE-034 (`fx_bulge_034.json`): Pin All Edges written "yes". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+## Label colours, all sixteen (D-936)
+
+Two projects in `Fixtures/labels/`, each a 64 by 36 composition with one grey solid and one footage item. No picture is compared; the check is what the file says and what opening it does.
+
+FX-LABEL-001 (`labels_016.json`): the solid labelled 16 (Dark Green), its composition 9 (Green), its footage 12 (Brown). Opens with no word said; the three labels read 16, 9 and 12, and saving writes them back unchanged.
+
+FX-LABEL-002 (`labels_017.json`): FX-LABEL-001 with the solid labelled 17. Refused, PROJECT_SCHEMA_INVALID, at `/compositions/0/layers/0/label`, naming "a label colour from 0, none, to 16"; nothing on disk changes.
