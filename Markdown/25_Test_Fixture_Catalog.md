@@ -224878,3 +224878,43 @@ FX-EXPR-021: each row is Spin's rotation expression in `Fixtures/projects/expres
 | `thisComp.layer([1, 2]).position[0]` | 0 | EXPRESSION_TYPE |
 | `L = thisComp.layer(5); L` | 0 | EXPRESSION_TYPE |
 | `L = thisComp.layer(5); L + 1` | 0 | EXPRESSION_TYPE |
+
+### Iris wipe shape (D-1045)
+
+Iris Wipe's `points`, `outer_radius`, `use_inner`, `inner_radius` and `rotation` (`core.iris_wipe`, B-925), the rule ours. The cases are FX-IRIS-001's drawing and composition, 16 by 10, the centre (8, 5). `tools/iris_shape_reference.py` works the expected frames, `expected_iris_shape.json`. `expected_iris_wipe.json` is not touched. Tolerance 2e-5.
+
+FX-IRIS-028 (`fx_iris_028.json`): Iris Points 6, completion 50: a triangle standing on its base, its top point straight up from the middle, closing on (8, 5); inside it is kept and outside it gone. Frames 0.
+
+FX-IRIS-029 (`fx_iris_029.json`): Iris Points 8, completion 50: a diamond, four corners up, right, down and left, closing on the middle. Frames 0.
+
+FX-IRIS-030 (`fx_iris_030.json`): Iris Points 8, Outer Radius 4.3: After Effects' hole, a diamond reaching 4.3 pixels up, down, left and right from the middle, transparent; every pixel outside it is kept exactly. Completion is not read. Frames 0.
+
+FX-IRIS-031 (`fx_iris_031.json`): Iris Points 10, Outer Radius 4.6, Use Inner Radius on, Inner Radius 2.1: a five-pointed star hole, its top point straight up. Frames 0.
+
+FX-IRIS-032 (`fx_iris_032.json`): FX-IRIS-030 turned 45 degrees: the diamond becomes a square standing level, its corners 4.3 from the middle. Frames 0.
+
+FX-IRIS-033 (`fx_iris_033.json`): FX-IRIS-030 with feather 2: the hole's edge soft over 2 units of the shape's own size, each pixel faded as a whole. Frames 0.
+
+FX-IRIS-034 (`fx_iris_034.json`): FX-IRIS-030 with invert on: only the diamond is kept, everything outside it gone, so the two add up to the drawing. Frames 0.
+
+FX-IRIS-035 (`fx_iris_035.json`): Iris Points 0, the circle, Outer Radius 4.3: a round hole of radius 4.3. Frames 0.
+
+FX-IRIS-036 (`fx_iris_036.json`): Iris Points 8, Outer Radius keyed from 0 at frame 0 to 8.6 at frame 4, linear, as the tutorial keys it: frame 0 is the drawing (Outer Radius 0 reads Completion, 0), frame 2 is FX-IRIS-030, and frame 4 a hole twice as big. Frames 0, 2, 4.
+
+FX-IRIS-037 (`fx_iris_037.json`): Iris Points 4, below 6: the circle, FX-IRIS-003 exactly. Frames 0.
+
+FX-IRIS-038 (`fx_iris_038.json`): Iris Points 6, completion 50, Use Inner Radius on with Inner Radius 1: with Outer Radius 0 the inner radius is not read, so FX-IRIS-028 exactly. Frames 0.
+
+FX-IRIS-039 (`fx_iris_039.json`): FX-IRIS-029 moved three pixels right: the same, moved, and the three columns left of the drawing stay empty. Frames 0.
+
+FX-IRIS-040 (`fx_iris_040.json`): Iris Points 33, above 32. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-IRIS-041 (`fx_iris_041.json`): Iris Points -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-IRIS-042 (`fx_iris_042.json`): Outer Radius -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-IRIS-043 (`fx_iris_043.json`): Inner Radius 100001, above 100000. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-IRIS-044 (`fx_iris_044.json`): Use Inner Radius "yes", not "off" or "on". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-IRIS-045 (`fx_iris_045.json`): Rotation 100001, past the most. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
