@@ -1518,9 +1518,10 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
         && !matches!(&instance.effect, crate::effects::Effect::ContourPaint { quantize_flow_angles, .. } if *quantize_flow_angles != 0.0)
         // D-408: a Transform through the shutter is drawn here, as D-188's motion blur is.
         && !matches!(&instance.effect, crate::effects::Effect::Transform { moments, .. } if !moments.is_empty())
-        // D-310: the card swells a circle without a taper only.
-        && !matches!(&instance.effect, crate::effects::Effect::Bulge { vertical_radius, taper_radius, .. }
-            if *vertical_radius != 0.0 || *taper_radius != 0.0)
+        // D-310: the card swells a circle without a taper only. D-935: one read a pixel, unpinned.
+        // ponytail: high and pinned on the processor; a card pass when a timing asks for it.
+        && !matches!(&instance.effect, crate::effects::Effect::Bulge { vertical_radius, taper_radius, antialiasing, pin_all_edges, .. }
+            if *vertical_radius != 0.0 || *taper_radius != 0.0 || antialiasing != "low" || pin_all_edges != "off")
         // D-307: the card turns the master only; D-776's Colorize is drawn here.
         // ponytail: Colorize on the processor; a card mode if it shows up slow (lane w7d).
         && !matches!(&instance.effect, crate::effects::Effect::HueSaturation { ranges, colorize, .. }

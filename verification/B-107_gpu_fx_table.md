@@ -4,7 +4,7 @@ Written by `tests/b107_gpu_fx.rs`. The card: NVIDIA GeForce RTX 4070 Ti SUPER (D
 
 Each row compares the eight-bit picture the page receives, drawn by the CPU and by the GPU, with the layer's last effect of the twenty-nine done on the card. **The rule: no channel of any pixel more than 1 level of 255 apart** (D-165). An effect that changes nothing or whose settings are invalid is not left to the card; on those rows any difference is the card's layering, held to the same 1 level by D-100. On every row both paths must give the same warnings, and the card must draw the frame itself, except a frame with an adjustment layer, which the CPU draws by B-44's rule: that one must be the CPU's picture exactly, the card's message `GPU_PREVIEW_ON_CPU` its only extra warning.
 
-**7522 of 7522 checks pass.**
+**7632 of 7632 checks pass.**
 
 The worst comparison is "the reference shot with Black & White frame 0, Full": largest difference 1 of 255, pixels differing: 33065. Its pictures are in `verification/B-107 pictures/`: `cpu.png`, `gpu.png`, and `difference.png`, black where the two agree and a white 7 by 7 square around every pixel where they do not.
 
@@ -32,7 +32,7 @@ Every fixture frame of the effect and the reference shot with it, at Full and Dr
 | Wave Warp | 476 | 354 | 1 | 476 of 476 |
 | Ripple | 266 | 174 | 1 | 266 of 266 |
 | Twirl | 276 | 168 | 1 | 276 of 276 |
-| Bulge | 236 | 150 | 1 | 236 of 236 |
+| Bulge | 346 | 170 | 1 | 346 of 346 |
 | Mirror | 246 | 186 | 1 | 246 of 246 |
 | Linear Wipe | 316 | 224 | 1 | 316 of 316 |
 | Radial Wipe | 296 | 202 | 1 | 296 of 296 |
@@ -4748,6 +4748,116 @@ Every fixture frame of the effect and the reference shot with it, at Full and Dr
 | fx_bulge_023 frame 2, Draft | 0 | 1 | 2 | EFFECT_PARAMETER_INVALID, on both | PASS |
 | fx_bulge_023 frame 3, Draft | 0 | 1 | 2 | EFFECT_PARAMETER_INVALID, on both | PASS |
 | fx_bulge_023 frame 4, Draft | 0 | 1 | 2 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_bulge_024 frame 0, Full | 0 | 1 | 2 | none | PASS |
+| fx_bulge_024 frame 1, Full | 0 | 1 | 2 | none | PASS |
+| fx_bulge_024 frame 2, Full | 0 | 1 | 2 | none | PASS |
+| fx_bulge_024 frame 3, Full | 0 | 1 | 2 | none | PASS |
+| fx_bulge_024 frame 4, Full | 0 | 1 | 2 | none | PASS |
+| fx_bulge_024 frame 0, Draft | 0 | 1 | 2 | none | PASS |
+| fx_bulge_024 frame 1, Draft | 0 | 1 | 2 | none | PASS |
+| fx_bulge_024 frame 2, Draft | 0 | 1 | 2 | none | PASS |
+| fx_bulge_024 frame 3, Draft | 0 | 1 | 2 | none | PASS |
+| fx_bulge_024 frame 4, Draft | 0 | 1 | 2 | none | PASS |
+| fx_bulge_025 frame 0, Full | 0 | 1 | 6 | none | PASS |
+| fx_bulge_025 frame 1, Full | 0 | 1 | 6 | none | PASS |
+| fx_bulge_025 frame 2, Full | 0 | 1 | 6 | none | PASS |
+| fx_bulge_025 frame 3, Full | 0 | 1 | 6 | none | PASS |
+| fx_bulge_025 frame 4, Full | 0 | 1 | 6 | none | PASS |
+| fx_bulge_025 frame 0, Draft | 0 | 1 | 2 | none | PASS |
+| fx_bulge_025 frame 1, Draft | 0 | 1 | 2 | none | PASS |
+| fx_bulge_025 frame 2, Draft | 0 | 1 | 2 | none | PASS |
+| fx_bulge_025 frame 3, Draft | 0 | 1 | 2 | none | PASS |
+| fx_bulge_025 frame 4, Draft | 0 | 1 | 2 | none | PASS |
+| fx_bulge_026 frame 0, Full | 1 | 0 | 0 | none | PASS |
+| fx_bulge_026 frame 1, Full | 1 | 0 | 0 | none | PASS |
+| fx_bulge_026 frame 2, Full | 1 | 0 | 0 | none | PASS |
+| fx_bulge_026 frame 3, Full | 1 | 0 | 0 | none | PASS |
+| fx_bulge_026 frame 4, Full | 1 | 0 | 0 | none | PASS |
+| fx_bulge_026 frame 0, Draft | 1 | 0 | 0 | none | PASS |
+| fx_bulge_026 frame 1, Draft | 1 | 0 | 0 | none | PASS |
+| fx_bulge_026 frame 2, Draft | 1 | 0 | 0 | none | PASS |
+| fx_bulge_026 frame 3, Draft | 1 | 0 | 0 | none | PASS |
+| fx_bulge_026 frame 4, Draft | 1 | 0 | 0 | none | PASS |
+| fx_bulge_027 frame 0, Full | 0 | 0 | 0 | none | PASS |
+| fx_bulge_027 frame 1, Full | 0 | 0 | 0 | none | PASS |
+| fx_bulge_027 frame 2, Full | 0 | 0 | 0 | none | PASS |
+| fx_bulge_027 frame 3, Full | 0 | 0 | 0 | none | PASS |
+| fx_bulge_027 frame 4, Full | 0 | 0 | 0 | none | PASS |
+| fx_bulge_027 frame 0, Draft | 0 | 1 | 2 | none | PASS |
+| fx_bulge_027 frame 1, Draft | 0 | 1 | 2 | none | PASS |
+| fx_bulge_027 frame 2, Draft | 0 | 1 | 2 | none | PASS |
+| fx_bulge_027 frame 3, Draft | 0 | 1 | 2 | none | PASS |
+| fx_bulge_027 frame 4, Draft | 0 | 1 | 2 | none | PASS |
+| fx_bulge_028 frame 0, Full | 0 | 1 | 4 | none | PASS |
+| fx_bulge_028 frame 1, Full | 0 | 1 | 4 | none | PASS |
+| fx_bulge_028 frame 2, Full | 0 | 1 | 4 | none | PASS |
+| fx_bulge_028 frame 3, Full | 0 | 1 | 4 | none | PASS |
+| fx_bulge_028 frame 4, Full | 0 | 1 | 4 | none | PASS |
+| fx_bulge_028 frame 0, Draft | 0 | 1 | 2 | none | PASS |
+| fx_bulge_028 frame 1, Draft | 0 | 1 | 2 | none | PASS |
+| fx_bulge_028 frame 2, Draft | 0 | 1 | 2 | none | PASS |
+| fx_bulge_028 frame 3, Draft | 0 | 1 | 2 | none | PASS |
+| fx_bulge_028 frame 4, Draft | 0 | 1 | 2 | none | PASS |
+| fx_bulge_029 frame 0, Full | 0 | 0 | 0 | none | PASS |
+| fx_bulge_029 frame 1, Full | 0 | 0 | 0 | none | PASS |
+| fx_bulge_029 frame 2, Full | 0 | 0 | 0 | none | PASS |
+| fx_bulge_029 frame 3, Full | 0 | 0 | 0 | none | PASS |
+| fx_bulge_029 frame 4, Full | 0 | 0 | 0 | none | PASS |
+| fx_bulge_029 frame 0, Draft | 0 | 1 | 2 | none | PASS |
+| fx_bulge_029 frame 1, Draft | 0 | 1 | 2 | none | PASS |
+| fx_bulge_029 frame 2, Draft | 0 | 1 | 2 | none | PASS |
+| fx_bulge_029 frame 3, Draft | 0 | 1 | 2 | none | PASS |
+| fx_bulge_029 frame 4, Draft | 0 | 1 | 2 | none | PASS |
+| fx_bulge_030 frame 0, Full | 0 | 0 | 0 | none | PASS |
+| fx_bulge_030 frame 1, Full | 0 | 0 | 0 | none | PASS |
+| fx_bulge_030 frame 2, Full | 0 | 0 | 0 | none | PASS |
+| fx_bulge_030 frame 3, Full | 0 | 0 | 0 | none | PASS |
+| fx_bulge_030 frame 4, Full | 0 | 0 | 0 | none | PASS |
+| fx_bulge_030 frame 0, Draft | 0 | 1 | 2 | none | PASS |
+| fx_bulge_030 frame 1, Draft | 0 | 1 | 2 | none | PASS |
+| fx_bulge_030 frame 2, Draft | 0 | 1 | 2 | none | PASS |
+| fx_bulge_030 frame 3, Draft | 0 | 1 | 2 | none | PASS |
+| fx_bulge_030 frame 4, Draft | 0 | 1 | 2 | none | PASS |
+| fx_bulge_031 frame 0, Full | 0 | 1 | 4 | none | PASS |
+| fx_bulge_031 frame 1, Full | 0 | 1 | 4 | none | PASS |
+| fx_bulge_031 frame 2, Full | 0 | 1 | 4 | none | PASS |
+| fx_bulge_031 frame 3, Full | 0 | 1 | 4 | none | PASS |
+| fx_bulge_031 frame 4, Full | 0 | 1 | 4 | none | PASS |
+| fx_bulge_031 frame 0, Draft | 0 | 0 | 0 | none | PASS |
+| fx_bulge_031 frame 1, Draft | 0 | 0 | 0 | none | PASS |
+| fx_bulge_031 frame 2, Draft | 0 | 0 | 0 | none | PASS |
+| fx_bulge_031 frame 3, Draft | 0 | 0 | 0 | none | PASS |
+| fx_bulge_031 frame 4, Draft | 0 | 0 | 0 | none | PASS |
+| fx_bulge_032 frame 0, Full | 1 | 0 | 0 | none | PASS |
+| fx_bulge_032 frame 1, Full | 1 | 0 | 0 | none | PASS |
+| fx_bulge_032 frame 2, Full | 1 | 0 | 0 | none | PASS |
+| fx_bulge_032 frame 3, Full | 1 | 0 | 0 | none | PASS |
+| fx_bulge_032 frame 4, Full | 1 | 0 | 0 | none | PASS |
+| fx_bulge_032 frame 0, Draft | 1 | 0 | 0 | none | PASS |
+| fx_bulge_032 frame 1, Draft | 1 | 0 | 0 | none | PASS |
+| fx_bulge_032 frame 2, Draft | 1 | 0 | 0 | none | PASS |
+| fx_bulge_032 frame 3, Draft | 1 | 0 | 0 | none | PASS |
+| fx_bulge_032 frame 4, Draft | 1 | 0 | 0 | none | PASS |
+| fx_bulge_033 frame 0, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_bulge_033 frame 1, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_bulge_033 frame 2, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_bulge_033 frame 3, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_bulge_033 frame 4, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_bulge_033 frame 0, Draft | 0 | 1 | 2 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_bulge_033 frame 1, Draft | 0 | 1 | 2 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_bulge_033 frame 2, Draft | 0 | 1 | 2 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_bulge_033 frame 3, Draft | 0 | 1 | 2 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_bulge_033 frame 4, Draft | 0 | 1 | 2 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_bulge_034 frame 0, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_bulge_034 frame 1, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_bulge_034 frame 2, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_bulge_034 frame 3, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_bulge_034 frame 4, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_bulge_034 frame 0, Draft | 0 | 1 | 2 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_bulge_034 frame 1, Draft | 0 | 1 | 2 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_bulge_034 frame 2, Draft | 0 | 1 | 2 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_bulge_034 frame 3, Draft | 0 | 1 | 2 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_bulge_034 frame 4, Draft | 0 | 1 | 2 | EFFECT_PARAMETER_INVALID, on both | PASS |
 | fx_mirror_001 frame 0, Full | 1 | 0 | 0 | none | PASS |
 | fx_mirror_001 frame 1, Full | 1 | 0 | 0 | none | PASS |
 | fx_mirror_001 frame 2, Full | 1 | 0 | 0 | none | PASS |

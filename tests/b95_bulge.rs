@@ -19,6 +19,8 @@ fn bulge(center: [f64; 2], radius: f64, height: f64) -> Effect {
         height,
         vertical_radius: 0.0,
         taper_radius: 0.0,
+        antialiasing: "low".to_string(),
+        pin_all_edges: "off".to_string(),
     }
 }
 

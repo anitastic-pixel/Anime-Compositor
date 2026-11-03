@@ -31,6 +31,8 @@ fn bulge(radius: f64, height: f64, vertical_radius: f64, taper_radius: f64) -> E
         height,
         vertical_radius,
         taper_radius,
+        antialiasing: "low".to_string(),
+        pin_all_edges: "off".to_string(),
     }
 }
 

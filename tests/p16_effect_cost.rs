@@ -650,6 +650,8 @@ fn cases() -> Vec<(&'static str, Effect)> {
                 height: 1.0,
                 vertical_radius: 0.0,
                 taper_radius: 0.0,
+                antialiasing: "low".to_string(),
+                pin_all_edges: "off".to_string(),
             },
         ),
         (

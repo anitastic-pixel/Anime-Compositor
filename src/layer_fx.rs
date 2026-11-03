@@ -3920,54 +3920,90 @@ pub(crate) fn spherize(source: &mut WorkingBuffer, radius: f64, center: (f64, f6
 
 /// D-152: each pixel within `radius` of `center`, a point in the buffer, read from a place
 /// drawn toward the centre when `height` is above 0, a swell, or pushed away from it when
-/// below, a pinch, most at the middle. The settings are already valid.
+/// below, a pinch, most at the middle. D-935: `high` reads four quarter-pixel points and takes
+/// their mean; `pin` keeps the border and fades the bulge in over a quarter of the smaller side.
+/// The settings are already valid.
 pub(crate) fn bulge(
     source: &mut WorkingBuffer,
     [radius, vertical, taper]: [f64; 3],
     height: f64,
     center: (f64, f64),
+    [high, pin]: [bool; 2],
 ) {
     if height == 0.0 || radius <= 0.0 {
         return;
     }
     // D-310: 0 follows the radius, a circle as before.
     let tall = if vertical > 0.0 { vertical } else { radius };
-    let w = source.width();
+    let (w, h) = (source.width(), source.height());
+    let band = w.min(h) as f64 / 4.0;
     let drawing = source.clone();
+    // Where the point (x, y) reads from, None when it is out of reach or pinned in place; `k` is
+    // D-935's pin weight, 1 unpinned, so D-152's read point is used exactly.
+    let read = |x: f64, y: f64, k: f64| -> Option<(f64, f64)> {
+        let (vx, vy) = (x - center.0, y - center.1);
+        let d = vx.hypot(vy);
+        let t = if tall == radius {
+            if d >= radius {
+                return None;
+            }
+            1.0 - d / radius
+        } else {
+            let n = (vx / radius).hypot(vy / tall);
+            if n >= 1.0 {
+                return None;
+            }
+            1.0 - n
+        };
+        if k == 0.0 {
+            return None;
+        }
+        // D-310: the swell fades by smoothstep over `taper` pixels in from the edge, the
+        // edge's distance along this pixel's ray from the centre, d (1 - n) / n.
+        let hh = if taper > 0.0 && t < 1.0 {
+            let s = (d * t / (1.0 - t) / taper).min(1.0);
+            height * s * s * (3.0 - 2.0 * s)
+        } else {
+            height
+        };
+        let m = (1.0 - hh * t * t / 2.0).max(0.0);
+        let q = (center.0 + m * vx, center.1 + m * vy);
+        Some(if k == 1.0 { q } else { (x + k * (q.0 - x), y + k * (q.1 - y)) })
+    };
     source
         .data_mut()
         .par_chunks_exact_mut(4)
         .enumerate()
         .for_each(|(i, px)| {
             let (x, y) = ((i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
-            let (vx, vy) = (x - center.0, y - center.1);
-            let d = vx.hypot(vy);
-            let t = if tall == radius {
-                if d >= radius {
-                    return;
-                }
-                1.0 - d / radius
+            // D-935: 0 at the border pixels' centres, smoothstep to 1 a quarter side in.
+            let k = if pin {
+                let e = (x.min(w as f64 - x).min(y).min(h as f64 - y) - 0.5).max(0.0);
+                let s = (e / band).min(1.0);
+                s * s * (3.0 - 2.0 * s)
             } else {
-                let n = (vx / radius).hypot(vy / tall);
-                if n >= 1.0 {
-                    return;
+                1.0
+            };
+            if !high {
+                if let Some(q) = read(x, y, k) {
+                    px.copy_from_slice(&sample_bilinear(&drawing, q.0, q.1));
                 }
-                1.0 - n
-            };
-            // D-310: the swell fades by smoothstep over `taper` pixels in from the edge, the
-            // edge's distance along this pixel's ray from the centre, d (1 - n) / n.
-            let h = if taper > 0.0 && t < 1.0 {
-                let s = (d * t / (1.0 - t) / taper).min(1.0);
-                height * s * s * (3.0 - 2.0 * s)
-            } else {
-                height
-            };
-            let m = (1.0 - h * t * t / 2.0).max(0.0);
-            px.copy_from_slice(&sample_bilinear(
-                &drawing,
-                center.0 + m * vx,
-                center.1 + m * vy,
-            ));
+                return;
+            }
+            let reads = [(-0.25, -0.25), (0.25, -0.25), (-0.25, 0.25), (0.25, 0.25)]
+                .map(|(dx, dy)| read(x + dx, y + dy, k));
+            if reads.iter().all(Option::is_none) {
+                return;
+            }
+            let own = [px[0], px[1], px[2], px[3]];
+            let mut sum = [0.0f32; 4];
+            for q in reads {
+                let p = q.map_or(own, |q| sample_bilinear(&drawing, q.0, q.1));
+                for c in 0..4 {
+                    sum[c] += p[c];
+                }
+            }
+            px.copy_from_slice(&sum.map(|s| s / 4.0));
         });
 }
 

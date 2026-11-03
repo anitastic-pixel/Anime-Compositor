@@ -1346,13 +1346,18 @@ pub enum Effect {
     /// `radius`, 0 to 10000 pixels, how far out it reaches; `height`, -4 to 4, a swell above 0
     /// and a pinch below. D-310: `vertical_radius`, 0 to 10000 pixels, the reach up and down,
     /// 0 following `radius`; `taper_radius`, 0 to 10000 pixels, how far in from the edge the
-    /// swell fades to nothing, 0 keeping D-152's rule.
+    /// swell fades to nothing, 0 keeping D-152's rule. D-935: `antialiasing`, "low" (one read a
+    /// pixel; a file without it) or "high" (the mean of four quarter-pixel reads); `pin_all_edges`,
+    /// "off" (a file without it) or "on" (the border kept, the bulge fading in over a quarter of
+    /// the smaller side). Kept as written, so a wrong word is reported.
     Bulge {
         center: [f64; 2],
         radius: f64,
         height: f64,
         vertical_radius: f64,
         taper_radius: f64,
+        antialiasing: String,
+        pin_all_edges: String,
     },
     /// D-153: `center`, per cent of the drawing's width and height, -1000 to 1000 each, a point
     /// on the line; `angle`, -3600 to 3600 degrees, the line's turn from straight up and down.
@@ -8221,6 +8226,7 @@ impl Effect {
                 height,
                 vertical_radius,
                 taper_radius,
+                ..
             } => vec![
                 ("center", center.iter_mut().collect(), -1000.0, 1000.0),
                 ("radius", vec![radius], 0.0, 10000.0),
@@ -11668,11 +11674,16 @@ impl Effect {
                 radius,
                 vertical_radius,
                 taper_radius,
+                antialiasing,
                 ..
             } => {
                 *radius = scale(*radius);
                 *vertical_radius = scale(*vertical_radius);
                 *taper_radius = scale(*taper_radius);
+                // D-935: After Effects antialiases at Best quality only.
+                if scale(1.0) < 1.0 {
+                    *antialiasing = "low".to_string();
+                }
             }
             Effect::LinearWipe { feather, .. } => *feather = scale(*feather),
             Effect::IrisWipe { feather, .. } => *feather = scale(*feather),
@@ -14572,6 +14583,12 @@ impl Effect {
                     format!("Radio Waves' parameters are set at \"birth\" or \"each_frame\", and this is \"{parameters_at}\".")
                 })
             }),
+            Effect::Bulge { antialiasing, .. } if !["low", "high"].contains(&antialiasing.as_str()) => Some(format!(
+                "Bulge's antialiasing is \"low\" or \"high\", and this is \"{antialiasing}\"."
+            )),
+            Effect::Bulge { pin_all_edges, .. } if !["off", "on"].contains(&pin_all_edges.as_str()) => Some(format!(
+                "Bulge's pin all edges is \"off\" or \"on\", and this is \"{pin_all_edges}\"."
+            )),
             Effect::LightSweep { edge_look, .. } if !["band", "rim"].contains(&edge_look.as_str()) => Some(format!(
                 "Light Sweep's edge look is \"band\" or \"rim\", and this is \"{edge_look}\"."
             )),
@@ -19062,6 +19079,8 @@ pub(crate) fn apply_stack_at(
                 height,
                 vertical_radius,
                 taper_radius,
+                antialiasing,
+                pin_all_edges,
             } => {
                 let c = radial_center(*center, (source.width(), source.height()), (ox, oy));
                 crate::perf::time(crate::perf::Stage::EffectBulge, || {
@@ -19070,6 +19089,7 @@ pub(crate) fn apply_stack_at(
                         [*radius, *vertical_radius, *taper_radius],
                         *height,
                         c,
+                        [antialiasing == "high", pin_all_edges == "on"],
                     )
                 })
             }

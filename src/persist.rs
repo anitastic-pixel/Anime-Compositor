@@ -2516,6 +2516,8 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             height,
             vertical_radius,
             taper_radius,
+            antialiasing,
+            pin_all_edges,
         } => {
             params.insert(
                 "center".into(),
@@ -2531,6 +2533,13 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
                 if value != 0.0 || instance.tracks.contains_key(key) || params.contains_key(key) {
                     params.insert(key.into(), num(value));
                 }
+            }
+            // D-935: written only when not D-152's, so older files save as they were.
+            if antialiasing != "low" {
+                params.insert("antialiasing".into(), J::from(antialiasing.as_str()));
+            }
+            if pin_all_edges != "off" {
+                params.insert("pin_all_edges".into(), J::from(pin_all_edges.as_str()));
             }
         }
         Effect::Mirror { center, angle } => {
@@ -9776,6 +9785,9 @@ fn parse_effect(
             height: effect_number(params, "height", at)?,
             vertical_radius: effect_number_or(params, "vertical_radius", at, 0.0)?,
             taper_radius: effect_number_or(params, "taper_radius", at, 0.0)?,
+            // D-935: a file without them reads D-152's one read and no pinning.
+            antialiasing: effect_word_or(params, "antialiasing", at, "low")?,
+            pin_all_edges: effect_word_or(params, "pin_all_edges", at, "off")?,
         }),
         crate::effects::MIRROR => Some(crate::effects::Effect::Mirror {
             center: effect_array(params, "center", "two numbers, x then y", at)?,

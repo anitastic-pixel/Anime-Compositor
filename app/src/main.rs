@@ -4897,6 +4897,9 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             height: 1.0,
             vertical_radius: 0.0,
             taper_radius: 0.0,
+            // D-935: After Effects' starting Low and unpinned.
+            antialiasing: "low".to_string(),
+            pin_all_edges: "off".to_string(),
         }),
         // D-153: the line straight down the middle, the right half kept.
         MIRROR => Some(Effect::Mirror {
@@ -8259,6 +8262,9 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             height: number("height")?,
             vertical_radius: if parameter(query, "vertical_radius").is_some() { number("vertical_radius")? } else { 0.0 },
             taper_radius: if parameter(query, "taper_radius").is_some() { number("taper_radius")? } else { 0.0 },
+            // D-935: D-152's when the page does not say.
+            antialiasing: if parameter(query, "antialiasing").is_some() { word("antialiasing")? } else { "low".to_string() },
+            pin_all_edges: if parameter(query, "pin_all_edges").is_some() { word("pin_all_edges")? } else { "off".to_string() },
         }),
         MIRROR => Ok(Effect::Mirror {
             center: pair("center")?,

@@ -13543,6 +13543,9 @@ const MAP_CHANNELS = [['red', 'Red'], ['green', 'Green'], ['blue', 'Blue'], ['al
 const FRACTAL_TYPE_WORDS = [['basic', 'Basic'], ['turbulent', 'Turbulent Basic'], ['turbulent_smooth', 'Turbulent Smooth'], ['turbulent_sharp', 'Turbulent Sharp'], ['dynamic', 'Dynamic'], ['dynamic_progressive', 'Dynamic Progressive'], ['dynamic_twist', 'Dynamic Twist'], ['max', 'Max'], ['smeary', 'Smeary'], ['swirly', 'Swirly'], ['rocky', 'Rocky'], ['cloudy', 'Cloudy'], ['terrain', 'Terrain'], ['subscale', 'Subscale'], ['small_bumps', 'Small Bumps'], ['strings', 'Strings'], ['threads', 'Threads']];
 const NOISE_TYPE_WORDS = [['smooth', 'Smooth'], ['block', 'Block'], ['linear', 'Linear'], ['soft_linear', 'Soft Linear'], ['spline', 'Spline']];
 const EFFECT_WORDS = {
+  // D-935: After Effects' two Bulge switches; Low and Off first, D-152's, because a file without them draws it.
+  'core.bulge': { choices: [['antialiasing', 'Antialiasing (Best Quality Only)', [['low', 'Low'], ['high', 'High']]],
+    ['pin_all_edges', 'Pin All Edges', [['off', 'Off'], ['on', 'On']]]] },
   // D-766: the Layer Control's layer travels as control_layer.
   'core.layer_control': { layers: [['layer', 'Layer', 'control_layer']] },
   // D-607: how far each edge's pull reaches.
