@@ -5819,7 +5819,7 @@ function paletteLines() {
     ['Zoom tool', 'Z', { key: 'z' }],
     ['Pen tool', 'G', { key: 'g' }],
     ['Shape tool', 'Q', { key: 'q' }],
-    ['Text tool', '', () => useTool('text')],
+    ['Text tool', 'Ctrl+T', () => useTool('text')],
     ['Compose workspace', 'Alt+1', { key: '1', code: 'Digit1', altKey: true }],
     ['Animate workspace', 'Alt+2', { key: '2', code: 'Digit2', altKey: true }],
     ['Render workspace', 'Alt+3', { key: '3', code: 'Digit3', altKey: true }],
@@ -8255,8 +8255,9 @@ stage.onpointerdown = (e) => {
   };
   // W-23: the middle button drags a picture bigger than the stage about, as a hand tool does.
   // W-41c: and so does the hand tool's left button.
-  if ((e.button === 1 || (e.button === 0 && tool === 'hand')) && doc) {
+  if ((e.button === 1 || (e.button === 0 && (tool === 'hand' || spaceHeld))) && doc) {
     e.preventDefault();
+    if (e.button === 0 && spaceHeld && spacePlayed) { spacePlayed = false; $('play').click(); }
     const [x0, y0, sx, sy] = [e.clientX, e.clientY, stage.scrollLeft, stage.scrollTop];
     const was = stage.style.cursor;
     stage.style.cursor = 'grabbing';
@@ -21444,7 +21445,8 @@ addEventListener('keydown', (e) => {
     e.preventDefault();
     const owner = selected();
     if (owner && !owner.locked && pathsOf(owner)[maskPicked]) openFreeBox(owner, chosenPoints(owner, maskPicked));
-    else $('status').textContent = 'Choose a layer with a mask or a shape first: the box goes around its points.';
+    // D-969: otherwise After Effects' other Ctrl+T, the text tool.
+    else useTool('text');
   }
   // D-81a: the box without a mouse, which After Effects' box has none of and document 05 wants.
   // The arrows move what it holds a pixel, Shift ten; the keypad's plus and minus turn it a degree
@@ -21521,7 +21523,13 @@ addEventListener('keydown', (e) => {
     }
     else $('dellayer').click();
   }
-  else if (e.key === ' ') { e.preventDefault(); $('play').click(); }
+  // D-969: Space held is the hand over the picture, as After Effects has it; the press still
+  // plays at once, a drag while it is held puts the playing back, and the held key's repeats
+  // no longer start and stop it over and over.
+  else if (e.key === ' ') {
+    e.preventDefault();
+    if (!e.repeat) { spaceHeld = true; spacePlayed = true; $('play').click(); }
+  }
   // W-20: Home and End the first and last frame; Page Up and Page Down a frame, and Shift with
   // them or the arrows ten; Alt with the arrows nudges the chosen keys, as After Effects has them.
   // W-24: with Shift, the first and last frame of the work area.
@@ -21624,6 +21632,10 @@ addEventListener('keydown', (e) => {
   else if (e.code === 'Backquote') { e.preventDefault(); maximise(); }
 });
 let lastU = 0;
+// D-969: whether Space is down, and whether its press started or stopped playing.
+let spaceHeld = false, spacePlayed = false;
+addEventListener('keyup', (k) => { if (k.key === ' ') spaceHeld = spacePlayed = false; });
+addEventListener('blur', () => { spaceHeld = spacePlayed = false; });
 // The second press of a letter within half a second of the first; a third starts again.
 const lastPress = {};
 function twice(letter) {
