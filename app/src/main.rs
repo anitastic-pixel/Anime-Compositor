@@ -19967,3 +19967,6 @@ mod w12r;
 #[cfg(test)]
 #[path = "tests/w12t.rs"]
 mod w12t;
+
+#[path = "tests/w12v.rs"]
+mod w12v;
