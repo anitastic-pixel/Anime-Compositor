@@ -7892,15 +7892,20 @@ function addMask(layer, points, closed = true, query = null) {
 // B-24c: a rectangular mask over the whole of the selected layer, which is the menu's way in
 // and the only one that needs no hand. The layer has to be on this frame for its size to be
 // known, because the window reads that size off the box the renderer drew.
-function newMask() {
+// D-968: `kind` 'ellipse' makes it the ellipse that fits the layer, for a double-click on the
+// shape tool with the ellipse in hand, as After Effects' double-click on its Ellipse tool does.
+function newMask(kind) {
   const layer = selected();
-  if (!layer) return;
+  if (!layer) {
+    if (kind) $('status').textContent = 'Select a layer first: the mask covers the whole of it.';
+    return;
+  }
   const space = layerSpace(layer);
   if (!space) {
     $('status').textContent = '"' + layer.name + '" is not on this frame, so there is nothing to mask.';
     return;
   }
-  addMask(layer, shapePoints('rectangle', 0, 0, space.w, space.h));
+  addMask(layer, shapePoints(kind === 'ellipse' ? 'ellipse' : 'rectangle', 0, 0, space.w, space.h));
 }
 
 // The knob that turns a layer, on a short arm out from the middle of its top edge. Out along the
@@ -20884,6 +20889,20 @@ $('keys').onclick = shortcutsWindow;
 // D-266: a double-click on the anchor point tool centres the selected layers' anchors, as a
 // double-click on After Effects' Pan Behind tool does.
 document.querySelector('[data-tool="anchor"]').ondblclick = () => alignLayers('anchor');
+// D-968: a double-click on the shape tool masks the whole selected layer, an ellipse if the
+// ellipse was in hand and a rectangle otherwise, as After Effects' double-click on its Rectangle
+// or Ellipse tool does. Each click of the button steps the tool on (Q), so the tool is read as it
+// stood before the first of the two.
+{
+  const shapeButton = document.querySelector('[data-tool~="rectangle"]');
+  let before = null;
+  shapeButton.addEventListener('mousedown', (e) => { if (e.detail === 1) before = tool; });
+  shapeButton.ondblclick = () => {
+    const kind = before === 'ellipse' ? 'ellipse' : 'rectangle';
+    useTool(SHAPE_TOOLS.includes(before) ? before : 'rectangle');
+    newMask(kind);
+  };
+}
 let openTitle = null;
 function closeDrop(focusTitle) {
   if (!openTitle) return;
