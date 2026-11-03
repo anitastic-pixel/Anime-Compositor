@@ -212525,13 +212525,13 @@ FX-SPINZOOM-022 (`fx_spinzoom_022.json`): Centre 1001, 50, past ten widths. The 
 
 ### Fast Zoom Blur (D-362)
 
-Fast Zoom Blur (`core.fast_zoom_blur`), after CycoreFX's CC Radial Fast Blur (B-241): fading streaks out from a centre, plain, or keeping only the lightest or only the darkest. Every case is a project of one composition 16 by 10 at 24 fps, five frames, with directional blur's drawing (`media/bars.png`: a line `#1e1a24` down column 0, rows 2 to 7, a block of skin `#f6d6be` in columns 5 to 9 and rows 3 to 6, and one red pixel `#c82828` at half covering at (12, 4)) on the layer `art`, unmoved unless the case says, with the effect as instance `fx-0-0`. **Every number is produced by `tools/fast_zoom_blur_reference.py`** and is in `Fixtures/fast_zoom_blur/expected_fast_zoom_blur.json`, the projects beside it. Tolerance 2e-5.
+Fast Zoom Blur (`core.fast_zoom_blur`), after CycoreFX's CC Radial Fast Blur (B-241): fading streaks out from a centre, plain, or keeping only the lightest or only the darkest. D-987 changed how quickly a streak fades, and FX-FASTZOOM-001 to 003 and 005 to 009 with it. Every case is a project of one composition 16 by 10 at 24 fps, five frames, with directional blur's drawing (`media/bars.png`: a line `#1e1a24` down column 0, rows 2 to 7, a block of skin `#f6d6be` in columns 5 to 9 and rows 3 to 6, and one red pixel `#c82828` at half covering at (12, 4)) on the layer `art`, unmoved unless the case says, with the effect as instance `fx-0-0`. **Every number is produced by `tools/fast_zoom_blur_reference.py`** and is in `Fixtures/fast_zoom_blur/expected_fast_zoom_blur.json`, the projects beside it. Tolerance 2e-5.
 
 FX-FASTZOOM-001 (`fx_fastzoom_001.json`): Standard, amount 50 (the default), about the middle: every edge streaks outward, fading as it runs. Frames 0.
 
 FX-FASTZOOM-002 (`fx_fastzoom_002.json`): Brightest: only light streaks; the skin block streaks outward over the clear pixels round it, the dark line, with only clear pixels behind it, is kept, and nothing grows darker anywhere. Frames 0.
 
-FX-FASTZOOM-003 (`fx_fastzoom_003.json`): Darkest: only dark streaks; the line down the left edge, with clear pixels behind it, fades to a quarter, the skin block, whose streaks run back over itself, is kept, and nothing grows lighter. Frames 0.
+FX-FASTZOOM-003 (`fx_fastzoom_003.json`): Darkest: only dark streaks; the line down the left edge, with clear pixels behind it, fades a little (D-987: at 50 the streak is short), the skin block, whose streaks run back over itself, is kept, and nothing grows lighter. Frames 0.
 
 FX-FASTZOOM-004 (`fx_fastzoom_004.json`): Amount 0: the drawing, untouched. Frames 0.
 

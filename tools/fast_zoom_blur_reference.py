@@ -11,8 +11,12 @@ of the drawing's own size, as Radial Blur's (D-95), p the centre of the output p
 and r = |d|: the path is r A / 100 and n = min(ceil(path) + 1, 256). With n = 1 the output is the
 sample at p. Otherwise, for k = 0 to n - 1, v_k is document 21's bilinear sample of the layer at
 c + (1 - A k / (100 (n - 1))) d, transparent outside the layer (so v_0 is the pixel itself and
-the points run back toward the centre, and everything streaks outward), and f_k = (n - k) / n,
-falling from 1 to 1 / n along the streak.
+the points run back toward the centre, and everything streaks outward), and, D-987,
+f_k = s_k ** m with s_k = 1 - A k / (100 (n - 1)) the point's scale and m = 30 (100 - A) / A,
+falling from 1 at the pixel: a short, quick fade at the default 50 (m 30), longer at 78
+(m 8.46, fading to a tenth by 1.31 times the light's distance from the centre, as
+RIS86giOG-Q's title at 3:29 and 3:35), and even all the way back at 100 (m 0). D-362's
+f_k = (n - k) / n drew streaks far longer and brighter than CC Radial Fast Blur's.
 
 - `zoom` "standard": the mean of the v_k weighted by f_k, a streak fading as it runs out.
 - `zoom` "brightest": channel by channel, red, green, blue and alpha alike, premultiplied, the
@@ -74,7 +78,10 @@ def blurred(layer, zoom, amount, center, x, y):
         return [0.0] * 4
     v = streak(layer, amount, center, x, y)
     n = len(v)
-    f = [(n - k) / n for k in range(n)]
+    if n == 1:
+        return v[0]
+    m = 30 * (100 - amount) / amount
+    f = [(1 - amount * k / (100 * (n - 1))) ** m for k in range(n)]
     if zoom == "standard":
         return [sum(f[k] * v[k][i] for k in range(n)) / sum(f) for i in range(4)]
     pick = max if zoom == "brightest" else min
@@ -109,7 +116,7 @@ CASES = {
                         "behind it, is kept, and nothing grows darker anywhere.",
                         case("brightest"), [0]),
     "FX-FASTZOOM-003": ("Darkest: only dark streaks; the line down the left edge, with clear "
-                        "pixels behind it, fades to a quarter, the skin block, whose streaks "
+                        "pixels behind it, fades a little (D-987: at 50 the streak is short), the skin block, whose streaks "
                         "run back over itself, is kept, and nothing grows lighter.",
                         case("darkest"), [0]),
     "FX-FASTZOOM-004": ("Amount 0: the drawing, untouched.", case(amount=0), [0]),
@@ -193,10 +200,10 @@ def check(expected):
                for i in range(W * H) for k in range(4))
     # Brightest: the block's streak lights the clear pixels outside it; the dark line, with only
     # clear pixels behind it, is kept as it is.
-    assert bright[at(4, 4)][3] > 0.5 and near([bright[at(0, 4)]], [drawn[at(0, 4)]])
-    # Darkest: the line, with clear pixels behind it, fades to a quarter; the block, whose
+    assert bright[at(4, 4)][3] > drawn[at(4, 4)][3] and near([bright[at(0, 4)]], [drawn[at(0, 4)]])
+    # Darkest: the line, with clear pixels behind it, fades a little; the block, whose
     # streaks run back over itself, is kept.
-    assert dark[at(0, 4)][3] < 0.3 and near([dark[at(5, 3)], dark[at(9, 6)]],
+    assert dark[at(0, 4)][3] < drawn[at(0, 4)][3] and near([dark[at(5, 3)], dark[at(9, 6)]],
                                              [drawn[at(5, 3)], drawn[at(9, 6)]])
     assert c["FX-FASTZOOM-004"] == drawn
     assert c["FX-FASTZOOM-005"][at(13, 8)][3] > one[at(13, 8)][3]
