@@ -9550,11 +9550,14 @@ function resetProp(prop, only) {
 // After Effects' property keys, on every selected layer. A, P, S, R and T open that property
 // alone, or close it if it was open alone already; with Shift the property is added to what is
 // open, or taken from it; U opens the animated properties, or closes them if they were what was
-// open. Nothing selected, nothing happens, as in After Effects.
+// open. Nothing selected, nothing happens, as in After Effects; except U and UU, which then open
+// every layer's, as After Effects' do with no layer selected (D-967).
 const MASK_SHOWS = { masks: [], mask_feather: ['feather'], mask_opacity: ['opacity'], mask_all: MASK_PROPS };
 function showProps(props, add) {
-  if (!selection.length) return;
-  for (const id of selection) {
+  const ids = selection.length ? selection
+    : props === 'animated' || props === 'changed' ? layers().map((l) => l.id) : [];
+  if (!ids.length) return;
+  for (const id of ids) {
     const layer = layers().find((l) => l.id === id);
     // D-272: a letter closes the layer's groups and shows only what it names, as After Effects'
     // letters do; M names the layer's masks.
