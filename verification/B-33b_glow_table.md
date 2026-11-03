@@ -136,7 +136,7 @@ D-89, accepted by the owner on 2026-09-25. Every expected pixel is `Fixtures/glo
 | the colour "#12345" is refused with a sentence, and nothing changes | A chosen colour is written # and six hexadecimal digits, such as #f6d6be, and this is "#12345". | yes |
 | the tint "orange" is refused with a sentence, and nothing changes | Glow's colour is empty or written # and six hexadecimal digits, such as #ff4000, and this is "orange". | yes |
 | operation "color_dodge" is refused with a sentence, and nothing changes | Glow's operation is "normal", "add", "multiply", "screen", "overlay", "soft_light", "hard_light", "darken", "lighten", "difference", "hue", "saturation", "color", "luminosity", and this is "color_dodge". | yes |
-| based on "dark" is refused with a sentence, and nothing changes | Glow is based on "bright" or "colors", and this is "dark". | yes |
+| based on "dark" is refused with a sentence, and nothing changes | Glow is based on "bright", "colors" or "alpha", and this is "dark". | yes |
 | radius keyed to 600 is refused with a sentence, and nothing changes | Glow's radius runs from 0 to 500, and this is 600. | yes |
 | intensity keyed to 20 is refused with a sentence, and nothing changes | Glow's intensity runs from 0 to 10, and this is 20. | yes |
 | radius 500, threshold 100, intensity 10 and tolerance 255 with eight colours, the ends of the ranges and the other choices, are taken | taken | yes |

@@ -169,8 +169,8 @@ fn b626_glow_controls() {
         right(&before)[0] > 70 && above(&before)[0] > 70,
     );
 
-    t.heading("Glow Colors A & B: Color A red, Color B blue, Sawtooth A>B, Composite Original None");
-    let ab = json!({"composite": "none", "glow_colors": "a_and_b", "color_looping": "sawtooth_ab", "color_a": "#ff0000", "color_b": "#0000ff"});
+    t.heading("Glow Colors A & B: Color A red, Color B blue, Sawtooth B>A (D-986), Composite Original None");
+    let ab = json!({"composite": "none", "glow_colors": "a_and_b", "color_looping": "sawtooth_ba", "color_a": "#ff0000", "color_b": "#0000ff"});
     let (colored, said) = draw(&dir, &project(&ab));
     save("4_colors_a_and_b.png", &colored);
     let (near, far) = (at(&colored, cx, cy), at(&colored, cx + 30, cy));
@@ -180,9 +180,9 @@ fn b626_glow_controls() {
         said.is_empty() && near[0] == 255 && near[2] == 0 && far[2] > far[0],
     );
     let mut swapped = ab.clone();
-    swapped["color_looping"] = json!("sawtooth_ba");
+    swapped["color_looping"] = json!("sawtooth_ab");
     let (ba, _) = draw(&dir, &project(&swapped));
-    t.row("Sawtooth B>A turns the middle blue", &format!("{:?}", at(&ba, cx, cy)), at(&ba, cx, cy)[2] > at(&ba, cx, cy)[0]);
+    t.row("Sawtooth A>B turns the middle blue, Color B (D-986)", &format!("{:?}", at(&ba, cx, cy)), at(&ba, cx, cy)[2] > at(&ba, cx, cy)[0]);
     let mut looped = ab.clone();
     looped["color_loops"] = json!(3);
     looped["color_phase"] = json!(90);

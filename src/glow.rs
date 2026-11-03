@@ -44,6 +44,7 @@ pub(crate) fn settings(
             midpoint: look.midpoint,
         }),
         bright: based_on == "bright",
+        alpha: based_on == "alpha",
         threshold,
         targets,
         count: chosen.len(),
@@ -62,6 +63,10 @@ pub(crate) fn settings(
 /// on its 8-bit encoded colour, as a drawing program stores it: bright parts by its brightest
 /// channel, as Bloom's, and chosen colours by D-88.
 pub(crate) fn glows(px: &[f32], g: &Glow) -> bool {
+    // D-986: Alpha Channel, the covering in 8-bit steps against the threshold.
+    if g.alpha {
+        return px[3] > 0.0 && 100.0 * crate::color::quantise_u8(px[3]) as f64 >= 255.0 * g.threshold;
+    }
     if g.bright {
         return crate::bloom::bright(px, g.threshold);
     }
@@ -135,6 +140,15 @@ pub(crate) fn glow(source: &mut WorkingBuffer, g: &Glow) -> usize {
                             l[c] = if on[c] { held(px[c] / a) * a } else { 0.0 };
                         }
                         l[3] = a;
+                    }
+                }
+            } else if g.alpha {
+                // D-986: the pixel's own light, whatever its colour.
+                if glows(px, g) {
+                    if ae {
+                        l.copy_from_slice(&[held(px[0] / a) * a, held(px[1] / a) * a, held(px[2] / a) * a, a]);
+                    } else {
+                        l.copy_from_slice(px);
                     }
                 }
             } else if lights(px) {
@@ -265,14 +279,15 @@ pub(crate) fn glow(source: &mut WorkingBuffer, g: &Glow) -> usize {
 }
 
 /// D-747: Glow Colors A & B. The light's brightest channel v, from 0 to 1, picks a place along
-/// the loops of A and B (v 1 is A, at Color Phase 0), bent so that the half-way mix falls at
-/// A & B Midpoint, and the light takes that colour at v. Our basis; After Effects publishes none.
+/// the loops of A and B, bent so that the half-way mix falls at A & B Midpoint, and the light
+/// takes that colour at v. D-986: Sawtooth B>A gives the brightest light A, as After Effects'
+/// does (RIS86giOG-Q), A>B gives it B. Our basis; After Effects publishes none.
 fn colored(lc: [f32; 4], ca: [f32; 3], cb: [f32; 3], ab: &crate::render::GlowAb) -> [f32; 4] {
     let v = lc[0].max(lc[1]).max(lc[2]).clamp(0.0, 1.0);
     let u = (ab.loops * (1.0 - v as f64) + ab.phase / 360.0).rem_euclid(1.0);
     let f = match ab.looping {
-        "sawtooth_ab" => u,
-        "sawtooth_ba" => 1.0 - u,
+        "sawtooth_ab" => 1.0 - u,
+        "sawtooth_ba" => u,
         "triangle_bab" => (2.0 * u - 1.0).abs(),
         _ => 1.0 - (2.0 * u - 1.0).abs(),
     };

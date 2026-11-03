@@ -380,6 +380,8 @@ pub struct Glow {
     /// Bright parts, over `threshold` percent; otherwise the first `count` of `targets`, within
     /// `tolerance` 8-bit levels.
     pub bright: bool,
+    /// D-986: Alpha Channel, the covering over `threshold` percent (never on the card).
+    pub alpha: bool,
     pub threshold: f64,
     pub targets: [[u8; 3]; 8],
     pub count: usize,

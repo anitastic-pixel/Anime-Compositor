@@ -15979,8 +15979,8 @@ fn glow_fault(effect: &Effect) -> Option<String> {
     {
         return Some(fault);
     }
-    Some(if !["bright", "colors"].contains(&based_on.as_str()) {
-        format!("Glow is based on \"bright\" or \"colors\", and this is \"{based_on}\".")
+    Some(if !["bright", "colors", "alpha"].contains(&based_on.as_str()) {
+        format!("Glow is based on \"bright\", \"colors\" or \"alpha\", and this is \"{based_on}\".")
     } else if !["classic", "after_effects"].contains(&units.as_str()) {
         format!("Glow's units are \"classic\" or \"after_effects\", and this is \"{units}\".")
     } else if !(1.0..=127.0).contains(&look.color_loops) {

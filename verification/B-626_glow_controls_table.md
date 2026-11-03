@@ -25,12 +25,12 @@ D-747, audit row 17 (https://claude.ai/artifact/A63KdY44N4HfUHzUnLQhTp). An oran
 | Vertical: the other way round | [] right [64, 64, 64, 255] above [85, 85, 64, 255] | yes |
 | Horizontal and Vertical: both lit | right [75, 75, 64, 255] above [82, 82, 64, 255] | yes |
 
-## Glow Colors A & B: Color A red, Color B blue, Sawtooth A>B, Composite Original None
+## Glow Colors A & B: Color A red, Color B blue, Sawtooth B>A (D-986), Composite Original None
 
 | Check | The build's answer | Matches |
 | --- | --- | --- |
 | the brightest light is Color A, red; the faint light 10 pixels out leans to Color B, blue | [] middle [255, 0, 0, 255] 10 out [1, 0, 254, 1] | yes |
-| Sawtooth B>A turns the middle blue | [0, 0, 255, 255] | yes |
+| Sawtooth A>B turns the middle blue, Color B (D-986) | [0, 0, 255, 255] | yes |
 | Color Loops 3, Color Phase 90 and A & B Midpoint 25 draw cleanly and change it | [] | yes |
 | with Original Colors, Color A and Color B do nothing |  | yes |
 

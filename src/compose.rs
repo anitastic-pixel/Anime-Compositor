@@ -1541,9 +1541,10 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
             if displacement != "turbulent" || pinning != "none")
         // D-747: the card adds or screens a Glow's own colours along both axes only.
         // ponytail: teach the card's glow the other operations if one is slow here.
-        && !matches!(&instance.effect, crate::effects::Effect::Glow { operation, look, .. }
+        // D-986: nor Alpha Channel.
+        && !matches!(&instance.effect, crate::effects::Effect::Glow { operation, look, based_on, .. }
             if !["add", "screen"].contains(&operation.as_str()) || look.composite == "none"
-                || look.dimensions != "both" || look.glow_colors != "original")
+                || look.dimensions != "both" || look.glow_colors != "original" || based_on == "alpha")
         // D-914: the card has no reduced blur, so Glow, Bloom and Deband at Quality Fast are the
         // processor's, the picture exports draw (Halation's coarser levels are the card's too).
         // ponytail: give the card a reduced blur if Fast is wanted in the viewer.

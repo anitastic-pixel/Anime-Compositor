@@ -26,7 +26,7 @@ D-746, audit row 12 (https://claude.ai/artifact/A63KdY44N4HfUHzUnLQhTp). In 8 bp
 | FX-GLDISP-009: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-GLDISP-010 frame 0: D-747, Glow Dimensions Horizontal: the light spreads along the rows only, so a row with nothing that glows stays as it was. | largest difference 1.3e-7 | yes |
 | FX-GLDISP-010: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-GLDISP-011 frame 0: D-747, Glow Colors A & B, Sawtooth A>B, A #ff0000, B #0000ff, intensity 1, on black, Composite Original None: the brightest light is red, the faintest towards blue, each at the light's own strength. | largest difference 1.9e-7 | yes |
+| FX-GLDISP-011 frame 0: D-747, Glow Colors A & B, Sawtooth A>B, A #ff0000, B #0000ff, intensity 1, on black, Composite Original None: D-986, the brightest light is blue (B), the faintest towards red (A), each at the light's own strength. | largest difference 1.9e-7 | yes |
 | FX-GLDISP-011: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-GLDISP-012 frame 0: D-747, Glow Operation Normal, Composite Original On Top, on black: the light covers the picture, so the patches take its colour where it is strong. | largest difference 6.0e-8 | yes |
 | FX-GLDISP-012: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
@@ -38,6 +38,12 @@ D-746, audit row 12 (https://claude.ai/artifact/A63KdY44N4HfUHzUnLQhTp). In 8 bp
 | FX-GLDISP-015: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-GLDISP-016 frame 0: D-747 at 8 bpc, After Effects' defaults with Glow Dimensions Vertical and Operation Multiply On Top, on black: the light multiplies the picture, then held to 8 bits. | largest difference 1.5e-7 | yes |
 | FX-GLDISP-016: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-GLDISP-017 frame 0: D-986, Glow Based On Alpha Channel, threshold 60, on black: every patch is fully covered, so all three glow, the dark purple too, whose brightest channel is under 60 per cent. | largest difference 8.2e-7 | yes |
+| FX-GLDISP-017: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-GLDISP-018 frame 0: D-986, Alpha Channel, threshold 60, on the patches half covering (128 of 255, under 60 per cent): nothing glows, so nothing changes. | largest difference 9.5e-8 | yes |
+| FX-GLDISP-018: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-GLDISP-019 frame 0: D-986, RIS86giOG-Q's glow: Glow Colors A & B, Sawtooth B>A, Color A #1e78ff, Color B #000000, intensity 2.6, threshold 60, radius 4, on black: the brightest light is Color A, blue, and it fades to nothing fast. | largest difference 1.9e-7 | yes |
+| FX-GLDISP-019: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 
 ## Valeri Visuals, case 2: a white disc on black, threshold 0, radius 400, intensity 2 (a quarter size)
 
@@ -68,4 +74,4 @@ D-746, audit row 12 (https://claude.ai/artifact/A63KdY44N4HfUHzUnLQhTp). In 8 bp
 
 ## Result
 
-44 of 44 checks pass.
+50 of 50 checks pass.
