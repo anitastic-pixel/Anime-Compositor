@@ -4443,18 +4443,17 @@ fn resolve_rest(
     // D-191: each layer setting's map, made at the size the effects run at. An adjustment
     // layer's are made where its stack runs, on the frame.
     if !layer.is_adjustment() {
-        // D-259: `pre` is one over the divisor, so it names the quality it came from.
-        let quality = if pre == 1.0 {
-            PreviewQuality::Full
-        } else if pre == 0.5 {
-            PreviewQuality::Half
-        } else if pre == crate::preview::MOTION_DIVISOR as f64 {
-            PreviewQuality::Motion
-        } else if pre == 3.0 {
-            PreviewQuality::Third
-        } else {
-            PreviewQuality::Draft
-        };
+        // D-259: `pre` is the quality's divisor, so it names the quality it came from (Half
+        // was once matched as 0.5 and drew its maps at Draft).
+        let quality = [
+            PreviewQuality::Full,
+            PreviewQuality::Half,
+            PreviewQuality::Motion,
+            PreviewQuality::Third,
+        ]
+        .into_iter()
+        .find(|q| q.divisor() as f64 == pre)
+        .unwrap_or(PreviewQuality::Draft);
         fill_maps(
             &mut effects,
             project,
