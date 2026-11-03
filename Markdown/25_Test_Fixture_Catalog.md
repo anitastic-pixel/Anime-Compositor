@@ -220801,6 +220801,60 @@ FX-GRADE4-015 (`fx_grade4_015.json`): Sharpen 101, above 100. The file is read, 
 
 FX-GRADE4-016 (`fx_grade4_016.json`): Sharpen -101, below -100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
+### Color Grade, fifth unit (D-1007)
+
+Color Grade's fifth unit (B-887): HSL Secondary's Show Key as Color/Gray and Color/Black, and the key tools. The drawing and look file are FX-GRADE's (`media/colours.png`, `luts/look.cube`). `tools/color_grade_5_reference.py` writes the projects and `expected_color_grade_5.json` in `Fixtures/color_grade_5/`; every pixel is linear premultiplied, tolerance as FX-GRADE-001. The tool checks each case's claim: where the key is whole the colour is the drawing's own, where it is 0 the backdrop, the correction and vignette never show, and "mask" is D-571's picture. Checked by `tests/b887_color_grade_key.rs`.
+
+FX-GRADE5-001 (`fx_grade5_001.json`): The red key (hue 0, range 20) shown Color/Gray: the reds in their own colour, everything else flat 50% grey. Frames 0.
+
+FX-GRADE5-002 (`fx_grade5_002.json`): The same key shown Color/Black: the reds in their own colour, everything else black. Frames 0.
+
+FX-GRADE5-003 (`fx_grade5_003.json`): The red key with hue softness 30, Color/Gray: the warm tones part colour, part grey, as much colour as the key takes. Frames 0.
+
+FX-GRADE5-004 (`fx_grade5_004.json`): The red key inverted, Color/Black: everything but the reds in colour, the reds black. Frames 0.
+
+FX-GRADE5-005 (`fx_grade5_005.json`): Color/Gray with a correction set (secondary saturation 0) and a dark vignette: neither shows, only the colours going in and the key. Frames 0.
+
+FX-GRADE5-006 (`fx_grade5_006.json`): The red key with key blur 20, Color/Black: the key softened as D-571's White/Black shows it, the colour fading out with it. Frames 0.
+
+FX-GRADE5-007 (`fx_grade5_007.json`): A skin key (hue 25, range 10, softness 20; saturation 20 to 80, lightness 30 to 90, softness 10), Color/Gray, after a warmer white balance (temperature 30): the colours going in are the warmer ones. Frames 0.
+
+FX-GRADE5-008 (`fx_grade5_008.json`): The red key shown White/Black ("mask", D-398's word, unchanged): D-571's own picture. Frames 0.
+
+FX-GRADE5-009 (`fx_grade5_009.json`): Show Key "color", not one of the four words. The file is read, the effect is kept as written and left out of every frame, with a warning. Frames 0, 4. Warning `EFFECT_PARAMETER_INVALID`.
+
+The key tools (`expected_key_tools.json`): each case a tool (set, add, remove or dot), the colour picked, the eight key numbers before and the numbers after. The tool checks that Set and Add take the sample wholly and Remove leaves it out, by D-398's key. Checked in the real page code by B-887's page check.
+
+KEYTOOL-001: Set on an orange: hue 25, range 15, softness 15, its saturation and lightness 20 either side. Set #e07020: hue 25, range 15, softness 15, saturation 56 to 96, lightness 30 to 70, key softness 0.
+
+KEYTOOL-002: Set on a sky blue. Set #4080d0: hue 213, range 15, softness 15, saturation 41 to 81, lightness 33 to 73, key softness 0.
+
+KEYTOOL-003: Set on a grey: every hue (range 180), its lightness 20 either side, saturation 0 to 20. Set #808080: hue 0, range 180, softness 0, saturation 0 to 20, lightness 30 to 70, key softness 0.
+
+KEYTOOL-004: Set on a skin tone. Set #d8a080: hue 22, range 15, softness 15, saturation 33 to 73, lightness 47 to 87, key softness 0.
+
+KEYTOOL-005: Add an orange to the skin key: the hue range grows towards it, the saturation's high end up to take it. Add #e07020: hue 22, range 15, softness 15, saturation 33 to 76, lightness 47 to 87, key softness 0.
+
+KEYTOOL-006: Add a colour already inside the skin key: nothing changes. Add #d8a080: hue 22, range 15, softness 15, saturation 33 to 73, lightness 47 to 87, key softness 0.
+
+KEYTOOL-007: Add a grey to the skin key: every hue (range 180), the saturation's low end down to 0. Add #808080: hue 22, range 180, softness 15, saturation 0 to 73, lightness 47 to 87, key softness 0.
+
+KEYTOOL-008: Add a sky blue to an orange key: past half a turn the other way, so the range grows the short way round. Add #4080d0: hue 307, range 94, softness 15, saturation 56 to 96, lightness 30 to 70, key softness 0.
+
+KEYTOOL-009: Remove a paler skin tone from the skin key: the saturation's high end comes down past it, the cheapest way out (a smaller share than the lightness's). Remove #f0c8b0: hue 22, range 15, softness 15, saturation 33 to 67, lightness 47 to 87, key softness 0.
+
+KEYTOOL-010: Remove an orange from a wide warm key (hue 20, range 40, softness 10) whose saturation (0 to 100) is the cheapest band to trim: its high end comes down below the orange's. Remove #e07020: hue 20, range 40, softness 10, saturation 0 to 74, lightness 0 to 100, key softness 0.
+
+KEYTOOL-011: Remove an orange from the same warm key with narrow saturation (72 to 78) and lightness (45 to 55): now the hue is the cheapest, its side towards the orange shrinks. Remove #e07020: hue 358, range 17, softness 10, saturation 72 to 78, lightness 45 to 55, key softness 0.
+
+KEYTOOL-012: Remove a leaf green from the skin key: the key leaves it out already, so nothing changes. Remove #3c8c30: hue 22, range 15, softness 15, saturation 33 to 73, lightness 47 to 87, key softness 0.
+
+KEYTOOL-013: Remove a duller skin tone from the skin key: the saturation's low end comes up past it, the cheapest way out. Remove #d0a890: hue 22, range 15, softness 15, saturation 42 to 73, lightness 47 to 87, key softness 0.
+
+KEYTOOL-014: The red dot: hue 0, range 30, softness 15, saturation and lightness 0 to 100. Dot red: hue 0, range 30, softness 15, saturation 0 to 100, lightness 0 to 100, key softness 0.
+
+KEYTOOL-015: The cyan dot after the skin key: the key softness kept. Dot cyan: hue 180, range 30, softness 15, saturation 0 to 100, lightness 0 to 100, key softness 10.
+
 ### CC Force Motion Blur (D-581)
 
 CC Force Motion Blur (`core.force_motion_blur`), after CycoreFX's CC Force Motion Blur (B-470), the rule ours. Each case is a project whose composition `comp-main` is 20 by 1, five frames, in `Fixtures/force_motion_blur/`; the holder shows `comp-in`, also 20 by 1, where a bar four pixels wide runs 16 pixels a frame, its left edge at 6 on frame 1. `tools/force_motion_blur_reference.py` works the expected frames, `Fixtures/force_motion_blur/expected_force_motion_blur.json`, tolerance 2e-5, through `tools/motion_blur_reference.py`'s slide and resampling, reading each key at the moment's time directly; the rule is in document 21.

@@ -1,0 +1,380 @@
+{
+ "rule": "D-1007",
+ "cases": [
+  {
+   "says": "Set on an orange: hue 25, range 15, softness 15, its saturation and lightness 20 either side.",
+   "tool": "set",
+   "picked": "#e07020",
+   "from": {
+    "key_hue": 0,
+    "key_hue_range": 180,
+    "key_hue_softness": 0,
+    "key_saturation_low": 0,
+    "key_saturation_high": 100,
+    "key_lightness_low": 0,
+    "key_lightness_high": 100,
+    "key_softness": 0
+   },
+   "to": {
+    "key_hue": 25,
+    "key_hue_range": 15,
+    "key_hue_softness": 15,
+    "key_saturation_low": 56,
+    "key_saturation_high": 96,
+    "key_lightness_low": 30,
+    "key_lightness_high": 70,
+    "key_softness": 0
+   }
+  },
+  {
+   "says": "Set on a sky blue.",
+   "tool": "set",
+   "picked": "#4080d0",
+   "from": {
+    "key_hue": 0,
+    "key_hue_range": 180,
+    "key_hue_softness": 0,
+    "key_saturation_low": 0,
+    "key_saturation_high": 100,
+    "key_lightness_low": 0,
+    "key_lightness_high": 100,
+    "key_softness": 0
+   },
+   "to": {
+    "key_hue": 213,
+    "key_hue_range": 15,
+    "key_hue_softness": 15,
+    "key_saturation_low": 41,
+    "key_saturation_high": 81,
+    "key_lightness_low": 33,
+    "key_lightness_high": 73,
+    "key_softness": 0
+   }
+  },
+  {
+   "says": "Set on a grey: every hue (range 180), its lightness 20 either side, saturation 0 to 20.",
+   "tool": "set",
+   "picked": "#808080",
+   "from": {
+    "key_hue": 0,
+    "key_hue_range": 180,
+    "key_hue_softness": 0,
+    "key_saturation_low": 0,
+    "key_saturation_high": 100,
+    "key_lightness_low": 0,
+    "key_lightness_high": 100,
+    "key_softness": 0
+   },
+   "to": {
+    "key_hue": 0,
+    "key_hue_range": 180,
+    "key_hue_softness": 0,
+    "key_saturation_low": 0,
+    "key_saturation_high": 20,
+    "key_lightness_low": 30,
+    "key_lightness_high": 70,
+    "key_softness": 0
+   }
+  },
+  {
+   "says": "Set on a skin tone.",
+   "tool": "set",
+   "picked": "#d8a080",
+   "from": {
+    "key_hue": 0,
+    "key_hue_range": 180,
+    "key_hue_softness": 0,
+    "key_saturation_low": 0,
+    "key_saturation_high": 100,
+    "key_lightness_low": 0,
+    "key_lightness_high": 100,
+    "key_softness": 0
+   },
+   "to": {
+    "key_hue": 22,
+    "key_hue_range": 15,
+    "key_hue_softness": 15,
+    "key_saturation_low": 33,
+    "key_saturation_high": 73,
+    "key_lightness_low": 47,
+    "key_lightness_high": 87,
+    "key_softness": 0
+   }
+  },
+  {
+   "says": "Add an orange to the skin key: the hue range grows towards it, the saturation's high end up to take it.",
+   "tool": "add",
+   "picked": "#e07020",
+   "from": {
+    "key_hue": 22,
+    "key_hue_range": 15,
+    "key_hue_softness": 15,
+    "key_saturation_low": 33,
+    "key_saturation_high": 73,
+    "key_lightness_low": 47,
+    "key_lightness_high": 87,
+    "key_softness": 0
+   },
+   "to": {
+    "key_hue": 22,
+    "key_hue_range": 15,
+    "key_hue_softness": 15,
+    "key_saturation_low": 33,
+    "key_saturation_high": 76,
+    "key_lightness_low": 47,
+    "key_lightness_high": 87,
+    "key_softness": 0
+   }
+  },
+  {
+   "says": "Add a colour already inside the skin key: nothing changes.",
+   "tool": "add",
+   "picked": "#d8a080",
+   "from": {
+    "key_hue": 22,
+    "key_hue_range": 15,
+    "key_hue_softness": 15,
+    "key_saturation_low": 33,
+    "key_saturation_high": 73,
+    "key_lightness_low": 47,
+    "key_lightness_high": 87,
+    "key_softness": 0
+   },
+   "to": {
+    "key_hue": 22,
+    "key_hue_range": 15,
+    "key_hue_softness": 15,
+    "key_saturation_low": 33,
+    "key_saturation_high": 73,
+    "key_lightness_low": 47,
+    "key_lightness_high": 87,
+    "key_softness": 0
+   }
+  },
+  {
+   "says": "Add a grey to the skin key: every hue (range 180), the saturation's low end down to 0.",
+   "tool": "add",
+   "picked": "#808080",
+   "from": {
+    "key_hue": 22,
+    "key_hue_range": 15,
+    "key_hue_softness": 15,
+    "key_saturation_low": 33,
+    "key_saturation_high": 73,
+    "key_lightness_low": 47,
+    "key_lightness_high": 87,
+    "key_softness": 0
+   },
+   "to": {
+    "key_hue": 22,
+    "key_hue_range": 180,
+    "key_hue_softness": 15,
+    "key_saturation_low": 0,
+    "key_saturation_high": 73,
+    "key_lightness_low": 47,
+    "key_lightness_high": 87,
+    "key_softness": 0
+   }
+  },
+  {
+   "says": "Add a sky blue to an orange key: past half a turn the other way, so the range grows the short way round.",
+   "tool": "add",
+   "picked": "#4080d0",
+   "from": {
+    "key_hue": 25,
+    "key_hue_range": 15,
+    "key_hue_softness": 15,
+    "key_saturation_low": 56,
+    "key_saturation_high": 96,
+    "key_lightness_low": 30,
+    "key_lightness_high": 70,
+    "key_softness": 0
+   },
+   "to": {
+    "key_hue": 307,
+    "key_hue_range": 94,
+    "key_hue_softness": 15,
+    "key_saturation_low": 56,
+    "key_saturation_high": 96,
+    "key_lightness_low": 30,
+    "key_lightness_high": 70,
+    "key_softness": 0
+   }
+  },
+  {
+   "says": "Remove a paler skin tone from the skin key: the saturation's high end comes down past it, the cheapest way out (a smaller share than the lightness's).",
+   "tool": "remove",
+   "picked": "#f0c8b0",
+   "from": {
+    "key_hue": 22,
+    "key_hue_range": 15,
+    "key_hue_softness": 15,
+    "key_saturation_low": 33,
+    "key_saturation_high": 73,
+    "key_lightness_low": 47,
+    "key_lightness_high": 87,
+    "key_softness": 0
+   },
+   "to": {
+    "key_hue": 22,
+    "key_hue_range": 15,
+    "key_hue_softness": 15,
+    "key_saturation_low": 33,
+    "key_saturation_high": 67,
+    "key_lightness_low": 47,
+    "key_lightness_high": 87,
+    "key_softness": 0
+   }
+  },
+  {
+   "says": "Remove an orange from a wide warm key (hue 20, range 40, softness 10) whose saturation (0 to 100) is the cheapest band to trim: its high end comes down below the orange's.",
+   "tool": "remove",
+   "picked": "#e07020",
+   "from": {
+    "key_hue": 20,
+    "key_hue_range": 40,
+    "key_hue_softness": 10,
+    "key_saturation_low": 0,
+    "key_saturation_high": 100,
+    "key_lightness_low": 0,
+    "key_lightness_high": 100,
+    "key_softness": 0
+   },
+   "to": {
+    "key_hue": 20,
+    "key_hue_range": 40,
+    "key_hue_softness": 10,
+    "key_saturation_low": 0,
+    "key_saturation_high": 74,
+    "key_lightness_low": 0,
+    "key_lightness_high": 100,
+    "key_softness": 0
+   }
+  },
+  {
+   "says": "Remove an orange from the same warm key with narrow saturation (72 to 78) and lightness (45 to 55): now the hue is the cheapest, its side towards the orange shrinks.",
+   "tool": "remove",
+   "picked": "#e07020",
+   "from": {
+    "key_hue": 20,
+    "key_hue_range": 40,
+    "key_hue_softness": 10,
+    "key_saturation_low": 72,
+    "key_saturation_high": 78,
+    "key_lightness_low": 45,
+    "key_lightness_high": 55,
+    "key_softness": 0
+   },
+   "to": {
+    "key_hue": 358,
+    "key_hue_range": 17,
+    "key_hue_softness": 10,
+    "key_saturation_low": 72,
+    "key_saturation_high": 78,
+    "key_lightness_low": 45,
+    "key_lightness_high": 55,
+    "key_softness": 0
+   }
+  },
+  {
+   "says": "Remove a leaf green from the skin key: the key leaves it out already, so nothing changes.",
+   "tool": "remove",
+   "picked": "#3c8c30",
+   "from": {
+    "key_hue": 22,
+    "key_hue_range": 15,
+    "key_hue_softness": 15,
+    "key_saturation_low": 33,
+    "key_saturation_high": 73,
+    "key_lightness_low": 47,
+    "key_lightness_high": 87,
+    "key_softness": 0
+   },
+   "to": {
+    "key_hue": 22,
+    "key_hue_range": 15,
+    "key_hue_softness": 15,
+    "key_saturation_low": 33,
+    "key_saturation_high": 73,
+    "key_lightness_low": 47,
+    "key_lightness_high": 87,
+    "key_softness": 0
+   }
+  },
+  {
+   "says": "Remove a duller skin tone from the skin key: the saturation's low end comes up past it, the cheapest way out.",
+   "tool": "remove",
+   "picked": "#d0a890",
+   "from": {
+    "key_hue": 22,
+    "key_hue_range": 15,
+    "key_hue_softness": 15,
+    "key_saturation_low": 33,
+    "key_saturation_high": 73,
+    "key_lightness_low": 47,
+    "key_lightness_high": 87,
+    "key_softness": 0
+   },
+   "to": {
+    "key_hue": 22,
+    "key_hue_range": 15,
+    "key_hue_softness": 15,
+    "key_saturation_low": 42,
+    "key_saturation_high": 73,
+    "key_lightness_low": 47,
+    "key_lightness_high": 87,
+    "key_softness": 0
+   }
+  },
+  {
+   "says": "The red dot: hue 0, range 30, softness 15, saturation and lightness 0 to 100.",
+   "tool": "dot",
+   "picked": "red",
+   "from": {
+    "key_hue": 0,
+    "key_hue_range": 180,
+    "key_hue_softness": 0,
+    "key_saturation_low": 0,
+    "key_saturation_high": 100,
+    "key_lightness_low": 0,
+    "key_lightness_high": 100,
+    "key_softness": 0
+   },
+   "to": {
+    "key_hue": 0,
+    "key_hue_range": 30,
+    "key_hue_softness": 15,
+    "key_saturation_low": 0,
+    "key_saturation_high": 100,
+    "key_lightness_low": 0,
+    "key_lightness_high": 100,
+    "key_softness": 0
+   }
+  },
+  {
+   "says": "The cyan dot after the skin key: the key softness kept.",
+   "tool": "dot",
+   "picked": "cyan",
+   "from": {
+    "key_hue": 22,
+    "key_hue_range": 15,
+    "key_hue_softness": 15,
+    "key_saturation_low": 33,
+    "key_saturation_high": 73,
+    "key_lightness_low": 47,
+    "key_lightness_high": 87,
+    "key_softness": 10
+   },
+   "to": {
+    "key_hue": 180,
+    "key_hue_range": 30,
+    "key_hue_softness": 15,
+    "key_saturation_low": 0,
+    "key_saturation_high": 100,
+    "key_lightness_low": 0,
+    "key_lightness_high": 100,
+    "key_softness": 10
+   }
+  }
+ ]
+}
