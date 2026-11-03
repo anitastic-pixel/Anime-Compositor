@@ -224272,6 +224272,60 @@ FX-LSTYLE-022 (`fx_lstyle_022.json`): Blend mode "dissolve", which this program 
 
 FX-LSTYLE-023 (`fx_lstyle_023.json`): Blend mode "stencil_alpha", a stencil, not a style's mode. The file is read, the style is kept as written and left out of every frame, with a warning. Frames 0, 4. Warning `EFFECT_PARAMETER_INVALID`.
 
+### Layer Styles: Gradient Overlay (D-1005)
+
+Gradient Overlay as After Effects' layer style, with colour and opacity stops (B-885): `tools/gradient_overlay_reference.py` writes `expected_gradient_overlay.json` and `fx_gover_001.json` to `fx_gover_025.json` in `Fixtures/layer_styles/`, on D-922's skin plate (`media/plate.png`). Every pixel of each frame, linear premultiplied, tolerance 2e-5. The rule is in document 21 (D-1005). Checked by `tests/b885_gradient_overlay.rs`.
+
+FX-GOVER-001 (`fx_gover_001.json`): Gradient Overlay as added: Normal, 100, white at 0 to black at 100, angle 90, linear, scale 100. The plate turns from black along its top row to white along its bottom row (location 0 is where the angle points away from); its alpha never changes, so the empty corners stay empty. Frames 0.
+
+FX-GOVER-002 (`fx_gover_002.json`): Angle 0, red at 0 to blue at 100: red down the plate's left edge, blue down its right, the same in every row. Frames 0.
+
+FX-GOVER-003 (`fx_gover_003.json`): The tutorial's (PVUPTcfJ5HY 4:00-6:40, pv_400): Overlay, 100, #232444 at both colour stops, opacity 0 at 65.6 and 100 at 100, angle 90, Radial, scale 150. Only the plate's two left-hand corners, the pixels farthest from the box's centre, darken, like a vignette's edge; the rest is untouched. Frames 0.
+
+FX-GOVER-004 (`fx_gover_004.json`): Reflected, angle 0, red at 0 to blue at 100: red down the middle, blue at both side edges, left and right the same. Frames 0.
+
+FX-GOVER-005 (`fx_gover_005.json`): Angle style at 0, red to blue: the colour goes round the box's centre counter-clockwise from the right, red just above the right-hand middle, blue just below it. Frames 0.
+
+FX-GOVER-006 (`fx_gover_006.json`): Diamond, angle 0, red to blue: red in the middle, a diamond of blue growing out to the plate's corners. Frames 0.
+
+FX-GOVER-007 (`fx_gover_007.json`): FX-GOVER-001 with Reverse on: white along the top, black along the bottom. Frames 0.
+
+FX-GOVER-008 (`fx_gover_008.json`): Radial, red to blue, offset 3 pixels right: the red middle moves three columns right of the box's centre. Frames 0.
+
+FX-GOVER-009 (`fx_gover_009.json`): Angle keyed from 0 at frame 0 to 180 at frame 4, linear, red to blue: at frame 0 red on the left, at frame 2 (90) red on the bottom, at frame 4 red on the right. Frames 0, 2, 4.
+
+FX-GOVER-010 (`fx_gover_010.json`): Three colour stops, red at 0, #ff8000 at 50 and blue at 100, angle 0, scale 50: red over the left quarter, through orange at the middle, blue past the right quarter. Frames 0.
+
+FX-GOVER-011 (`fx_gover_011.json`): Opacity 0: the plate untouched. Frames 0.
+
+FX-GOVER-012 (`fx_gover_012.json`): Multiply, #ff8000 to blue, angle 0: the skin multiplied by orange on the left, by blue on the right. Frames 0.
+
+FX-GOVER-013 (`fx_gover_013.json`): An Inner Shadow listed first (Normal, #ff8000, 100, Global Light off, angle 0, distance 2, size 0), then the Gradient Overlay as added: the overlay is drawn first, so the plate's two right-hand columns are orange over the black-to-white ramp. Frames 0.
+
+FX-GOVER-014 (`fx_gover_014.json`): Opacity stops 100 at 0 and 0 at 100, angle 0, red to red: solid red on the left fading to the plate's own skin on the right. Frames 0.
+
+FX-GOVER-015 (`fx_gover_015.json`): Two stops at the same place, red at 0 and 50, blue at 50 and 100, angle 0: a hard step from red to blue down the middle, no blend between. Frames 0.
+
+FX-GOVER-016 (`fx_gover_016.json`): Colour stops at 60 then 40, falling. The file is read, the style is kept as written and left out of every frame, with a warning. Frames 0, 4. Warning `EFFECT_PARAMETER_INVALID`.
+
+FX-GOVER-017 (`fx_gover_017.json`): A colour stop at 101, past 100. The file is read, the style is kept as written and left out of every frame, with a warning. Frames 0, 4. Warning `EFFECT_PARAMETER_INVALID`.
+
+FX-GOVER-018 (`fx_gover_018.json`): An opacity stop of 101 per cent. The file is read, the style is kept as written and left out of every frame, with a warning. Frames 0, 4. Warning `EFFECT_PARAMETER_INVALID`.
+
+FX-GOVER-019 (`fx_gover_019.json`): A colour written "black". The file is read, the style is kept as written and left out of every frame, with a warning. Frames 0, 4. Warning `EFFECT_PARAMETER_INVALID`.
+
+FX-GOVER-020 (`fx_gover_020.json`): One colour stop only. The file is read, the style is kept as written and left out of every frame, with a warning. Frames 0, 4. Warning `EFFECT_PARAMETER_INVALID`.
+
+FX-GOVER-021 (`fx_gover_021.json`): Style "spiral". The file is read, the style is kept as written and left out of every frame, with a warning. Frames 0, 4. Warning `EFFECT_PARAMETER_INVALID`.
+
+FX-GOVER-022 (`fx_gover_022.json`): Scale 151, above 150. The file is read, the style is kept as written and left out of every frame, with a warning. Frames 0, 4. Warning `EFFECT_PARAMETER_INVALID`.
+
+FX-GOVER-023 (`fx_gover_023.json`): Blend mode "stencil_luma", a stencil, not a style's mode. The file is read, the style is kept as written and left out of every frame, with a warning. Frames 0, 4. Warning `EFFECT_PARAMETER_INVALID`.
+
+FX-GOVER-024 (`fx_gover_024.json`): Reverse written "yes". The file is read, the style is kept as written and left out of every frame, with a warning. Frames 0, 4. Warning `EFFECT_PARAMETER_INVALID`.
+
+FX-GOVER-025 (`fx_gover_025.json`): An opacity stop of three numbers. The file is read, the style is kept as written and left out of every frame, with a warning. Frames 0, 4. Warning `EFFECT_PARAMETER_INVALID`.
+
 ### Minimax (D-930)
 
 Minimax (`core.minimax`), after After Effects' Minimax (B-810), the edge and colour rules ours. Every case is a project of one composition 16 by 10, five frames, holding the layer `art`, the still `media/colours.png` (16 by 10): a block of colours in columns 0 to 4 on every row (red falling 22 a row, green rising 45 a column, blue 40), so it touches the layer's left, top and bottom edges; a blue (40, 60, 230) column at half covering in column 6, rows 3 to 6; a white box in columns 8 to 12, rows 2 to 7, with one black pixel at (10, 4); and one yellow (255, 230, 0) pixel alone at (14, 1). `tools/minimax_reference.py` works the expected frames, `expected_minimax.json`, every window searched in full. Tolerance 2e-5.
