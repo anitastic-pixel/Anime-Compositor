@@ -199,23 +199,23 @@ Seven creators' After Effects frames fit a zoom centred on each pixel and half i
 | FX-SPINZOOM-022: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
 | FX-FASTZOOM-001 frame 0: Standard, amount 50 (the default), about the middle: every edge streaks outward, fading as it runs. | largest difference 1.9e-7 | yes |
 | FX-FASTZOOM-001: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-FASTZOOM-002 frame 0: Brightest: only light streaks; the skin block streaks outward over the clear pixels round it, the dark line, with only clear pixels behind it, is kept, and nothing grows darker anywhere. | largest difference 2.5e-7 | yes |
+| FX-FASTZOOM-002 frame 0: Brightest: only light streaks; the skin block streaks outward over the clear pixels round it, the dark line, with only clear pixels behind it, is kept, and nothing grows darker anywhere. | largest difference 1.9e-7 | yes |
 | FX-FASTZOOM-002: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-FASTZOOM-003 frame 0: Darkest: only dark streaks; the line down the left edge, with clear pixels behind it, fades to a quarter, the skin block, whose streaks run back over itself, is kept, and nothing grows lighter. | largest difference 1.9e-7 | yes |
+| FX-FASTZOOM-003 frame 0: Darkest: only dark streaks; the line down the left edge, with clear pixels behind it, fades a little (D-987: at 50 the streak is short), the skin block, whose streaks run back over itself, is kept, and nothing grows lighter. | largest difference 1.9e-7 | yes |
 | FX-FASTZOOM-003: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-FASTZOOM-004 frame 0: Amount 0: the drawing, untouched. | largest difference 1.9e-7 | yes |
 | FX-FASTZOOM-004: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-FASTZOOM-005 frame 0: Standard, amount 100, the most: each pixel reads all the way back to the centre. | largest difference 2.5e-7 | yes |
 | FX-FASTZOOM-005: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-FASTZOOM-006 frame 0: Brightest about centre 25, 50, the point (4, 5): the block streaks right, away from it. | largest difference 2.5e-7 | yes |
+| FX-FASTZOOM-006 frame 0: Brightest about centre 25, 50, the point (4, 5): the block streaks right, away from it. | largest difference 1.9e-7 | yes |
 | FX-FASTZOOM-006: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-FASTZOOM-007 frame 0: Amount keyed from 0 at frame 0 to 80 at frame 4, brightest, linear. | largest difference 1.9e-7 | yes |
-| FX-FASTZOOM-007 frame 2: Amount keyed from 0 at frame 0 to 80 at frame 4, brightest, linear. | largest difference 2.5e-7 | yes |
-| FX-FASTZOOM-007 frame 4: Amount keyed from 0 at frame 0 to 80 at frame 4, brightest, linear. | largest difference 2.5e-7 | yes |
+| FX-FASTZOOM-007 frame 2: Amount keyed from 0 at frame 0 to 80 at frame 4, brightest, linear. | largest difference 1.9e-7 | yes |
+| FX-FASTZOOM-007 frame 4: Amount keyed from 0 at frame 0 to 80 at frame 4, brightest, linear. | largest difference 1.9e-7 | yes |
 | FX-FASTZOOM-007: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-FASTZOOM-008 frame 0: Centre keyed from 0, 50 at frame 0 to 100, 50 at frame 4, brightest amount 80, as a light passing along a line of text. | largest difference 2.5e-7 | yes |
-| FX-FASTZOOM-008 frame 2: Centre keyed from 0, 50 at frame 0 to 100, 50 at frame 4, brightest amount 80, as a light passing along a line of text. | largest difference 2.5e-7 | yes |
-| FX-FASTZOOM-008 frame 4: Centre keyed from 0, 50 at frame 0 to 100, 50 at frame 4, brightest amount 80, as a light passing along a line of text. | largest difference 2.5e-7 | yes |
+| FX-FASTZOOM-008 frame 0: Centre keyed from 0, 50 at frame 0 to 100, 50 at frame 4, brightest amount 80, as a light passing along a line of text. | largest difference 1.9e-7 | yes |
+| FX-FASTZOOM-008 frame 2: Centre keyed from 0, 50 at frame 0 to 100, 50 at frame 4, brightest amount 80, as a light passing along a line of text. | largest difference 1.9e-7 | yes |
+| FX-FASTZOOM-008 frame 4: Centre keyed from 0, 50 at frame 0 to 100, 50 at frame 4, brightest amount 80, as a light passing along a line of text. | largest difference 1.9e-7 | yes |
 | FX-FASTZOOM-008: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-FASTZOOM-009 frame 0: Standard, moved three pixels right: the centre moves with the drawing, and nothing is drawn left of it. | largest difference 1.9e-7 | yes |
 | FX-FASTZOOM-009: what opening it warns of, and what frame 4 warns of | [] and [] | yes |

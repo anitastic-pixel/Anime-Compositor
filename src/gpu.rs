@@ -447,6 +447,8 @@ struct Radial {
     // D-361/D-362: blurs::Weigh, 0 even, 1 fading, 2 brightest, 3 darkest; samples a pixel.
     weigh: u32,
     density: f32,
+    // D-987: Fast Zoom Blur's fall, the scale's power; below 0, (n - k).
+    fall: f32,
 }
 
 @group(0) @binding(0) var<uniform> R: Radial;
@@ -488,7 +490,12 @@ fn radial(@builtin(global_invocation_id) id: vec3<u32>) {
             p = clamp(p, vec2(0.5), vec2<f32>(size) - vec2(0.5));
         }
         let s = bilinear(still, p);
-        let f = f32(n - k);
+        var f = f32(n - k);
+        if R.fall == 0.0 {
+            f = f32(n);
+        } else if R.fall > 0.0 {
+            f = f32(n) * pow(t.x, R.fall);
+        }
         if R.weigh == 0u {
             total += s;
         } else if R.weigh == 1u {
@@ -14662,6 +14669,7 @@ impl Gpu {
         let f = |v: f64| (v as f32).to_bits();
         // D-361/D-362: the path is as long whichever way it runs.
         let (weigh, density) = r.sweep.map_or((0, 1.0), |s| (s.weigh as u32, s.density));
+        let fall = r.sweep.and_then(|s| s.fall).unwrap_or(-1.0);
         let settings = [
             f(r.center.0),
             f(r.center.1),
@@ -14670,7 +14678,7 @@ impl Gpu {
             r.repeat as u32,
             weigh,
             f(density),
-            0,
+            f(fall),
         ];
         let settings = init(
             "B-46 settings",

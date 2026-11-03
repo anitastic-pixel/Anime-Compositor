@@ -381,6 +381,9 @@ pub struct Sweep {
     pub from: f64,
     pub weigh: Weigh,
     pub density: f64,
+    /// D-987: Fast Zoom Blur's fall, each sample weighed by its scale to this power in place of
+    /// `(n - k) / n`; `None` for the others.
+    pub fall: Option<f64>,
 }
 
 /// D-838: Radial Blur's own pass, `(amount, sweep)` for [`radial_blur`]. A zoom samples a quarter
@@ -394,6 +397,7 @@ pub(crate) fn radial_pass(spin: bool, amount: f64) -> (f64, Option<Sweep>) {
         from: amount / 4.0,
         weigh: Weigh::Even,
         density: 1.0,
+        fall: None,
     };
     (amount / 2.0, Some(sweep))
 }
@@ -453,6 +457,7 @@ pub(crate) fn radial_blur(
     let src = &*source;
     let turns = radial_turns(spin, amount, sweep.map(|s| s.from));
     let (weigh, density) = sweep.map_or((Weigh::Even, 1.0), |s| (s.weigh, s.density));
+    let fall = sweep.and_then(|s| s.fall);
     // P-17: the box round everything drawn, in pixel edges and a pixel wider each side. A path
     // that stays outside it takes nothing but empty samples, whose average is the empty pixel
     // the output already holds, so it is not walked.
@@ -552,7 +557,8 @@ pub(crate) fn radial_blur(
                     // D-109: repeated, a point off the picture reads its edge.
                     let (sx, sy) = if held { hold(sx, sy) } else { (sx, sy) };
                     let s = sample_bilinear(src, sx, sy);
-                    let f = (n - k) as f64;
+                    // D-987: a zoom's `a` is the sample's scale.
+                    let f = fall.map_or((n - k) as f64, |m| n as f64 * a.powf(m));
                     for i in 0..4 {
                         let v = s[i] as f64;
                         match weigh {

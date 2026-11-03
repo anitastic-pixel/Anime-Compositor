@@ -8,23 +8,23 @@ B-241, after CycoreFX's CC Radial Fast Blur: each pixel reads back along the lin
 | --- | --- | --- |
 | FX-FASTZOOM-001 frame 0: Standard, amount 50 (the default), about the middle: every edge streaks outward, fading as it runs. | largest difference 1.9e-7 | yes |
 | FX-FASTZOOM-001: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-FASTZOOM-002 frame 0: Brightest: only light streaks; the skin block streaks outward over the clear pixels round it, the dark line, with only clear pixels behind it, is kept, and nothing grows darker anywhere. | largest difference 2.5e-7 | yes |
+| FX-FASTZOOM-002 frame 0: Brightest: only light streaks; the skin block streaks outward over the clear pixels round it, the dark line, with only clear pixels behind it, is kept, and nothing grows darker anywhere. | largest difference 1.9e-7 | yes |
 | FX-FASTZOOM-002: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-FASTZOOM-003 frame 0: Darkest: only dark streaks; the line down the left edge, with clear pixels behind it, fades to a quarter, the skin block, whose streaks run back over itself, is kept, and nothing grows lighter. | largest difference 1.9e-7 | yes |
+| FX-FASTZOOM-003 frame 0: Darkest: only dark streaks; the line down the left edge, with clear pixels behind it, fades a little (D-987: at 50 the streak is short), the skin block, whose streaks run back over itself, is kept, and nothing grows lighter. | largest difference 1.9e-7 | yes |
 | FX-FASTZOOM-003: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-FASTZOOM-004 frame 0: Amount 0: the drawing, untouched. | largest difference 1.9e-7 | yes |
 | FX-FASTZOOM-004: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-FASTZOOM-005 frame 0: Standard, amount 100, the most: each pixel reads all the way back to the centre. | largest difference 2.5e-7 | yes |
 | FX-FASTZOOM-005: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-FASTZOOM-006 frame 0: Brightest about centre 25, 50, the point (4, 5): the block streaks right, away from it. | largest difference 2.5e-7 | yes |
+| FX-FASTZOOM-006 frame 0: Brightest about centre 25, 50, the point (4, 5): the block streaks right, away from it. | largest difference 1.9e-7 | yes |
 | FX-FASTZOOM-006: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-FASTZOOM-007 frame 0: Amount keyed from 0 at frame 0 to 80 at frame 4, brightest, linear. | largest difference 1.9e-7 | yes |
-| FX-FASTZOOM-007 frame 2: Amount keyed from 0 at frame 0 to 80 at frame 4, brightest, linear. | largest difference 2.5e-7 | yes |
-| FX-FASTZOOM-007 frame 4: Amount keyed from 0 at frame 0 to 80 at frame 4, brightest, linear. | largest difference 2.5e-7 | yes |
+| FX-FASTZOOM-007 frame 2: Amount keyed from 0 at frame 0 to 80 at frame 4, brightest, linear. | largest difference 1.9e-7 | yes |
+| FX-FASTZOOM-007 frame 4: Amount keyed from 0 at frame 0 to 80 at frame 4, brightest, linear. | largest difference 1.9e-7 | yes |
 | FX-FASTZOOM-007: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-FASTZOOM-008 frame 0: Centre keyed from 0, 50 at frame 0 to 100, 50 at frame 4, brightest amount 80, as a light passing along a line of text. | largest difference 2.5e-7 | yes |
-| FX-FASTZOOM-008 frame 2: Centre keyed from 0, 50 at frame 0 to 100, 50 at frame 4, brightest amount 80, as a light passing along a line of text. | largest difference 2.5e-7 | yes |
-| FX-FASTZOOM-008 frame 4: Centre keyed from 0, 50 at frame 0 to 100, 50 at frame 4, brightest amount 80, as a light passing along a line of text. | largest difference 2.5e-7 | yes |
+| FX-FASTZOOM-008 frame 0: Centre keyed from 0, 50 at frame 0 to 100, 50 at frame 4, brightest amount 80, as a light passing along a line of text. | largest difference 1.9e-7 | yes |
+| FX-FASTZOOM-008 frame 2: Centre keyed from 0, 50 at frame 0 to 100, 50 at frame 4, brightest amount 80, as a light passing along a line of text. | largest difference 1.9e-7 | yes |
+| FX-FASTZOOM-008 frame 4: Centre keyed from 0, 50 at frame 0 to 100, 50 at frame 4, brightest amount 80, as a light passing along a line of text. | largest difference 1.9e-7 | yes |
 | FX-FASTZOOM-008: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-FASTZOOM-009 frame 0: Standard, moved three pixels right: the centre moves with the drawing, and nothing is drawn left of it. | largest difference 1.9e-7 | yes |
 | FX-FASTZOOM-009: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
@@ -106,45 +106,45 @@ B-241, after CycoreFX's CC Radial Fast Blur: each pixel reads back along the lin
 | fx_fastzoom_003.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 10 of 10 frames; the same warnings: true | yes |
 | fx_fastzoom_004.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 10 of 10 frames; the same warnings: true | yes |
 | fx_fastzoom_005.json, frames 0 to 4 at Full and Draft | largest difference 1 of 255; on the card in 10 of 10 frames; the same warnings: true | yes |
-| fx_fastzoom_006.json, frames 0 to 4 at Full and Draft | largest difference 1 of 255; on the card in 10 of 10 frames; the same warnings: true | yes |
-| fx_fastzoom_007.json, frames 0 to 4 at Full and Draft | largest difference 1 of 255; on the card in 10 of 10 frames; the same warnings: true | yes |
-| fx_fastzoom_008.json, frames 0 to 4 at Full and Draft | largest difference 1 of 255; on the card in 10 of 10 frames; the same warnings: true | yes |
+| fx_fastzoom_006.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 10 of 10 frames; the same warnings: true | yes |
+| fx_fastzoom_007.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 10 of 10 frames; the same warnings: true | yes |
+| fx_fastzoom_008.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 10 of 10 frames; the same warnings: true | yes |
 | fx_fastzoom_009.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 10 of 10 frames; the same warnings: true | yes |
 | fx_fastzoom_010.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 0 of 10 frames; the same warnings: true | yes |
 | fx_fastzoom_011.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 0 of 10 frames; the same warnings: true | yes |
 | fx_fastzoom_012.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 0 of 10 frames; the same warnings: true | yes |
 | fx_fastzoom_013.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 0 of 10 frames; the same warnings: true | yes |
 | fx_fastzoom_014.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 0 of 10 frames; the same warnings: true | yes |
-| the reference shot, Fast Zoom Blur as added (amount 50, standard, about the middle): the processor's frame 100 differs from the shot without it, so the comparisons below test the effect | 2067383 pixels changed | yes |
-| the reference shot, Fast Zoom Blur as added (amount 50, standard, about the middle) on three layers, frame 0, Full | largest difference 1 of 255, 20317 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Fast Zoom Blur as added (amount 50, standard, about the middle) on three layers, frame 100, Full | largest difference 1 of 255, 20572 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Fast Zoom Blur as added (amount 50, standard, about the middle) on three layers, frame 239, Full | largest difference 1 of 255, 19831 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Fast Zoom Blur as added (amount 50, standard, about the middle) on three layers, frame 0, Draft | largest difference 1 of 255, 1054 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Fast Zoom Blur as added (amount 50, standard, about the middle) on three layers, frame 100, Draft | largest difference 1 of 255, 1013 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Fast Zoom Blur as added (amount 50, standard, about the middle) on three layers, frame 239, Draft | largest difference 1 of 255, 1015 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Fast Zoom Blur amount 80, brightest, about 20, 30: the processor's frame 100 differs from the shot without it, so the comparisons below test the effect | 1965476 pixels changed | yes |
-| the reference shot, Fast Zoom Blur amount 80, brightest, about 20, 30 on three layers, frame 0, Full | largest difference 1 of 255, 48344 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Fast Zoom Blur amount 80, brightest, about 20, 30 on three layers, frame 100, Full | largest difference 1 of 255, 48366 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Fast Zoom Blur amount 80, brightest, about 20, 30 on three layers, frame 239, Full | largest difference 1 of 255, 47214 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Fast Zoom Blur amount 80, brightest, about 20, 30 on three layers, frame 0, Draft | largest difference 1 of 255, 4347 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Fast Zoom Blur amount 80, brightest, about 20, 30 on three layers, frame 100, Draft | largest difference 1 of 255, 3063 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Fast Zoom Blur amount 80, brightest, about 20, 30 on three layers, frame 239, Draft | largest difference 1 of 255, 4437 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Fast Zoom Blur amount 30, darkest, about 70, 60: the processor's frame 100 differs from the shot without it, so the comparisons below test the effect | 1966058 pixels changed | yes |
-| the reference shot, Fast Zoom Blur amount 30, darkest, about 70, 60 on three layers, frame 0, Full | largest difference 1 of 255, 34333 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Fast Zoom Blur amount 30, darkest, about 70, 60 on three layers, frame 100, Full | largest difference 1 of 255, 33606 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Fast Zoom Blur amount 30, darkest, about 70, 60 on three layers, frame 239, Full | largest difference 1 of 255, 33242 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Fast Zoom Blur amount 30, darkest, about 70, 60 on three layers, frame 0, Draft | largest difference 1 of 255, 5307 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Fast Zoom Blur amount 30, darkest, about 70, 60 on three layers, frame 100, Draft | largest difference 1 of 255, 5096 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Fast Zoom Blur amount 30, darkest, about 70, 60 on three layers, frame 239, Draft | largest difference 1 of 255, 5484 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Fast Zoom Blur as added (amount 50, standard, about the middle): the processor's frame 100 differs from the shot without it, so the comparisons below test the effect | 1936207 pixels changed | yes |
+| the reference shot, Fast Zoom Blur as added (amount 50, standard, about the middle) on three layers, frame 0, Full | largest difference 1 of 255, 25356 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Fast Zoom Blur as added (amount 50, standard, about the middle) on three layers, frame 100, Full | largest difference 1 of 255, 24816 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Fast Zoom Blur as added (amount 50, standard, about the middle) on three layers, frame 239, Full | largest difference 1 of 255, 24627 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Fast Zoom Blur as added (amount 50, standard, about the middle) on three layers, frame 0, Draft | largest difference 1 of 255, 1483 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Fast Zoom Blur as added (amount 50, standard, about the middle) on three layers, frame 100, Draft | largest difference 1 of 255, 1388 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Fast Zoom Blur as added (amount 50, standard, about the middle) on three layers, frame 239, Draft | largest difference 1 of 255, 1408 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Fast Zoom Blur amount 80, brightest, about 20, 30: the processor's frame 100 differs from the shot without it, so the comparisons below test the effect | 1898387 pixels changed | yes |
+| the reference shot, Fast Zoom Blur amount 80, brightest, about 20, 30 on three layers, frame 0, Full | largest difference 1 of 255, 41200 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Fast Zoom Blur amount 80, brightest, about 20, 30 on three layers, frame 100, Full | largest difference 1 of 255, 40906 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Fast Zoom Blur amount 80, brightest, about 20, 30 on three layers, frame 239, Full | largest difference 1 of 255, 40655 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Fast Zoom Blur amount 80, brightest, about 20, 30 on three layers, frame 0, Draft | largest difference 1 of 255, 4271 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Fast Zoom Blur amount 80, brightest, about 20, 30 on three layers, frame 100, Draft | largest difference 1 of 255, 3642 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Fast Zoom Blur amount 80, brightest, about 20, 30 on three layers, frame 239, Draft | largest difference 1 of 255, 4378 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Fast Zoom Blur amount 30, darkest, about 70, 60: the processor's frame 100 differs from the shot without it, so the comparisons below test the effect | 1394642 pixels changed | yes |
+| the reference shot, Fast Zoom Blur amount 30, darkest, about 70, 60 on three layers, frame 0, Full | largest difference 1 of 255, 26017 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Fast Zoom Blur amount 30, darkest, about 70, 60 on three layers, frame 100, Full | largest difference 1 of 255, 26177 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Fast Zoom Blur amount 30, darkest, about 70, 60 on three layers, frame 239, Full | largest difference 1 of 255, 25383 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Fast Zoom Blur amount 30, darkest, about 70, 60 on three layers, frame 0, Draft | largest difference 1 of 255, 7686 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Fast Zoom Blur amount 30, darkest, about 70, 60 on three layers, frame 100, Draft | largest difference 1 of 255, 7702 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Fast Zoom Blur amount 30, darkest, about 70, 60 on three layers, frame 239, Draft | largest difference 1 of 255, 7715 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 
 ## Pictures: light streaking out of a title, in `verification/D-362 pictures/`
 
 | Check | The build's answer | Matches |
 | --- | --- | --- |
 | before.png, the title with no effect; draws cleanly | [] | yes |
-| standard_50.png, Fast Zoom Blur as it starts, amount 50, standard: the letters streak outward, fading, and the card's blue streaks in over them, so pixels both lighten and darken; draws cleanly | [], 7042 pixels lighter, 1824 darker | yes |
-| brightest_40.png, amount 40, brightest, about a light up and left of the title: light rays thrown down and right from every letter over the card, and no pixel darker; draws cleanly | [], 4797 pixels lighter, 0 darker | yes |
-| darkest_40.png, amount 40, darkest: the card's blue eats into the letters' edges and slits, away from the centre, and no pixel lighter; draws cleanly | [], 0 pixels lighter, 1800 darker | yes |
+| standard_50.png, Fast Zoom Blur as it starts, amount 50, standard: the letters streak outward, fading, and the card's blue streaks in over them, so pixels both lighten and darken; draws cleanly | [], 2028 pixels lighter, 808 darker | yes |
+| brightest_40.png, amount 40, brightest, about a light up and left of the title: light rays thrown down and right from every letter over the card, and no pixel darker; draws cleanly | [], 1455 pixels lighter, 0 darker | yes |
+| darkest_40.png, amount 40, darkest: the card's blue eats into the letters' edges and slits, away from the centre, and no pixel lighter; draws cleanly | [], 0 pixels lighter, 750 darker | yes |
 
 ## Result
 

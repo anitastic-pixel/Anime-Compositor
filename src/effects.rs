@@ -16187,6 +16187,7 @@ impl Effect {
             from,
             weigh,
             density,
+            fall: None,
         };
         match self {
             Effect::SpinZoomBlur {
@@ -16206,14 +16207,16 @@ impl Effect {
                 };
                 Some((spin, sweep(from, weigh, quality / 50.0)))
             }
-            Effect::FastZoomBlur { zoom, .. } => {
+            Effect::FastZoomBlur { zoom, amount, .. } => {
                 let weigh = match zoom.as_str() {
                     "standard" => Weigh::Fading,
                     "brightest" => Weigh::Brightest,
                     "darkest" => Weigh::Darkest,
                     _ => return None,
                 };
-                Some((false, sweep(0.0, weigh, 1.0)))
+                // D-987: the fall, m = 30 (100 - A) / A; amount 0 draws one sample.
+                let fall = (*amount > 0.0).then(|| 30.0 * (100.0 - amount) / amount);
+                Some((false, Sweep { fall, ..sweep(0.0, weigh, 1.0) }))
             }
             _ => None,
         }
@@ -16233,6 +16236,7 @@ pub(crate) fn burst_sweep(burst: &str, ray_length: f64) -> crate::blurs::Sweep {
         from,
         weigh,
         density: 1.0,
+        fall: None,
     }
 }
 
