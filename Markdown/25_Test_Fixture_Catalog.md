@@ -26379,6 +26379,32 @@ Frame 0: every pixel is the drawing's, unchanged.
 Frame 4: every pixel is the drawing's, unchanged.
 
 
+### Hue/Saturation's Channel Range (D-1006)
+
+Each colour range's four handles (B-886): `tools/hue_saturation_range_reference.py` writes `expected_hue_saturation_range.json` and `fx_huesat_037.json` to `fx_huesat_047.json` in `Fixtures/hue_saturation/`, on D-307's wheel drawing (`media/wheel.png`; columns 1 to 12 are hues 0, 30 ... 330). Every pixel of each frame is linear premultiplied, with the tolerance of FX-HUESAT-001. The rule is in document 21 (D-1006). The tool checks each case's claim: the defaults equal D-307 hue by hue; for each case it checks which columns are fully graded, which half graded, and which are kept. Checked by `tests/b886_hue_saturation_range.rs`.
+
+FX-HUESAT-037 (`fx_huesat_037.json`): All six Channel Ranges written at After Effects' own (reds 315, 345, 15, 45 and so on round the wheel) with the greens hue +90, saturation -40, lightness +10: the same as FX-HUESAT-024, which leaves them out. Frames 0.
+
+FX-HUESAT-038 (`fx_huesat_038.json`): Reds widened to 275, 320, 35, 85, saturation -100: red (0), orange (30) and rose (330) turn fully grey; magenta (300) and yellow (60) lose half their colour; yellow-green (90) to violet (270) stay. Frames 0.
+
+FX-HUESAT-039 (`fx_huesat_039.json`): Yellows narrowed to 50, 55, 65, 70, saturation -100: only yellow (60) turns grey; orange (30) and yellow-green (90), half-taken at the default, now stay. Frames 0.
+
+FX-HUESAT-040 (`fx_huesat_040.json`): Blues 180, 240, 240, 300, a full range of one hue, lightness -50: blue (240) darkens fully; azure (210) and violet (270) half; cyan (180) and magenta (300) stay. Frames 0.
+
+FX-HUESAT-041 (`fx_huesat_041.json`): Greens 85, 85, 155, 155, no fade, hue +60: yellow-green (90), green (120) and spring green (150) all turn 60 degrees; yellow (60) and cyan (180) stay. Frames 0.
+
+FX-HUESAT-042 (`fx_huesat_042.json`): Reds widened to 240, 300, 60, 120 over the yellows at their own, both saturation -50: yellow (60) is fully in both, so it takes -100 and turns grey; overlapping ranges add. Frames 0.
+
+FX-HUESAT-043 (`fx_huesat_043.json`): Magentas dragged round to 330, 0, 35, 55, saturation -100: red (0) and orange (30) turn grey; magenta (300), its own colour, stays. Frames 0.
+
+FX-HUESAT-044 (`fx_huesat_044.json`): Reds 45, 15, 345, 315, the handles backwards, more than one turn. The file is read, the effect is kept as written and left out of every frame, with a warning. Frames 0, 4. Warning `EFFECT_PARAMETER_INVALID`.
+
+FX-HUESAT-045 (`fx_huesat_045.json`): A greens handle at 361, past 360. The file is read, the effect is kept as written and left out of every frame, with a warning. Frames 0, 4. Warning `EFFECT_PARAMETER_INVALID`.
+
+FX-HUESAT-046 (`fx_huesat_046.json`): A cyans handle at -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Frames 0, 4. Warning `EFFECT_PARAMETER_INVALID`.
+
+FX-HUESAT-047 (`fx_huesat_047.json`): Blues with three handles, not four. The file is read, the effect is kept as written and left out of every frame, with a warning. Frames 0, 4. Warning `EFFECT_PARAMETER_INVALID`.
+
 ## Gradient fixtures
 
 D-114, accepted on 2026-09-26. Every case is a project of one composition 16 by 10 at 24 fps, five frames long, in `Fixtures/gradient/`, holding one drawing the same size with one Gradient (`core.gradient`) on it, unmoved unless the case says. The drawing is `Fixtures/gradient/media/cel.png`, a cel: a box of line #1e1a24 in columns 2 to 14 and rows 1 to 8, filled with skin #f6d6be, its columns 10 to 13 in shadow #dca08c, with the line at half covering down column 1 as its antialiased edge; column 0, column 15 and rows 0 and 9 are empty. Values are linear premultiplied working values, and only the pixels that change are listed: every other pixel is the drawing's own, exactly.
