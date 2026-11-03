@@ -627,3 +627,15 @@ fn directional_taper_ends_typed_in_the_panel_reaches_the_blur() {
     assert!(said.starts_with("Set ") || said.starts_with("Change "), "{said}");
     assert_eq!(taper(&viewer), "on");
 }
+
+#[test]
+fn b845_remove_grain_is_added_with_three_passes() {
+    // D-965: After Effects adds Remove Grain with Passes 3 (the playlist's tutorial, 2:00).
+    match new_effect(REMOVE_GRAIN).expect("a Remove Grain") {
+        Effect::RemoveGrain { passes, noise_reduction, .. } => {
+            assert_eq!(passes, 3.0);
+            assert_eq!(noise_reduction, 1.0);
+        }
+        other => panic!("{other:?}"),
+    }
+}

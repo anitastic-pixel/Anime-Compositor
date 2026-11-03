@@ -6432,10 +6432,10 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             map: None,
         }),
         // D-455: After Effects' starting values for the controls built: Noise Reduction 1,
-        // one pass, Multichannel, no Unsharp Mask (amount 0, radius 1, threshold 0).
+        // Multichannel, no Unsharp Mask (amount 0, radius 1, threshold 0); D-965: three passes.
         REMOVE_GRAIN => Some(Effect::RemoveGrain {
             noise_reduction: 1.0,
-            passes: 1.0,
+            passes: 3.0,
             mode: "multichannel".to_string(),
             unsharp_amount: 0.0,
             unsharp_radius: 1.0,
