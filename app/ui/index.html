@@ -21066,7 +21066,29 @@ $('exportformat').onchange = (e) => {
   drawRender();
   try { sessionStorage.setItem('exportformat', e.target.value); } catch (err) { /* as above */ }
 };
+// D-971: what an MP4 of the work area will weigh, as After Effects' Est. Final File Size: the
+// bits a second `mp4_out::bitrate` asks of the encoder, plus 192 kilobits a second of sound when
+// a switched-on sound layer is heard (`audio::has_sound`), over the work area's length. The
+// encoder spends up to that and less on flat pictures (B-22b's 22 frames of the reference shot at
+// Standard weigh about two fifths of it), so it is said as "up to". Other formats weigh what the
+// picture makes them, so none is said for them.
+function filmSize() {
+  const comp = composition();
+  if (!comp || $('exportformat').value !== 'mp4') return '';
+  const { numerator: num, denominator: den } = comp.frame_rate;
+  const k = { preview: 100, standard: 200, high: 500 }[$('filmquality').value];
+  const video = Math.min(1e8, Math.max(1e6, Math.floor(comp.width * comp.height * num * k / (den * 1000))));
+  const heard = (c, above) => !above.includes(c.id) && (c.layers || []).some((l) => l.enabled !== false
+    && (l.kind === 'audio' || (l.composition_id && (doc.project.compositions || [])
+      .some((n) => n.id === l.composition_id && heard(n, [...above, c.id])))));
+  const bits = video + (heard(comp, []) ? 192000 : 0);
+  const [first, past] = workOf(comp);
+  const bytes = bits * (past - first) * den / num / 8;
+  const mb = bytes / (1024 * 1024);
+  return mb >= 1 ? (mb < 10 ? mb.toFixed(1) : Math.round(mb)) + ' MB' : Math.max(1, Math.round(bytes / 1024)) + ' KB';
+}
 $('filmquality').onchange = (e) => {
+  drawRender();
   try { sessionStorage.setItem('filmquality', e.target.value); } catch (err) { /* as above */ }
 };
 $('gifdither').onchange = (e) => {
@@ -21147,8 +21169,10 @@ function drawRender() {
   $('rendercomp').textContent = name;
   $('renderstatus').textContent = words;
   $('renderstatus').className = kind;
+  const size = filmSize();
   $('renderout').textContent = $('exportformat').selectedOptions[0].textContent
-    + ($('anyway').checked ? ', missing drawings written' : '');
+    + ($('anyway').checked ? ', missing drawings written' : '')
+    + (size ? ', up to about ' + size : '');
   const secs = Math.round(renderMs / 1000);
   $('rendertime').textContent = renderMs ? Math.floor(secs / 60) + ':' + String(secs % 60).padStart(2, '0') : '\u2014';
   const queued = queueRows.length > 0;
