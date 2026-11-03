@@ -19957,3 +19957,6 @@ mod shown_size;
 #[cfg(test)]
 #[path = "tests/w12r.rs"]
 mod w12r;
+#[cfg(test)]
+#[path = "tests/w12t.rs"]
+mod w12t;

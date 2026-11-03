@@ -1970,6 +1970,8 @@
     <button data-run="Centre the selected layers"></button>
     <button data-run="Centre the anchor in the layer"></button>
     <button data-run="Fit the layer to the composition"></button>
+    <button data-run="Flip the layer horizontally"></button>
+    <button data-run="Flip the layer vertically"></button>
     <hr>
     <button data-run="Layer style: Drop Shadow"></button>
     <button data-run="Layer style: Inner Shadow"></button>
@@ -5795,6 +5797,8 @@ function paletteLines() {
     ['Centre the selected layers', 'Ctrl+Home', { key: 'Home', ctrlKey: true }],
     ['Centre the anchor in the layer', 'Ctrl+Alt+Home', { key: 'Home', ctrlKey: true, altKey: true }],
     ['Fit the layer to the composition', 'Ctrl+Alt+F', { key: 'f', code: 'KeyF', ctrlKey: true, altKey: true }],
+    ['Flip the layer horizontally', '', () => flipLayers(0)],
+    ['Flip the layer vertically', '', () => flipLayers(1)],
     // D-922: After Effects' Layer > Layer Styles, on every selected layer, and its Global Light.
     ['Layer style: Drop Shadow', '', () => applyToLayers('core.style_drop_shadow', selection.filter((id) => takesEffects(layerById(id))))],
     ['Layer style: Inner Shadow', '', () => applyToLayers('core.style_inner_shadow', selection.filter((id) => takesEffects(layerById(id))))],
@@ -8081,6 +8085,27 @@ for (const [row, word] of [['', 'Align'], ['dist', 'Distribute']]) {
     group.append(b);
   }
   $('align').append(group);
+}
+// ---- B-868 begin
+// D-988: After Effects' Layer > Transform > Flip Horizontal or Vertical (lO54j6So7dA 2:23): the
+// Scale's width or height turned over, so each layer mirrors about its anchor; again turns it back.
+function flipSends(chosen, axis, at) {
+  return chosen.map((layer) => {
+    const s = transformValue(layer, 'scale').slice();
+    s[axis] = -s[axis];
+    return '/property.set_base?layer=' + encodeURIComponent(layer.id) + '&frame=' + at + '&drag=1&prop=scale&value='
+      + encodeURIComponent(s.map(number).join(','));
+  });
+}
+// ---- B-868 end
+function flipLayers(axis) {
+  const sends = flipSends(movable(), axis, frame);
+  $('status').textContent = sends.length ? '' : 'Select an unlocked layer first.';
+  if (!sends.length) return null;
+  return nudge = nudge.then(async () => {
+    for (const request of sends) await command(request);
+    await command('/property.drag_end');
+  });
 }
 function alignLayers(how, chosen = movable()) {
   const comp = composition();

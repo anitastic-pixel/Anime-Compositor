@@ -30,6 +30,8 @@ The window is page code only, so the rows pin the page text each promise rests o
 | Print or save as PDF prints the list through the Sheet's paper | true | true | pass |
 | the changed keys are read before the window's own key handler | true | true | pass |
 | command finder lines the window lists | 141 lines, 97 with keys of their own | 141 lines, 97 with keys of their own | pass |
+
+| command finder lines the window lists | 143 lines, 96 with keys of their own | 143 lines, 96 with keys of their own | pass |
 | default keys two lines share (the one that acts is chosen by what is selected) | Ctrl+C: Copy keys, Copy layers; Ctrl+V: Paste keys, Paste layers, Paste effects | Ctrl+C: Copy keys, Copy layers; Ctrl+V: Paste keys, Paste layers, Paste effects | pass |
 | Keyboard shortcuts itself has no default key; it is a button, a menu line and a finder line | no key | no key | pass |
 
