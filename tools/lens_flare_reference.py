@@ -5,8 +5,11 @@ makes shining into a camera lens, laid over the layer. Adobe names the controls 
 Flare Brightness, Lens Type with 50-300mm Zoom, 35mm Prime and 105mm Prime, Blend With Original)
 and publishes no formula; the parts it is built from are the ones `docs/effects/PLUGINS.md` (pick
 #9, Optical Flares) lists: glows, streaks, rings and ghosts along the flare's axis. The rule and
-each lens's parts below are this program's own; nothing is ported, and After Effects' look is
-not matched pixel for pixel.
+each lens's parts below are this program's own; nothing is ported. D-985 (2026-11-03) re-measured
+each lens's parts from After Effects' own output in three tutorial stills (uPa-5UmDEec at 1:06 and
+81oz2rtAtYk at 5:31, the 105mm prime; oTvDbIZsQoE at 2:05, the zoom; 81oz2rtAtYk at 5:25, the
+35mm prime): each glow's radius and level from the light's fall-off round the flare, each ghost's
+place, size and colour from the still, the light read back to linear. Close, not pixel for pixel.
 
 With the holder's input O (linear, premultiplied), W by H its drawing, p a pixel's centre:
 
@@ -64,32 +67,53 @@ GLOW, RING, DISC, STAR = 0, 1, 2, 3
 # src/layer_fx.rs (FLARE_LENSES).
 LENSES = {
     "zoom": [
-        (GLOW, 0.0, 0.012, 0.0, 0, 2.0, 2.0, 2.0),
-        (GLOW, 0.0, 0.06, 0.0, 0, 1.0, 0.75, 0.45),
-        (RING, 0.0, 0.2, 0.012, 0, 0.12, 0.18, 0.3),
-        (STAR, 0.0, 0.1, 40.0, 6, 0.5, 0.45, 0.4),
-        (DISC, 0.45, 0.02, 0.006, 0, 0.1, 0.18, 0.35),
-        (DISC, 0.7, 0.045, 0.01, 0, 0.12, 0.3, 0.12),
-        (DISC, 1.2, 0.03, 0.008, 0, 0.35, 0.2, 0.08),
-        (DISC, 1.5, 0.08, 0.02, 0, 0.08, 0.08, 0.25),
-        (DISC, 1.8, 0.015, 0.005, 0, 0.4, 0.1, 0.1),
-        (RING, 2.0, 0.1, 0.008, 0, 0.1, 0.25, 0.15),
+        (GLOW, 0.0, 0.006, 0.0, 0, 0.6, 0.6, 0.6),
+        (GLOW, 0.0, 0.0266, 0.0, 0, 0.6, 0.75, 0.75),
+        (GLOW, 0.0, 0.069, 0.0, 0, 0.48, 0.12, 0.1),
+        (GLOW, 0.0, 0.22, 0.0, 0, 0.035, 0.02, 0.016),
+        (RING, 0.0, 0.078, 0.0058, 0, 0.13, 0.012, 0.004),
+        (DISC, -0.3, 0.035, 0.006, 0, 0.06, 0.04, 0.03),
+        (DISC, 0.62, 0.03, 0.006, 0, 0.01, 0.015, 0.035),
+        (DISC, 0.81, 0.018, 0.004, 0, 0.06, 0.023, 0.01),
+        (DISC, 1.0, 0.004, 0.003, 0, 0.38, 0.27, 0.26),
+        (DISC, 1.28, 0.0036, 0.003, 0, 0.1, 0.25, 0.18),
+        (DISC, 1.39, 0.032, 0.004, 0, 0.07, 0.025, 0.0),
+        (DISC, 1.47, 0.063, 0.004, 0, 0.042, 0.027, 0.0),
+        (DISC, 1.66, 0.027, 0.004, 0, 0.005, 0.035, 0.15),
+        (DISC, 2.02, 0.09, 0.03, 0, 0.004, 0.005, 0.001),
+        (RING, 2.02, 0.088, 0.006, 0, 0.006, 0.007, 0.001),
+        (RING, 2.38, 0.169, 0.003, 0, 0.006, 0.004, 0.0),
+        (RING, 2.38, 0.175, 0.003, 0, 0.002, 0.0, 0.006),
     ],
     "35mm": [
-        (GLOW, 0.0, 0.01, 0.0, 0, 2.0, 2.0, 2.0),
-        (GLOW, 0.0, 0.04, 0.0, 0, 1.0, 0.85, 0.65),
-        (STAR, 0.0, 0.06, 60.0, 8, 0.4, 0.4, 0.4),
-        (DISC, 0.5, 0.025, 0.006, 0, 0.1, 0.22, 0.4),
-        (DISC, 1.3, 0.05, 0.012, 0, 0.2, 0.12, 0.35),
-        (DISC, 1.7, 0.02, 0.005, 0, 0.4, 0.25, 0.1),
+        (GLOW, 0.0, 0.006, 0.0, 0, 0.4, 0.4, 0.4),
+        (GLOW, 0.0, 0.028, 0.0, 0, 0.7, 0.73, 0.7),
+        (GLOW, 0.0, 0.075, 0.0, 0, 0.34, 0.058, 0.079),
+        (GLOW, 0.0, 0.3, 0.0, 0, 0.016, 0.008, 0.007),
+        (RING, 0.0, 0.073, 0.0055, 0, 0.045, 0.005, 0.012),
+        (DISC, -0.45, 0.035, 0.008, 0, 0.08, 0.04, 0.05),
+        (DISC, 1.0, 0.004, 0.003, 0, 0.1, 0.1, 0.085),
+        (DISC, 1.25, 0.004, 0.003, 0, 0.15, 0.19, 0.1),
+        (DISC, 1.48, 0.057, 0.004, 0, 0.04, 0.033, 0.0),
+        (DISC, 1.69, 0.022, 0.004, 0, 0.017, 0.012, 0.07),
+        (DISC, 2.0, 0.088, 0.01, 0, 0.01, 0.015, 0.003),
+        (RING, 2.29, 0.17, 0.003, 0, 0.008, 0.008, 0.008),
     ],
     "105mm": [
-        (GLOW, 0.0, 0.015, 0.0, 0, 2.5, 2.5, 2.5),
-        (GLOW, 0.0, 0.07, 0.0, 0, 1.2, 0.85, 0.5),
-        (RING, 0.0, 0.11, 0.02, 0, 0.18, 0.1, 0.04),
-        (STAR, 0.0, 0.14, 30.0, 12, 0.6, 0.55, 0.45),
-        (DISC, 0.6, 0.03, 0.008, 0, 0.08, 0.18, 0.4),
-        (DISC, 1.4, 0.06, 0.015, 0, 0.35, 0.15, 0.06),
+        (GLOW, 0.0, 0.006, 0.0, 0, 0.5, 0.5, 0.5),
+        (GLOW, 0.0, 0.0328, 0.0, 0, 0.66, 0.68, 0.66),
+        (GLOW, 0.0, 0.07, 0.0, 0, 0.33, 0.36, 0.5),
+        (GLOW, 0.0, 0.2, 0.0, 0, 0.07, 0.065, 0.058),
+        (DISC, -1.48, 0.0073, 0.003, 0, 0.08, 0.21, 0.13),
+        (DISC, 1.0, 0.004, 0.003, 0, 0.22, 0.13, 0.16),
+        (GLOW, 1.54, 0.012, 0.0, 0, 0.17, 0.18, 0.06),
+        (DISC, 2.14, 0.011, 0.003, 0, 0.52, 0.45, 0.29),
+        (DISC, 2.37, 0.012, 0.003, 0, 0.19, 0.35, 0.37),
+        (RING, 2.37, 0.012, 0.002, 0, 0.0, 0.05, 0.25),
+        (DISC, 2.88, 0.071, 0.02, 0, 0.012, 0.012, 0.005),
+        (RING, 2.88, 0.068, 0.008, 0, 0.008, 0.012, 0.003),
+        (GLOW, 1.7, 0.12, 0.0, 0, 0.008, 0.004, 0.003),
+        (DISC, 3.0, 0.036, 0.008, 0, 0.008, 0.008, 0.004),
     ],
 }
 
@@ -173,8 +197,8 @@ def plain(c):
 
 CASES = {
     "FX-FLARE-001": ("As added: the 50-300mm zoom flare at 30, 30 per cent, brightness 100: a "
-                     "white-hot core and a warm glow round (4.8, 3), six faint rays, a blue "
-                     "halo, and coloured ghosts along the line through the middle.", case(), (0,)),
+                     "white-hot core in a soft red bloom round (4.8, 3), a thin red ring, and "
+                     "faint coloured ghosts along the line through the middle.", case(), (0,)),
     "FX-FLARE-002": ("The flare at the middle, 50, 50: every ghost sits on the flare itself, "
                      "so the picture is round about the middle.",
                      case(flare_center=(50, 50)), (0,)),
@@ -182,10 +206,10 @@ CASES = {
                      case(flare_brightness=0), (0,)),
     "FX-FLARE-004": ("Brightness 300: three times FX-FLARE-001's light.",
                      case(flare_brightness=300), (0,)),
-    "FX-FLARE-005": ("The 35mm prime: a smaller glow, eight rays, three ghosts.",
+    "FX-FLARE-005": ("The 35mm prime: a pink-red bloom, a faint red ring, a grey ring and ghosts.",
                      case(lens_type="35mm"), (0,)),
-    "FX-FLARE-006": ("The 105mm prime: a bigger, warmer glow, twelve long rays, an orange "
-                     "halo, two ghosts.", case(lens_type="105mm"), (0,)),
+    "FX-FLARE-006": ("The 105mm prime: a wide soft white-blue bloom, no rays, small bright "
+                     "ghosts and a faint large one.", case(lens_type="105mm"), (0,)),
     "FX-FLARE-007": ("Blend With Original 100: the photo untouched.",
                      case(blend_with_original=100), (0,)),
     "FX-FLARE-008": ("Blend With Original 50: halfway between FX-FLARE-001 and the photo.",

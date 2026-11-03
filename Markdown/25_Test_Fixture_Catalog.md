@@ -184738,6 +184738,8 @@ FX-DIRT-015 (`fx_dirt_015.json`): Blend Mode Add, Exposure 3: the glow not held 
 
 FX-DIRT-016 (`fx_dirt_016.json`): A dirt layer that is not in the composition, `gone`: the layer drawn without the effect, and the warning every frame. Warning `EFFECT_LAYER_MISSING`. Frames 0, 4.
 
+**D-985 changed** FX-DIRT-017, 018, 019, 021 and 022, the cases on Lens Flare, when its lenses were measured again: their first values are retired, kept in the repository's history at commit 4b868bb0; moved by at most 0.829 (FX-DIRT-017), in up to 158 pixel-frames each.
+
 FX-DIRT-017 (`fx_dirt_017.json`): Lens Flare as added on the photo with the smudge as its dirt: the smudge lit where the flare is bright, round its core at (4.8, 3) and on its ghosts. Frames 0.
 
 FX-DIRT-018 (`fx_dirt_018.json`): Lens Flare, Inherit Glow Color 100: the dirt takes the flare's colours. Frames 0.
@@ -215737,7 +215739,9 @@ FX-THREADS-028 (`fx_threads_028.json`): Texture 101, above 100. The file is read
 
 Lens Flare, After Effects' Lens Flare (Generate), `core.lens_flare` (B-305). Every case is a composition 16 by 10, eight frames at 24 a second, holding Blobbylize's drawings (`Fixtures/lens_flare/media/`: photo, shapes, ramp), the holder at the top with the effect, unmoved unless the case says. `tools/lens_flare_reference.py` works the expected frames, `Fixtures/lens_flare/expected_lens_flare.json`, tolerance 2e-5; the rule is in document 21.
 
-FX-FLARE-001 (`fx_flare_001.json`): As added: the 50-300mm zoom flare at 30, 30 per cent, brightness 100: a white-hot core and a warm glow round (4.8, 3), six faint rays, a blue halo, and coloured ghosts along the line through the middle. Frames 0.
+**D-985 changed** FX-FLARE-001, 002, 004, 005, 006 and 008 to 014: each lens's parts were measured again from After Effects' own output in three tutorial stills. Their first values are retired, kept in the repository's history at commit 4b868bb0. It moved them by at most 1.692 (FX-FLARE-004 and 012, brightness 300), the others by 0.282 to 0.862, in up to 392 pixel-frames. FX-FLARE-003, 007 and 015 to 019 do not move.
+
+FX-FLARE-001 (`fx_flare_001.json`): As added: the 50-300mm zoom flare at 30, 30 per cent, brightness 100: a white-hot core in a soft red bloom round (4.8, 3), a thin red ring, and faint coloured ghosts along the line through the middle. Frames 0.
 
 FX-FLARE-002 (`fx_flare_002.json`): The flare at the middle, 50, 50: every ghost sits on the flare itself, so the picture is round about the middle. Frames 0.
 
@@ -215745,9 +215749,9 @@ FX-FLARE-003 (`fx_flare_003.json`): Brightness 0: no light; the photo untouched.
 
 FX-FLARE-004 (`fx_flare_004.json`): Brightness 300: three times FX-FLARE-001's light. Frames 0.
 
-FX-FLARE-005 (`fx_flare_005.json`): The 35mm prime: a smaller glow, eight rays, three ghosts. Frames 0.
+FX-FLARE-005 (`fx_flare_005.json`): The 35mm prime: a pink-red bloom, a faint red ring, a grey ring and ghosts. Frames 0.
 
-FX-FLARE-006 (`fx_flare_006.json`): The 105mm prime: a bigger, warmer glow, twelve long rays, an orange halo, two ghosts. Frames 0.
+FX-FLARE-006 (`fx_flare_006.json`): The 105mm prime: a wide soft white-blue bloom, no rays, small bright ghosts and a faint large one. Frames 0.
 
 FX-FLARE-007 (`fx_flare_007.json`): Blend With Original 100: the photo untouched. Frames 0.
 
