@@ -11729,6 +11729,10 @@ const DIRT_NUMBERS = [['dirt_opacity', 'Dirt Opacity', 1, 1, 'per cent, 0 to 100
   ['dirt_gamma', 'Dirt Matte Gamma', 1, 0.01, '0.1 to 10; above 1 shows the dirt in fainter light', '', 1]];
 const DIRT_REPEAT = ['dirt_repeat', 'Dirt Repeat Edges', [['on', 'On'], ['off', 'Off']]];
 const DIRT_LAYER = ['dirt_layer', 'Dirt Layer', 'dirt_layer'];
+// D-307's six ranges; D-1006: After Effects' own Channel Range handles for range i, as
+// `hue_range_default` in `src/effects.rs` has them.
+const HUE_RANGE_NAMES = [['reds', 'Reds'], ['yellows', 'Yellows'], ['greens', 'Greens'], ['cyans', 'Cyans'], ['blues', 'Blues'], ['magentas', 'Magentas']];
+const hueRangeDefault = (i) => [-45, -15, 15, 45].map((d) => (((60 * i + d) % 360) + 360) % 360);
 const EFFECT_PARAMS = {
   'core.gaussian_blur': [['sigma_px', 'Radius σ (px)', 1, 0.1, '0 to 500 source pixels']],
   'core.exposure': [['stops', 'Exposure (stops)', 1, 0.02, '-40 to 40 stops'],
@@ -11808,7 +11812,7 @@ const EFFECT_PARAMS = {
     ['saturation', 'Saturation', 1, 0.5, '-100 to 100'],
     ['lightness', 'Lightness', 1, 0.5, '-100 to 100'],
     // D-307: After Effects' Channel Control ranges, each added where a colour's hue lies in it.
-    ...[['reds', 'Reds'], ['yellows', 'Yellows'], ['greens', 'Greens'], ['cyans', 'Cyans'], ['blues', 'Blues'], ['magentas', 'Magentas']]
+    ...HUE_RANGE_NAMES
       .map(([n, w]) => [n + '_hsl', w, 3, 1, 'hue -180 to 180, saturation and lightness -100 to 100', '', [0, 0, 0]]),
     // D-776: After Effects' Colorize; on, the master and the ranges are not used.
     ['colorize_hue', 'Colorize Hue', 1, 1, '0 to 360 degrees', '', 0],
@@ -13840,6 +13844,9 @@ const EFFECT_WORDS = {
   // D-776: After Effects' Colorize.
   'core.hue_saturation': {
     choices: [['colorize', 'Colorize', [['off', 'Off'], ['on', 'On']]]],
+    // D-1006: each range's four Channel Range handles, dragged on the bars above or typed here.
+    texts: HUE_RANGE_NAMES.map(([n, w], i) => [n + '_range', w + ' Range', hueRangeDefault(i).join(', '), null,
+      'Four hue angles, 0 to 360, a comma between: where the fade in starts, where the full range starts, where it ends, and where the fade out ends']),
   },
   // D-115.
   // D-760: After Effects' Shadow Only.
@@ -15480,21 +15487,41 @@ function fxLevels(k, label) {
 // each becomes under it, worked as `src/grade.rs` works them, which is the sRGB a CSS colour is.
 function fxHues(k, label) {
   const W = 240;
-  const c = fxCanvas(W, 34, 'fxview', label + ' colour bars');
-  c.title = 'Top: the colours going in. Under it: what each one becomes';
+  const c = fxCanvas(W, 48, 'fxview', label + ' colour bars');
+  c.title = 'Top: the colours going in. Under it: what each one becomes. Under that, the chosen '
+    + 'Channel Range\'s four handles: drag one to move it';
   const g = c.getContext('2d');
+  // D-1006: After Effects' Channel Control, which range's handles the bars show; kept while the
+  // panel is drawn again after each change.
+  const pick = document.createElement('select');
+  pick.setAttribute('aria-label', label + ' Channel Control');
+  pick.title = 'Which colour range\'s Channel Range handles to show under the bars';
+  pick.append(new Option('Master', ''), ...HUE_RANGE_NAMES.map(([n, w]) => new Option(w, n)));
+  pick.value = window.hueChannel || '';
+  const mod = (v) => ((v % 360) + 360) % 360;
+  const bounds = (n, i) => {
+    const b = String(k.words[n + '_range'] || '').split(',').map(Number);
+    return b.length === 4 && b.every((v) => v >= 0 && v <= 360) ? b : hueRangeDefault(i);
+  };
+  // As `hue_range_weight` in `src/grade.rs`.
+  const weight = (h, b) => {
+    const p = mod(b[1] - b[0]);
+    const q = p + mod(b[2] - b[1]);
+    const t = q + mod(b[3] - b[2]);
+    const a = mod(h - b[0]);
+    return a < p ? a / p : a <= q ? 1 : a < t ? (t - a) / (t - q) : 0;
+  };
   const draw = () => {
     const master = ['hue', 'saturation', 'lightness'].map((n) => Number(k.fields[n][0].value));
     // D-307: each range's three, weighted as `src/grade.rs` weighs them.
-    const ranges = ['reds', 'yellows', 'greens', 'cyans', 'blues', 'magentas']
-      .map((n) => (k.fields[n + '_hsl'] || []).map((f) => Number(f.value) || 0));
+    const ranges = HUE_RANGE_NAMES.map(([n]) => (k.fields[n + '_hsl'] || []).map((f) => Number(f.value) || 0));
     const clamp = (v) => Math.min(100, Math.max(-100, v));
+    g.clearRect(0, 0, W, 48);
     for (let x = 0; x < W; x++) {
       const h = (x / W) * 360;
       const [hue, sat, light] = ranges.reduce((t, r, i) => {
         if (r.length < 3) return t;
-        const d = (((h - 60 * i) % 360) + 360) % 360;
-        const w = Math.min(1, Math.max(0, (45 - Math.min(d, 360 - d)) / 30));
+        const w = weight(h, bounds(HUE_RANGE_NAMES[i][0], i));
         return [t[0] + w * r[0], t[1] + w * clamp(r[1]), t[2] + w * clamp(r[2])];
       }, master.slice());
       const s = Math.min(1, Math.max(0, 1 + sat / 100)) * 100;
@@ -15505,10 +15532,57 @@ function fxHues(k, label) {
       g.fillStyle = 'hsl(' + (h + hue) + ',' + s + '%,' + l + '%)';
       g.fillRect(x, 19, 1.5, 13);
     }
+    // The chosen range: grey where it fades, white where it is whole, and its four handles.
+    const i = HUE_RANGE_NAMES.findIndex(([n]) => n === pick.value);
+    if (i < 0) return;
+    const b = held || bounds(pick.value, i);
+    for (let x = 0; x < W; x++) {
+      const w = weight((x / W) * 360, b);
+      if (w > 0) {
+        g.fillStyle = w === 1 ? '#ffffff' : '#888888';
+        g.fillRect(x, 35, 1, 3);
+      }
+    }
+    b.forEach((v, j) => {
+      const x = (v / 360) * W;
+      g.fillStyle = j === 1 || j === 2 ? '#ffffff' : '#aaaaaa';
+      g.beginPath();
+      g.moveTo(x, 36);
+      g.lineTo(x - 4, 47);
+      g.lineTo(x + 4, 47);
+      g.closePath();
+      g.fill();
+    });
   };
+  // Dragging a handle: the nearest within 8 pixels, written when let go.
+  let held = null;
+  c.onpointerdown = (e) => {
+    const i = HUE_RANGE_NAMES.findIndex(([n]) => n === pick.value);
+    if (i < 0) return;
+    const r = c.getBoundingClientRect();
+    const at = (m) => ((m.clientX - r.left) / r.width) * W;
+    held = bounds(pick.value, i).slice();
+    const near = held.map((v, j) => [Math.abs((v / 360) * W - at(e)), j]).sort((a, b) => a[0] - b[0])[0];
+    if (near[0] > 8) { held = null; return; }
+    e.preventDefault();
+    c.setPointerCapture(e.pointerId);
+    c.onpointermove = (m) => {
+      held[near[1]] = Math.round(Math.min(360, Math.max(0, (at(m) / W) * 360)));
+      draw();
+    };
+    c.onpointerup = () => {
+      c.onpointermove = c.onpointerup = null;
+      k.words[pick.value + '_range'] = held.join(', ');
+      held = null;
+      k.send();
+    };
+  };
+  pick.onchange = () => { window.hueChannel = pick.value; draw(); };
   draw();
   k.redraws.push(draw);
-  return c;
+  const box = document.createElement('div');
+  box.append(c, document.createElement('br'), 'Channel Range ', pick);
+  return box;
 }
 
 // D-121's iris, the shape one bright pixel spreads into: turned, stretched and rounded as
@@ -15918,6 +15992,10 @@ function effectRow(layer, fx, at, of) {
     // D-542: a file without them has the colours as added.
     words.inner_color ??= '#ffffff';
     words.outer_color ??= '#4080ff';
+  }
+  // D-1006: a file without a range's handles has After Effects' own.
+  if (fxKey(fx) === 'core.hue_saturation') {
+    HUE_RANGE_NAMES.forEach(([n], i) => { words[n + '_range'] ||= hueRangeDefault(i).join(', '); });
   }
   // D-747: a file without them has After Effects' Color A and Color B.
   if (fxKey(fx) === 'core.glow') {

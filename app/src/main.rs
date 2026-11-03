@@ -68,7 +68,7 @@ use anime_compositor::effects::{
     FOUR_COLOR_GRADIENT, FRACTAL, FRACTAL_NOISE, GAMMA_PEDESTAL_GAIN, GAUSSIAN_BLUR,
     GAUSSIAN_BLUR_LEGACY, GLASS, GLASS_MELT, GLOW, GLOW_WIPE, GLUE_GUN, GRADIENT, GRADIENT_MAP,
     GRADIENT_WIPE, GRID, GRIDDLER, HAIR, HAIR_SETTINGS, HAIR_WORDS, HALATION, HALFTONE, HEX_TILE,
-    HSV_KEY, HUE_RANGES, HUE_SATURATION, IDENTIFIER, ID_KEY, INNER_OUTER_KEY, INVERT, IRIS_WIPE,
+    HSV_KEY, HUE_RANGES, HUE_RANGE_BOUNDS, HUE_SATURATION, hue_range_default, IDENTIFIER, ID_KEY, INNER_OUTER_KEY, INVERT, IRIS_WIPE,
     KALEIDOSCOPE, KERNEL, KEY_CLEANER, KIRA_KIRA, LEAVE_COLOR, LENS_BLUR, LENS_FLARE, LEVELS,
     LEVELS_INDIVIDUAL, LEVELS_NAMES, LEVELS_PLAIN, LIGHTNING_BOLT, LIGHT_BURST, LIGHT_RAYS,
     LIGHT_SWEEP, LIGHT_WRAP, LINEAR_COLOR_KEY, LINEAR_WIPE, LINE_BLUR, LINE_RECOLOR, LINE_SMOOTH,
@@ -4555,6 +4555,7 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             saturation: 0.0,
             lightness: 0.0,
             ranges: [[0.0; 3]; 6],
+            bounds: std::array::from_fn(hue_range_default),
             // D-776: Colorize off at After Effects' defaults.
             colorize: "off".to_string(),
             colorize_hue: 0.0,
@@ -7968,6 +7969,22 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
                     }
                 }
                 ranges
+            },
+            // D-1006: each range's four handles with commas; one the command does not name stays
+            // at After Effects' own. Any count is kept, so a wrong one is said by the check.
+            bounds: {
+                let mut bounds: [Vec<f64>; 6] = std::array::from_fn(hue_range_default);
+                for (b, name) in bounds.iter_mut().zip(HUE_RANGE_BOUNDS) {
+                    if parameter(query, name).is_some() {
+                        let text = word(name)?;
+                        *b = text
+                            .split(',')
+                            .map(|p| p.trim().parse::<f64>())
+                            .collect::<Result<Vec<_>, _>>()
+                            .map_err(|_| format!("{name} needs four hue angles, like 315, 345, 15, 45. Not \"{text}\"."))?;
+                    }
+                }
+                bounds
             },
             // D-776: a command that does not name Colorize leaves it off at its defaults.
             colorize: word("colorize").unwrap_or_else(|_| "off".to_string()),

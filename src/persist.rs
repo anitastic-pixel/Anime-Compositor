@@ -1861,12 +1861,19 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             saturation,
             lightness,
             ranges,
+            bounds,
             colorize,
             colorize_hue,
             colorize_saturation,
             colorize_lightness,
         } => {
             params.insert("hue".into(), num(*hue));
+            // D-1006: a range's handles only once moved, or in the file already.
+            for (i, (key, b)) in crate::effects::HUE_RANGE_BOUNDS.into_iter().zip(bounds).enumerate() {
+                if *b != crate::effects::hue_range_default(i) || params.contains_key(key) {
+                    params.insert(key.into(), J::Array(b.iter().map(|v| num(*v)).collect()));
+                }
+            }
             params.insert("saturation".into(), num(*saturation));
             params.insert("lightness".into(), num(*lightness));
             // D-307: a range is written only once it is moved or keyed, or is in the file already.
@@ -9583,6 +9590,17 @@ fn parse_effect(
                     }
                 }
                 ranges
+            },
+            // D-1006: a file without a range's handles reads them at After Effects' own; any
+            // count is kept as written, so a wrong one is reported.
+            bounds: {
+                let mut bounds: [Vec<f64>; 6] = std::array::from_fn(crate::effects::hue_range_default);
+                for (b, key) in bounds.iter_mut().zip(crate::effects::HUE_RANGE_BOUNDS) {
+                    if params.and_then(|p| p.get(key)).is_some() {
+                        *b = effect_list(params, key, at)?;
+                    }
+                }
+                bounds
             },
             // D-776: a file from before Colorize reads it off at After Effects' defaults.
             colorize: effect_word_or(params, "colorize", at, "off")?,

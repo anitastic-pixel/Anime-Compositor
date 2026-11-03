@@ -18,6 +18,7 @@ fn cz(word: &str, hue: f64, saturation: f64, lightness: f64) -> Effect {
         saturation: 0.0,
         lightness: 0.0,
         ranges: [[0.0; 3]; 6],
+        bounds: std::array::from_fn(anime_compositor::effects::hue_range_default),
         colorize: word.into(),
         colorize_hue: hue,
         colorize_saturation: saturation,

@@ -18,6 +18,7 @@ fn hs(hue: f64, saturation: f64, lightness: f64) -> Effect {
         saturation,
         lightness,
         ranges: [[0.0; 3]; 6],
+        bounds: std::array::from_fn(anime_compositor::effects::hue_range_default),
         colorize: "off".into(),
         colorize_hue: 0.0,
         colorize_saturation: 25.0,

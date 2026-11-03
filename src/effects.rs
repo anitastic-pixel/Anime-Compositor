@@ -863,6 +863,8 @@ pub enum Effect {
         saturation: f64,
         lightness: f64,
         ranges: [[f64; 3]; 6],
+        /// D-1006: each range's four Channel Range handles in degrees, kept as written.
+        bounds: [Vec<f64>; 6],
         colorize: String,
         colorize_hue: f64,
         colorize_saturation: f64,
@@ -7045,6 +7047,38 @@ pub const HUE_RANGES: [&str; 6] = [
     "blues_hsl",
     "magentas_hsl",
 ];
+/// D-1006: each range's Channel Range handles as the file names them, in [`HUE_RANGES`]' order.
+pub const HUE_RANGE_BOUNDS: [&str; 6] = [
+    "reds_range",
+    "yellows_range",
+    "greens_range",
+    "cyans_range",
+    "blues_range",
+    "magentas_range",
+];
+/// D-1006: After Effects' own four handles of range `i`, the centre less 45 and 15, plus 15 and
+/// 45; they are D-307's fixed rule.
+pub fn hue_range_default(i: usize) -> Vec<f64> {
+    [-45.0, -15.0, 15.0, 45.0]
+        .iter()
+        .map(|d| (60.0 * i as f64 + d).rem_euclid(360.0))
+        .collect()
+}
+/// D-1006: what is wrong with four Channel Range handles, if anything.
+pub fn hue_range_fault(name: &str, b: &[f64]) -> Option<String> {
+    if b.len() != 4 {
+        return Some(format!("Hue/Saturation's {name} is four hue angles, and it has {}.", b.len()));
+    }
+    if let Some(v) = b.iter().find(|v| !(0.0..=360.0).contains(*v)) {
+        return Some(format!("Hue/Saturation's {name} handles are 0 to 360 degrees, and one is {v}."));
+    }
+    (crate::grade::hue_range_spans(b)[2] >= 360.0).then(|| {
+        format!(
+            "Hue/Saturation's {name} handles go round the wheel in order within one turn, and \
+             these go further."
+        )
+    })
+}
 /// D-305: what Shift Channels can take a channel from.
 pub const SHIFT_CHANNELS_FROM: [&str; 11] = [
     "alpha",
@@ -14124,6 +14158,11 @@ impl Effect {
                     "Hue/Saturation's colorize is \"on\" or \"off\", and this is \"{colorize}\"."
                 ))
             }
+            Effect::HueSaturation { bounds, .. }
+                if bounds.iter().zip(HUE_RANGE_BOUNDS).any(|(b, k)| hue_range_fault(k, b).is_some()) =>
+            {
+                bounds.iter().zip(HUE_RANGE_BOUNDS).find_map(|(b, k)| hue_range_fault(k, b))
+            }
             Effect::LensBlur { edges, .. } if !["transparent", "repeat"].contains(&edges.as_str()) => {
                 Some(format!(
                     "Lens Blur's edges are \"transparent\" or \"repeat\", and this is \"{edges}\"."
@@ -16860,9 +16899,10 @@ pub(crate) fn apply_stack_at(
                 saturation,
                 lightness,
                 ranges,
+                bounds,
                 ..
             } => crate::perf::time(crate::perf::Stage::EffectHueSaturation, || {
-                crate::grade::hue_saturation(source, *hue, *saturation, *lightness, ranges)
+                crate::grade::hue_saturation(source, *hue, *saturation, *lightness, ranges, bounds)
             }),
             // D-114: the two points are shares of the drawing's own size, as Radial Blur's
             // centre is.

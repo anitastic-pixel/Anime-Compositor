@@ -292,12 +292,14 @@ pub(crate) fn from_hsl([h, s, l]: [f64; 3]) -> [f64; 3] {
 /// D-307: each of `ranges` adds its hue, saturation and lightness, weighted by how far the
 /// pixel's hue lies inside it: fully within 15 degrees of its centre, fading to nothing at 45, so
 /// neighbouring ranges share the hues between them. A grey has no hue and takes none of them.
+/// D-1006: `bounds` move each range's four handles; at After Effects' own they are D-307's rule.
 pub(crate) fn hue_saturation(
     source: &mut WorkingBuffer,
     hue: f64,
     saturation: f64,
     lightness: f64,
     ranges: &[[f64; 3]; 6],
+    bounds: &[Vec<f64>; 6],
 ) {
     let plain = *ranges == [[0.0; 3]; 6];
     if hue == 0.0 && saturation == 0.0 && lightness == 0.0 && plain {
@@ -309,9 +311,8 @@ pub(crate) fn hue_saturation(
             [hue, saturation, lightness]
         } else {
             let mut t = [hue, saturation, lightness];
-            for (i, r) in ranges.iter().enumerate() {
-                let d = (h - 60.0 * i as f64).rem_euclid(360.0);
-                let w = ((45.0 - d.min(360.0 - d)) / 30.0).clamp(0.0, 1.0);
+            for (r, b) in ranges.iter().zip(bounds) {
+                let w = hue_range_weight(h, b);
                 t[0] += w * r[0];
                 t[1] += w * r[1].clamp(-100.0, 100.0);
                 t[2] += w * r[2].clamp(-100.0, 100.0);
@@ -329,6 +330,30 @@ pub(crate) fn hue_saturation(
             l,
         ])
     });
+}
+
+/// D-1006: four Channel Range handles measured from the first going round: where the full range
+/// starts, where it ends and where the fade out ends.
+pub(crate) fn hue_range_spans(b: &[f64]) -> [f64; 3] {
+    let p = (b[1] - b[0]).rem_euclid(360.0);
+    let q = p + (b[2] - b[1]).rem_euclid(360.0);
+    [p, q, q + (b[3] - b[2]).rem_euclid(360.0)]
+}
+
+/// D-1006: how much of a range hue `h` takes: rising from the first handle to the second, whole
+/// to the third, falling to the fourth. The handles are already valid.
+fn hue_range_weight(h: f64, b: &[f64]) -> f64 {
+    let [p, q, t] = hue_range_spans(b);
+    let a = (h - b[0]).rem_euclid(360.0);
+    if a < p {
+        a / p
+    } else if a <= q {
+        1.0
+    } else if a < t {
+        (t - a) / (t - q)
+    } else {
+        0.0
+    }
 }
 
 /// D-776: After Effects' Colorize. Every colour takes `hue` and `saturation` per cent at its own

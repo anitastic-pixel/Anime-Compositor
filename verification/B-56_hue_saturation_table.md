@@ -101,7 +101,7 @@ D-113, accepted by the owner on 2026-09-26 in the batch of ten. Every expected p
 | Check | The build's answer | Matches |
 | --- | --- | --- |
 | it grows the drawing's bounds by nothing: each pixel is regraded where it is | 0 | yes |
-| a half-size draft preview changes nothing: hue and saturation are colours, not distances | HueSaturation { hue: 60.0, saturation: -50.0, lightness: 20.0, ranges: [[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]], colorize: "off", colorize_hue: 0.0, colorize_saturation: 25.0, colorize_lightness: 0.0 } | yes |
+| a half-size draft preview changes nothing: hue and saturation are colours, not distances | HueSaturation { hue: 60.0, saturation: -50.0, lightness: 20.0, ranges: [[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [0.0, 0.0, 0.0]], bounds: [[315.0, 345.0, 15.0, 45.0], [15.0, 45.0, 75.0, 105.0], [75.0, 105.0, 135.0, 165.0], [135.0, 165.0, 195.0, 225.0], [195.0, 225.0, 255.0, 285.0], [255.0, 285.0, 315.0, 345.0]], colorize: "off", colorize_hue: 0.0, colorize_saturation: 25.0, colorize_lightness: 0.0 } | yes |
 
 ## The file
 
