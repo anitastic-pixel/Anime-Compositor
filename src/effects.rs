@@ -1597,6 +1597,10 @@ pub enum Effect {
         path: String,
         core: String,
         forks: String,
+        /// D-1051: Advanced Lightning's Core Opacity and Glow Opacity, 0 to 100, 100 in a file
+        /// from before them.
+        core_opacity: f64,
+        glow_opacity: f64,
         frame: i32,
     },
     /// D-191: `layer`, D-189's layer setting as written (a word, or kept as found and refused
@@ -10321,6 +10325,8 @@ impl Effect {
                 decay,
                 conductivity,
                 obstacle,
+                core_opacity,
+                glow_opacity,
                 ..
             } => vec![
                 ("start", start.iter_mut().collect(), -1000.0, 1000.0),
@@ -10337,6 +10343,8 @@ impl Effect {
                 ("decay", vec![decay], 0.0, 100.0),
                 ("conductivity", vec![conductivity], 0.0, 10000.0),
                 ("obstacle", vec![obstacle], -100.0, 100.0),
+                ("core_opacity", vec![core_opacity], 0.0, 100.0),
+                ("glow_opacity", vec![glow_opacity], 0.0, 100.0),
             ],
             Effect::CompoundBlur { max_blur, .. } => vec![("max_blur", vec![max_blur], 0.0, 500.0)],
             Effect::DisplacementMap {
@@ -20801,6 +20809,8 @@ pub(crate) fn apply_stack_at(
                 path,
                 core,
                 forks,
+                core_opacity,
+                glow_opacity,
                 frame,
             } => crate::perf::time(crate::perf::Stage::EffectLightningBolt, || {
                 // D-324: Alpha Obstacle reads the layer as it is, before Composite on Original.
@@ -20840,7 +20850,7 @@ pub(crate) fn apply_stack_at(
                     numbers,
                     (kind, [*turbulence, *decay, *conductivity], forks.as_str()),
                     (&blocks, *obstacle < 0.0, path == "around"),
-                    (colours, core == "soft"),
+                    (colours, core == "soft", [*core_opacity, *glow_opacity]),
                     *frame,
                 )
             }),

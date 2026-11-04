@@ -5081,6 +5081,9 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             path: "split".to_string(),
             core: "hard".to_string(),
             forks: "short".to_string(),
+            // D-1051: the full core and glow, as D-190's.
+            core_opacity: 100.0,
+            glow_opacity: 100.0,
             frame: 0,
         }),
         // D-191: After Effects' Stretch Map to Fit is on when added.
@@ -8556,6 +8559,9 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             core: word("core").unwrap_or_else(|_| "hard".to_string()),
             // D-338: the short forks, as D-190's, when the command does not say.
             forks: word("forks").unwrap_or_else(|_| "short".to_string()),
+            // D-1051: the full core and glow, as D-190's, when the command does not say.
+            core_opacity: if parameter(query, "core_opacity").is_some() { number("core_opacity")? } else { 100.0 },
+            glow_opacity: if parameter(query, "glow_opacity").is_some() { number("glow_opacity")? } else { 100.0 },
             frame: 0,
         }),
         // D-189: the request's own `layer` is the layer holding the effect, so the setting

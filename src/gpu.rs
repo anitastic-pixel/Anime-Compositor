@@ -23203,6 +23203,8 @@ impl Gpu {
                 core,
                 forks,
                 frame,
+                // D-1051: compose keeps a bolt with either below 100 off the card.
+                ..
             } => {
                 // D-324: Alpha Obstacle reads the drawing it is given; compose has a bolt with
                 // one begin its run, so that is `source`, the CPU's.

@@ -12387,9 +12387,12 @@ const EFFECT_PARAMS = {
     ['jagged', 'Jaggedness', 1, 1, '0 to 100, how far each kink is pushed aside'],
     ['detail', 'Detail', 1, 1, '1 to 8, how many times the line is halved'],
     ['branches', 'Branches', 1, 1, '0 to 100, the per cent of kinks that fork'],
-    ['width', 'Width', 1, 0.5, 'pixels, 0 to 100, the core at the start'],
-    ['glow', 'Glow', 1, 1, 'pixels, 0 to 500, how far the glow reaches'],
+    ['width', 'Width', 1, 0.5, 'pixels, 0 to 100, the core at the start, its whole width (After Effects\' Core Radius is half of it)'],
+    ['glow', 'Glow', 1, 1, 'pixels, 0 to 500, how far the glow reaches (After Effects\' Glow Radius)'],
     ['opacity', 'Opacity', 1, 1, '0 to 100'],
+    // D-1051: Advanced Lightning's; each at 100 is the bolt as before.
+    ['core_opacity', 'Core Opacity', 1, 1, '0 to 100, how much of the core is laid on; below 100 the glow shows through it', '', 100],
+    ['glow_opacity', 'Glow Opacity', 1, 1, '0 to 100, how much of the glow is laid on', '', 100],
     ['hold', 'Hold', 1, 1, 'frames, 1 to 100, how long each bolt stays'],
     ['seed', 'Seed', 1, 1, '0 to 100000, which bolts'],
     // D-324: Advanced Lightning's; each at 0 is the bolt as before.

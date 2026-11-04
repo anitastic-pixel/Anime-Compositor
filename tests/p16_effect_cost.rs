@@ -868,6 +868,8 @@ fn cases() -> Vec<(&'static str, Effect)> {
                 path: "split".into(),
                 core: "hard".into(),
                 forks: "short".into(),
+                core_opacity: 100.0,
+                glow_opacity: 100.0,
                 frame: 0,
             },
         ),

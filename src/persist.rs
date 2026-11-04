@@ -2982,6 +2982,8 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             path,
             core,
             forks,
+            core_opacity,
+            glow_opacity,
             ..
         } => {
             // D-300: written only when off or the file had it, so a file that never changed it
@@ -3012,6 +3014,12 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
                 ("obstacle", *obstacle),
             ] {
                 if value != 0.0 || instance.tracks.contains_key(key) || params.contains_key(key) {
+                    params.insert(key.into(), num(value));
+                }
+            }
+            // D-1051: the same, from 100.
+            for (key, value) in [("core_opacity", *core_opacity), ("glow_opacity", *glow_opacity)] {
+                if value != 100.0 || instance.tracks.contains_key(key) || params.contains_key(key) {
                     params.insert(key.into(), num(value));
                 }
             }
@@ -10204,6 +10212,9 @@ fn parse_effect(
             core: effect_word_or(params, "core", at, "hard")?,
             // D-338: a file from before it has the short forks.
             forks: effect_word_or(params, "forks", at, "short")?,
+            // D-1051: a file from before them has the full core and glow.
+            core_opacity: effect_number_or(params, "core_opacity", at, 100.0)?,
+            glow_opacity: effect_number_or(params, "glow_opacity", at, 100.0)?,
             frame: 0,
         }),
         // D-191: the layer is kept as written, a word or not; a setting check says which.

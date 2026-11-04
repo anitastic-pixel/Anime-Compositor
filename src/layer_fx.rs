@@ -9040,16 +9040,18 @@ pub(crate) fn kira_stars(
 /// negative obstacle), and `around`, whether each main bolt goes round what blocks. D-334:
 /// `soft`, whether the core fades from the middle to its edge. D-338: `forks`, "long" when the
 /// main bolts' first forks run on down to the end, as Advanced Lightning's do at a low decay;
-/// D-339: "full", the same but each as wide as the main bolt where it leaves it.
+/// D-339: "full", the same but each as wide as the main bolt where it leaves it. D-1051: each
+/// pixel's core and glow are first scaled by `[core_opacity, glow_opacity]`, per cent.
 pub(crate) fn lightning_bolt(
     source: &mut WorkingBuffer,
     ends: [(f64, f64); 3],
     [jagged, detail, branches, width, glow, opacity, hold, seed]: [f64; 8],
     (kind, [turbulence, decay, conductivity], forks): (&str, [f64; 3], &str),
     (blocks, outside, around): (&[bool], bool, bool),
-    ([core, halo], soft): ([[f64; 3]; 2], bool),
+    ([core, halo], soft, [core_opacity, glow_opacity]): ([[f64; 3]; 2], bool, [f64; 2]),
     frame: i32,
 ) {
+    let (ck, gk) = (core_opacity / 100.0, glow_opacity / 100.0);
     if opacity == 0.0 || (width == 0.0 && glow == 0.0) {
         return;
     }
@@ -9101,6 +9103,7 @@ pub(crate) fn lightning_bolt(
                 if c == 0.0 && g == 0.0 {
                     continue;
                 }
+                let (c, g) = (ck * c, gk * g);
                 for ch in 0..3 {
                     px[ch] = (px[ch] as f64 + k * (c * core[ch] + (1.0 - c) * g * halo[ch])) as f32;
                 }
