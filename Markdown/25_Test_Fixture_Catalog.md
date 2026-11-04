@@ -224999,3 +224999,38 @@ FX-CCCOMP-014 (`fx_cccomp_014.json`): Composite original "stencil": this program
 FX-CCCOMP-015 (`fx_cccomp_015.json`): RGB only "yes": it is "off" or "on". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-CCCOMP-016 (`fx_cccomp_016.json`): Opacity keyed to 150 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Dashed strokes on shape layers (D-1050)
+
+Dashes on a shape's stroke (`dashes`: `dash`, `gap`, `offset`, D-1050), after After Effects' Stroke > Dashes (B-930). Every case is a composition 6 by 2 holding one shape layer: the one-pixel open line along the frame's middle from x = 0 to 6, or the closed rectangle taller than the frame (FX-SHP-006's), stroked one pixel wide in D-78's stroke colour, round caps unless the case says butt. `tools/shape_dash_reference.py` works the expected frames, `Fixtures/shape_dashes/expected_shape_dashes.json`, tolerance 1e-6, and draws them in `verification/D-1050 pictures/`; the rule is in document 21.
+
+FX-SHP-130 (`fx_shp_130.json`): The one-pixel line along the frame's middle, dash 1 and gap 2, round caps: dashes from x = 0 to 1 and 3 to 4, each with a round cap half a pixel past its ends. Frames 0.
+
+FX-SHP-131 (`fx_shp_131.json`): The same with butt caps: columns 0 and 3 exactly, nothing else. Frames 0.
+
+FX-SHP-132 (`fx_shp_132.json`): Butt caps, offset 1: the pattern moves one pixel back along the line, so columns 2 and 5. Frames 0.
+
+FX-SHP-133 (`fx_shp_133.json`): Butt caps, offset -1: the same as offset 2, columns 1 and 4. Frames 0.
+
+FX-SHP-134 (`fx_shp_134.json`): A gap of 0: the whole line, exactly as with no dashes. Frames 0.
+
+FX-SHP-135 (`fx_shp_135.json`): Dash 0, gap 2, round caps: round dots at x = 0, 2, 4 and 6. Frames 0.
+
+FX-SHP-136 (`fx_shp_136.json`): Dash 0.25 and gap 0.25, under a pixel together: the whole line. Frames 0.
+
+FX-SHP-137 (`fx_shp_137.json`): The closed rectangle taller than the frame, dash 2 and gap 1, butt caps: its right side is the dash from y = -1 to 1 and from 2 to 3, so the right band is drawn in the top row and not the bottom; its left side is the same, its top row the last dash, which runs on through the start into the first. Frames 0.
+
+FX-SHP-138 (`fx_shp_138.json`): Trimmed 50 to 100, then dash 1 and gap 1, butt caps: the dashes are measured from the trimmed line's start, so columns 3 and 5. Frames 0.
+
+FX-SHP-139 (`fx_shp_139.json`): A fill and a dashed stroke: the fill is whole; only the stroke is dashed. Frames 0.
+
+FX-SHP-140 (`fx_shp_140.json`): Butt caps, dash 1 and gap 2, the offset keyed from 0 at frame 0 to 3 at frame 3, linear: the dashes march back along the line a pixel a frame, and frames 3 and 4 are frame 0 again. Frames 0, 1, 2, 3, 4.
+
+Refused whole, each as `PROJECT_SCHEMA_INVALID`; each is FX-SHP-131's file with one change:
+
+- FX-SHP-141 (`fx_shp_141.json`): A dash below 0.
+- FX-SHP-142 (`fx_shp_142.json`): A gap below 0.
+- FX-SHP-143 (`fx_shp_143.json`): A key of the gap above 10000.
+- FX-SHP-144 (`fx_shp_144.json`): An offset of two numbers rather than one.
+- FX-SHP-145 (`fx_shp_145.json`): An expression on the dash.
+- FX-SHP-146 (`fx_shp_146.json`): Dashes with no gap.
