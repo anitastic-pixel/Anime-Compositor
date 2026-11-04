@@ -220929,6 +220929,30 @@ WBPICK-007: A strong orange: held to -100. #ff6010 from temperature 0, tint 0: t
 
 WBPICK-008: A colour with no blue: nothing changes. #ff8000 from temperature 10, tint 5: temperature 10, tint 5.
 
+### Color Grade, seventh unit (D-1010)
+
+Color Grade's seventh unit (B-890): HSL Secondary's Sharpen. The drawing and look file are FX-GRADE's. `tools/color_grade_7_reference.py` writes the projects and `expected_color_grade_7.json` in `Fixtures/color_grade_7/`; every pixel is linear premultiplied, tolerance as FX-GRADE-001. The tool checks each case's claim: outside the key the drawing, the key as added FX-GRADE4-002, the section off the drawing, Show Key the key, an older file D-1009's picture, the keyed middle frame the drawing. Checked by `tests/b890_color_grade_secondary_sharpen.rs`.
+
+FX-GRADE7-001 (`fx_grade7_001.json`): Secondary sharpen 100 on a key of the reds: the reds' edges harder, the rest as drawn. Frames 0.
+
+FX-GRADE7-002 (`fx_grade7_002.json`): Secondary sharpen -100 on the reds: the reds softened. Frames 0.
+
+FX-GRADE7-003 (`fx_grade7_003.json`): Secondary sharpen 100 with the key as added (every colour): the Creative sharpen 100's picture, FX-GRADE4-002. Frames 0.
+
+FX-GRADE7-004 (`fx_grade7_004.json`): The reds' key inverted: every colour but the reds sharpened. Frames 0.
+
+FX-GRADE7-005 (`fx_grade7_005.json`): With a correction (secondary saturation 0) and a vignette: the reds grey and sharpened, then the corners darkened. Frames 0.
+
+FX-GRADE7-006 (`fx_grade7_006.json`): Keyed from -100 at frame 0 to 100 at frame 4. Frames 0, 2, 4.
+
+FX-GRADE7-007 (`fx_grade7_007.json`): HSL Secondary switched off: the drawing as it is. Frames 0.
+
+FX-GRADE7-008 (`fx_grade7_008.json`): Show Key White/Black: the key, unchanged by the sharpen. Frames 0.
+
+FX-GRADE7-009 (`fx_grade7_009.json`): A D-1009 file without the setting, the reds made grey: D-1009's own picture. Frames 0.
+
+FX-GRADE7-010 (`fx_grade7_010.json`): Secondary sharpen 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning.
+
 ### CC Force Motion Blur (D-581)
 
 CC Force Motion Blur (`core.force_motion_blur`), after CycoreFX's CC Force Motion Blur (B-470), the rule ours. Each case is a project whose composition `comp-main` is 20 by 1, five frames, in `Fixtures/force_motion_blur/`; the holder shows `comp-in`, also 20 by 1, where a bar four pixels wide runs 16 pixels a frame, its left edge at 6 on frame 1. `tools/force_motion_blur_reference.py` works the expected frames, `Fixtures/force_motion_blur/expected_force_motion_blur.json`, tolerance 2e-5, through `tools/motion_blur_reference.py`'s slide and resampling, reading each key at the moment's time directly; the rule is in document 21.
