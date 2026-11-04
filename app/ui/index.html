@@ -15407,6 +15407,115 @@ function fxCurves(k, id, channels, label) {
   return c;
 }
 
+// D-1011: Color Grade's Hue vs Saturation curve drawn, as Lumetri's: hue 0 to 360 across over a
+// strip of each hue's colour, saturation 200 at the top to 0 at the bottom, 100 dashed. The line
+// is D-398's curve (grade::hue_curve), 100 everywhere with no points. A press away from every
+// point adds one on the line, so nothing changes until it is dragged; a dragged point keeps
+// between its neighbours; dragged off or double-clicked it goes, down to none. The four
+// functions are what `tools/hue_curve_drag_reference.py` checks.
+const hueCurveAt = (u, v) => ({ hue: Math.min(359, Math.max(0, Math.round(360 * u))),
+  saturation: Math.min(200, Math.max(0, Math.round(200 * (1 - v)))) });
+function hueCurveValue(p, hue) {
+  const n = p.length;
+  if (!n) return 100;
+  for (let i = 0; i < n; i++) {
+    const [h0, s0] = p[i];
+    const s1 = p[(i + 1) % n][1];
+    const h1 = i + 1 === n ? p[0][0] + 360 : p[i + 1][0];
+    const x = hue >= h0 ? hue : hue + 360;
+    if (n > 1 && h0 <= x && x < h1) {
+      const u = (x - h0) / (h1 - h0);
+      return s0 + (s1 - s0) * u * u * (3 - 2 * u);
+    }
+  }
+  return p[0][1];
+}
+function hueCurveAdd(p, hue) {
+  if (p.length >= 16 || p.some((q) => q[0] === hue)) return null;
+  const at = [hue, Math.round(hueCurveValue(p, hue))];
+  const points = [...p, at].sort((a, b) => a[0] - b[0]);
+  return { points, index: points.indexOf(at) };
+}
+function hueCurveMove(p, i, hue, saturation) {
+  const lo = i > 0 ? p[i - 1][0] + 1 : 0;
+  const hi = i + 1 < p.length ? p[i + 1][0] - 1 : 359;
+  return p.map((q, j) => (j === i ? [Math.min(hi, Math.max(lo, hue)), Math.min(200, Math.max(0, saturation))] : [...q]));
+}
+function fxHueCurve(k, label) {
+  const W = 240;
+  const H = 110;
+  const c = fxCanvas(W, H + 8, 'fxview', label + ' Hue vs Saturation graph');
+  c.title = 'Press to add a point on the line, drag a point up for more of that colour or down for less, '
+    + 'drag it off or double-click it to take it away';
+  const g = c.getContext('2d');
+  const pts = () => (k.words.hue_saturation || '').trim() ? fxPointsOf(k.words.hue_saturation) : [];
+  const X = (h) => (h / 360) * W;
+  const Y = (v) => H - (v / 200) * H;
+  const draw = () => {
+    g.fillStyle = '#141414';
+    g.fillRect(0, 0, W, H + 8);
+    for (let h = 0; h < 360; h += 2) {
+      g.fillStyle = 'hsl(' + h + ' 85% 50%)';
+      g.fillRect(X(h), H + 2, X(2) + 0.5, 6);
+    }
+    g.strokeStyle = '#2c2c30';
+    g.lineWidth = 1;
+    g.beginPath();
+    for (let q = 1; q < 6; q++) { g.moveTo((q * W) / 6, 0); g.lineTo((q * W) / 6, H); }
+    g.stroke();
+    g.setLineDash([3, 3]);
+    g.beginPath();
+    g.moveTo(0, Y(100));
+    g.lineTo(W, Y(100));
+    g.stroke();
+    g.setLineDash([]);
+    const p = pts();
+    g.strokeStyle = '#d8d8dc';
+    g.lineWidth = 1.5;
+    g.beginPath();
+    for (let h = 0; h <= 360; h++) g.lineTo(X(h), Y(Math.min(200, Math.max(0, hueCurveValue(p, h % 360)))));
+    g.stroke();
+    for (const [h, v] of p) {
+      g.fillStyle = 'hsl(' + h + ' 85% 50%)';
+      g.fillRect(X(h) - 3, Y(v) - 3, 6, 6);
+      g.strokeStyle = '#141414';
+      g.strokeRect(X(h) - 3, Y(v) - 3, 6, 6);
+    }
+  };
+  draw();
+  k.redraws.push(draw);
+  const near = (p, [x, y]) => p.findIndex((q) => Math.hypot(X(q[0]) - x, Y(q[1]) - y) < 7);
+  c.onpointerdown = (e) => {
+    if (e.button !== 0) return;
+    let p = pts();
+    const at = fxAt(c, e);
+    let i = near(p, at);
+    if (i < 0) {
+      const a = hueCurveAdd(p, hueCurveAt(at[0] / W, at[1] / H).hue);
+      if (!a) return;
+      ({ points: p, index: i } = a);
+      k.words.hue_saturation = fxTextOf(p);
+      k.live();
+    }
+    fxDrag(c, e, ([x, y]) => {
+      const t = hueCurveAt(x / W, y / H);
+      const moved = hueCurveMove(p, i, t.hue, t.saturation);
+      const off = x < -16 || x > W + 16 || y < -16 || y > H + 24;
+      k.words.hue_saturation = fxTextOf(off ? moved.filter((q, j) => j !== i) : moved);
+      k.live();
+    }, k.close);
+  };
+  c.ondblclick = (e) => {
+    const p = pts();
+    const i = near(p, fxAt(c, e));
+    if (i < 0) return;
+    p.splice(i, 1);
+    k.words.hue_saturation = fxTextOf(p);
+    k.send();
+  };
+  return c;
+}
+
 // D-112 as After Effects draws Levels: the input ramp with its black, grey and white triangles
 // and the output ramp with its black and white, and above them the line the levels make of
 // the ramp, since the card has no histogram of the layer to show. The grey triangle sits where
@@ -16555,6 +16664,10 @@ function effectRow(layer, fx, at, of) {
     const text = Object.assign(document.createElement('input'),
       { type: 'text', className: 'points', value: was, placeholder: hint, spellcheck: false });
     text.title = tip || 'The channel names as the file has them: one, or three for red, green and blue, a comma between';
+    if (name === 'hue_saturation' && fx.type_id === 'core.color_grade') {   // D-1011
+      dd.append(fxHueCurve(k, label));
+      redraws.push(() => { if (document.activeElement !== text) text.value = words[name]; });
+    }
     text.setAttribute('aria-label', label + ' ' + title);
     text.onfocus = () => { dragging = true; };
     text.onkeydown = (e) => {
