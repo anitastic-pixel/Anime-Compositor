@@ -57,6 +57,9 @@ CONTROLS = {
     "core.angle_control": ("Angle Control", "ADBE Angle Control", "Angle", "angle",
                            -1e9, 1e9),
     "core.point_control": ("Point Control", "ADBE Point Control", "Point", "point", None, None),
+    # D-1090: After Effects' 3D Point Control, a list of three in the layer's pixels.
+    "core.point3d_control": ("3D Point Control", "ADBE Point3D Control", "3D Point", "point",
+                             None, None),
     "core.color_control": ("Color Control", "ADBE Color Control", "Color", "color", None, None),
     "core.layer_control": ("Layer Control", "ADBE Layer Control", "Layer", "layer", None, None),
 }
@@ -1353,6 +1356,59 @@ def source_text_table(data):
     table("FX-EXPR-022", ["Words Source Text expression"] + [f"frame {f}" for f in frames], rows)
 
 
+def point3d_project():
+    """D-1090: the Expression Controls composition with a layer Point3D on top carrying a 3D
+    Point Control keyed from (0, 0, 0) at frame 0 to (480, -240, 960) at frame 48."""
+    data = controls_project()
+    comp = data["compositions"][0]
+    p3 = layer("layer-p3", "Point3D", effects=[
+        fx("fx-p3", "core.point3d_control",
+           {"point": prop([0, 0, 0], [key(0, [0, 0, 0]), key(48, [480, -240, 960])])})])
+    p3["depth"] = prop(0)
+    comp["layers"].insert(0, p3)
+    comp["layer_order"].insert(0, "layer-p3")
+    data["project_id"] = "proj-point3d-control"
+    return data
+
+
+def point3d_table(data):
+    """D-1090: FX-EXPR-023, a 3D Point Control read by expressions on Point3D's own rotation,
+    position and depth, and from Controls' rotation, at four frames."""
+    frames = [0, 12, 24, 48]
+    read = 'effect("3D Point Control")("3D Point")'
+    cases = [
+        ("layer-p3", "rotation", f"{read}[0]"),
+        ("layer-p3", "rotation", f"{read}[1]"),
+        ("layer-p3", "rotation", f"{read}[2]"),
+        ("layer-p3", "rotation", 'effect("ADBE Point3D Control")(1)[2]'),
+        ("layer-p3", "rotation", 'effect(1)("ADBE Point3D Control-0001")[0]'),
+        ("layer-p3", "rotation", f"p = {read}; p[0] + p[1] + p[2]"),
+        ("layer-p3", "rotation", f"{read}.valueAtTime(1)[2]"),
+        ("layer-p3", "rotation", f"{read}.value[1]"),
+        ("layer-ctl", "rotation",
+         'thisComp.layer("Point3D").effect("3D Point Control")("3D Point")[2] / 10'),
+        ("layer-p3", "position", f"p = {read}; [p[0] + 960, p[1] + 540]"),
+        ("layer-p3", "depth", f"{read}[2]"),
+        ("layer-p3", "rotation", read),
+        ("layer-p3", "position", read),
+        ("layer-p3", "rotation", f"{read}[3]"),
+        ("layer-p3", "rotation", 'effect("3D Point Control")("Point")[0]'),
+        ("layer-p3", "rotation", 'effect("Point Control")("Point")[0]'),
+    ]
+    names = {"layer-p3": "Point3D", "layer-ctl": "Controls"}
+
+    def cell(d, target, name, frame):
+        v, code, _ = evaluate(Project(d), target, name, frame)
+        return show(v) if code is None else f"{show(v)}, {code}"
+
+    rows = []
+    for target, name, text in cases:
+        d = with_expression(data, target, name, text)
+        rows.append([f"{names[target]} {name}", f"`{text}`"] +
+                    [cell(d, target, name, f) for f in frames])
+    table("FX-EXPR-023", ["property", "expression"] + [f"frame {f}" for f in frames], rows)
+
+
 # --- printing ----------------------------------------------------------------------------------
 
 def show(v):
@@ -1393,7 +1449,8 @@ def main():
     here = Path(__file__).resolve().parent.parent
     for name, d in [("expression_project.json", data),
                     ("expression_controls_project.json", controls),
-                    ("source_text_expression_project.json", source_text_project())]:
+                    ("source_text_expression_project.json", source_text_project()),
+                    ("point3d_control_project.json", point3d_project())]:
         out = here / "Fixtures" / "projects" / name
         text = json.dumps(d, indent=2, ensure_ascii=False) + "\n"
         if "--check" in sys.argv:
@@ -1562,6 +1619,7 @@ def main():
     controls_tables(controls)
     layer_reference_table(data)
     source_text_table(source_text_project())
+    point3d_table(point3d_project())
 
 
 def layer_reference_table(data):

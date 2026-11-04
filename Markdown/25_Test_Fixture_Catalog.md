@@ -225139,6 +225139,31 @@ FX-EXPR-022: each row is Words' Source Text expression; each cell is the words d
 | `thisProperty` | "25%", EXPRESSION_SYNTAX | "25%", EXPRESSION_SYNTAX | "25%", EXPRESSION_SYNTAX | "25%", EXPRESSION_SYNTAX |
 | the tutorial's, switched off | "25%" | "25%" | "25%" | "25%" |
 
+### 3D Point Control (D-1090)
+
+After After Effects' 3D Point Control (wave 12, lane w12y, gap G17). Printed by `tools/expression_reference.py`, which leaves FX-EXPR-001 to 022 and their project files as they were. It writes `Fixtures/projects/point3d_control_project.json`: the Expression Controls composition (FX-EXPR-019) with a layer Point3D on top, at (960, 540) with depth 0, whose 3D Point Control is keyed linearly from (0, 0, 0) at frame 0 to (480, -240, 960) at frame 48. Tolerance 1e-9.
+
+FX-EXPR-023: each row is one expression on the property named, alone in the project; each cell is the property's value at that frame in the file's units, and the diagnostic if the expression fails, when the property keeps its keyed value. The ninth row is on Controls, reading Point3D's control through the layer's name. A list of three where one or two numbers are wanted is `EXPRESSION_TYPE`, as is `[3]`; the setting is "3D Point", never "Point", and Point3D has no Point Control.
+
+| property | expression | frame 0 | frame 12 | frame 24 | frame 48 |
+| --- | --- | --- | --- | --- | --- |
+| Point3D rotation | `effect("3D Point Control")("3D Point")[0]` | 0 | 120 | 240 | 480 |
+| Point3D rotation | `effect("3D Point Control")("3D Point")[1]` | 0 | -60 | -120 | -240 |
+| Point3D rotation | `effect("3D Point Control")("3D Point")[2]` | 0 | 240 | 480 | 960 |
+| Point3D rotation | `effect("ADBE Point3D Control")(1)[2]` | 0 | 240 | 480 | 960 |
+| Point3D rotation | `effect(1)("ADBE Point3D Control-0001")[0]` | 0 | 120 | 240 | 480 |
+| Point3D rotation | `p = effect("3D Point Control")("3D Point"); p[0] + p[1] + p[2]` | 0 | 300 | 600 | 1200 |
+| Point3D rotation | `effect("3D Point Control")("3D Point").valueAtTime(1)[2]` | 480 | 480 | 480 | 480 |
+| Point3D rotation | `effect("3D Point Control")("3D Point").value[1]` | 0 | -60 | -120 | -240 |
+| Controls rotation | `thisComp.layer("Point3D").effect("3D Point Control")("3D Point")[2] / 10` | 0 | 24 | 48 | 96 |
+| Point3D position | `p = effect("3D Point Control")("3D Point"); [p[0] + 960, p[1] + 540]` | (960, 540) | (1080, 480) | (1200, 420) | (1440, 300) |
+| Point3D depth | `effect("3D Point Control")("3D Point")[2]` | 0 | 240 | 480 | 960 |
+| Point3D rotation | `effect("3D Point Control")("3D Point")` | 0, EXPRESSION_TYPE | 0, EXPRESSION_TYPE | 0, EXPRESSION_TYPE | 0, EXPRESSION_TYPE |
+| Point3D position | `effect("3D Point Control")("3D Point")` | (960, 540), EXPRESSION_TYPE | (960, 540), EXPRESSION_TYPE | (960, 540), EXPRESSION_TYPE | (960, 540), EXPRESSION_TYPE |
+| Point3D rotation | `effect("3D Point Control")("3D Point")[3]` | 0, EXPRESSION_TYPE | 0, EXPRESSION_TYPE | 0, EXPRESSION_TYPE | 0, EXPRESSION_TYPE |
+| Point3D rotation | `effect("3D Point Control")("Point")[0]` | 0, EXPRESSION_REFERENCE_MISSING | 0, EXPRESSION_REFERENCE_MISSING | 0, EXPRESSION_REFERENCE_MISSING | 0, EXPRESSION_REFERENCE_MISSING |
+| Point3D rotation | `effect("Point Control")("Point")[0]` | 0, EXPRESSION_REFERENCE_MISSING | 0, EXPRESSION_REFERENCE_MISSING | 0, EXPRESSION_REFERENCE_MISSING | 0, EXPRESSION_REFERENCE_MISSING |
+
 ### Text on a path (D-1085)
 
 After After Effects' Path Options (B-965; wave 12, lane w12y, gap G3). The rule is D-1085's in `tools/text_path_reference.py`, which reads the bundled M PLUS Rounded 1c's advances with fontTools and measures curved masks by sampling their Bezier curves finely, never by the build's pieces. For every character of every case, `Fixtures/text_path/expected_text_path.json` gives where its anchor lands and its turn, within 0.02 pixel and 0.02 degree on straight masks and 0.1 pixel and 0.3 degree on the circle.
