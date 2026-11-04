@@ -15,6 +15,7 @@
 //! nothing in G1 asks for a tint colour that moves; the day something does, that is the change.
 
 use std::collections::BTreeMap;
+use std::sync::Arc;
 use std::fmt;
 
 use crate::time::{ExposureSpan, FrameRate};
@@ -1446,7 +1447,9 @@ pub struct Composition {
     /// `global_light_angle` only when not 120.
     pub global_light: f64,
     layer_order: Vec<Id>,
-    layers: BTreeMap<Id, Layer>,
+    /// D-1118: each layer behind a shared pointer, so a copy of the project (an undo step, a
+    /// frame worker's copy) shares every layer it does not change; an edit copies only its own.
+    layers: BTreeMap<Id, Arc<Layer>>,
 }
 
 /// D-261: the tools a sketch stroke is drawn with.
@@ -1631,8 +1634,8 @@ impl Composition {
     /// layer keeps its matte.
     pub fn solo(&mut self, soloed: &[Id]) {
         for (id, layer) in self.layers.iter_mut() {
-            if !soloed.contains(id) {
-                layer.enabled = false;
+            if !soloed.contains(id) && layer.enabled {
+                Arc::make_mut(layer).enabled = false;
             }
         }
     }
@@ -1642,14 +1645,14 @@ impl Composition {
     }
 
     pub fn layer(&self, id: &Id) -> Option<&Layer> {
-        self.layers.get(id)
+        self.layers.get(id).map(|l| &**l)
     }
 
     /// Layers in composition order, which is the order they are drawn in.
     pub fn layers_in_order(&self) -> impl Iterator<Item = &Layer> {
         self.layer_order
             .iter()
-            .map(|id| self.layers.get(id).expect("order and map agree"))
+            .map(|id| &**self.layers.get(id).expect("order and map agree"))
     }
 
     pub fn len(&self) -> usize {
@@ -1764,7 +1767,7 @@ impl Composition {
 
     pub(crate) fn insert_layer(&mut self, layer: Layer, index: usize) {
         let id = layer.id.clone();
-        self.layers.insert(id.clone(), layer);
+        self.layers.insert(id.clone(), Arc::new(layer));
         self.layer_order
             .insert(index.min(self.layer_order.len()), id);
     }
@@ -1772,7 +1775,7 @@ impl Composition {
     pub(crate) fn remove_layer(&mut self, id: &Id) -> Option<(Layer, usize)> {
         let index = self.index_of(id)?;
         self.layer_order.remove(index);
-        self.layers.remove(id).map(|l| (l, index))
+        self.layers.remove(id).map(|l| (Arc::unwrap_or_clone(l), index))
     }
 
     pub(crate) fn move_layer(&mut self, id: &Id, to: usize) -> Option<usize> {
@@ -1784,7 +1787,7 @@ impl Composition {
     }
 
     pub(crate) fn layer_mut(&mut self, id: &Id) -> Option<&mut Layer> {
-        self.layers.get_mut(id)
+        self.layers.get_mut(id).map(Arc::make_mut)
     }
 }
 
@@ -2001,6 +2004,7 @@ impl Project {
         let mut project = self.clone();
         for comp in &mut project.compositions {
             for layer in comp.layers.values_mut() {
+                let layer = Arc::make_mut(layer);
                 if &comp.id == shown {
                     layer.effects.clear();
                 }
