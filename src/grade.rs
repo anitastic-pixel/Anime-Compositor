@@ -5028,6 +5028,8 @@ pub(crate) struct Secondary {
     pub key: [f64; 8],
     pub invert: bool,
     pub mask: bool,
+    /// D-1007: with `mask`, the colour where keyed over this grey instead of the key itself.
+    pub backdrop: Option<f64>,
     pub gains: Option<[f64; 3]>,
     pub contrast: f64,
     pub saturation: f64,
@@ -5125,7 +5127,10 @@ pub(crate) fn secondary(source: &mut WorkingBuffer, s: &Secondary) {
             None => secondary_key(e, s),
         };
         if s.mask {
-            return [m; 3];
+            return match s.backdrop {
+                Some(g) => e.map(|x| x * m + g * (1.0 - m)),
+                None => [m; 3],
+            };
         }
         let mut c = e;
         if let Some(g) = s.gains {

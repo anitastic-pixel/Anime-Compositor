@@ -2288,7 +2288,7 @@ pub enum Effect {
     /// none. `table` is not a setting and is never saved: it is the file `look` names, read for
     /// the frame by `crate::lut::fill`. D-398: `curves`, Curves' master, red, green and blue
     /// (D-111's form); `hue_saturation`, 0 to 16 points [hue, saturation]; `key_invert`, "off" or
-    /// "on"; `key_view`, "off" or "mask". Kept as written, so a file's wrong one is reported.
+    /// "on"; `key_view`, "off", "mask", or D-1007's "color_gray" or "color_black". Kept as written, so a file's wrong one is reported.
     /// D-571: `more_curves`, the curves of `COLOR_GRADE_MORE_CURVES` in that order, 0 to 16
     /// points each; `secondary_wheels`, "one" or "three". D-637: `sharpen`, the 55th setting.
     ColorGrade {
@@ -13639,8 +13639,8 @@ impl Effect {
                         .then(|| format!("{name}'s key invert is \"off\" or \"on\", and this is \"{key_invert}\"."))
                 })
                 .or_else(|| {
-                    (!["off", "mask"].contains(&key_view.as_str()))
-                        .then(|| format!("{name}'s key view is \"off\" or \"mask\", and this is \"{key_view}\"."))
+                    (!["off", "mask", "color_gray", "color_black"].contains(&key_view.as_str()))
+                        .then(|| format!("{name}'s key view is \"off\", \"mask\", \"color_gray\" or \"color_black\", and this is \"{key_view}\"."))
                 }),
             Effect::AdvancedSpillSuppressor { method, key_color, .. } => (!SPILL_METHODS.contains(&method.as_str()))
                 .then(|| format!("{name}'s method is \"standard\" or \"ultra\", and this is \"{method}\"."))
@@ -22032,7 +22032,7 @@ pub(crate) fn color_grade_steps(
     }
     let [s_temperature, s_tint, s_contrast, s_saturation, s_hue, s_amount, s_lightness] =
         std::array::from_fn(|i| v[39 + i]);
-    let mask = key_view == "mask";
+    let mask = key_view != "off";
     // D-571: with three wheels the shadows' and highlights' too; with one they are not used.
     let three = secondary_wheels == "three";
     let [shadow, highlight] = [46, 49].map(|i| (v[i], v[i + 1], v[i + 2]));
@@ -22051,6 +22051,12 @@ pub(crate) fn color_grade_steps(
             key: std::array::from_fn(|i| v[31 + i]),
             invert: key_invert == "on",
             mask,
+            // D-1007: Color/Gray and Color/Black show the colour where keyed over 0.5 or 0.
+            backdrop: match key_view.as_str() {
+                "color_gray" => Some(0.5),
+                "color_black" => Some(0.0),
+                _ => None,
+            },
             gains: (s_temperature != 0.0 || s_tint != 0.0)
                 .then(|| gains(s_temperature, s_tint, 0.0)),
             contrast: s_contrast / 100.0,

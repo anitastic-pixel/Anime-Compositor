@@ -4063,8 +4063,11 @@ fn tone(@builtin(global_invocation_id) id: vec3<u32>) {
             if k[8] != 0.0lf {
                 m = 1.0lf - m;
             }
-            if k[9] != 0.0lf {
+            if k[9] == 1.0lf {
                 o = vec3(m);
+            } else if k[9] != 0.0lf {
+                // D-1007: Color/Gray (2) and Color/Black (3).
+                o = e * m + vec3(select(0.0lf, 0.5lf, k[9] == 2.0lf)) * (1.0lf - m);
             } else {
                 var c = e;
                 for (var i = 0u; i < 3u; i++) {
@@ -20424,7 +20427,13 @@ impl Gpu {
                                 let mut k = s.key.to_vec();
                                 k.extend([
                                     s.invert as u8 as f64,
-                                    s.mask as u8 as f64,
+                                    // D-1007: 2 and 3 for Color/Gray and Color/Black.
+                                    match (s.mask, s.backdrop) {
+                                        (false, _) => 0.0,
+                                        (true, None) => 1.0,
+                                        (true, Some(g)) if g > 0.0 => 2.0,
+                                        _ => 3.0,
+                                    },
                                     s.gains.is_some() as u8 as f64,
                                 ]);
                                 k.extend(s.gains.unwrap_or([1.0; 3]));

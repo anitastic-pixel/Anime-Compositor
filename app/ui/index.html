@@ -1278,6 +1278,9 @@
   }
   /* D-949: the eyedropper after every colour field in the panels. */
   .dropbtn { min-width: 0; padding: 0 3px; height: 1.7em; vertical-align: middle; margin-left: 2px; }
+  /* D-1007: Color Grade's key strip, its droppers and six colour dots. */
+  .keytools .dropbtn { display: inline-flex; align-items: center; gap: 2px; white-space: nowrap; padding: 0 5px; }
+  .keytools .keydot { min-width: 0; width: 1.1em; height: 1.1em; padding: 0; margin-left: 4px; border-radius: 50%; vertical-align: middle; border: 1px solid #4a4a50; }
   .effect input[type=color] {
     width: 2.4em; height: 1.7em; padding: 0 1px; vertical-align: middle;
     border: 1px solid #4a4a50; border-radius: 3px; background: #141416;
@@ -14840,7 +14843,7 @@ const EFFECT_WORDS = {
         'Points, a luma 0 to 100 then its saturation 0 to 200, a comma between, lumas rising; up to 16, none for no change'],
       ['saturation_saturation', 'Saturation vs Saturation points', '0 100, 100 60', null,
         'Points, a saturation 0 to 100 then its new saturation 0 to 200, a comma between, rising; up to 16, none for no change']],
-    choices: [['key_invert', 'Invert Key', [['off', 'Off'], ['on', 'On']]], ['key_view', 'Show Key', [['off', 'Off'], ['mask', 'Mask']]],
+    choices: [['key_invert', 'Invert Key', [['off', 'Off'], ['on', 'On']]], ['key_view', 'Show Key', [['off', 'Off'], ['mask', 'White/Black'], ['color_gray', 'Color/Gray'], ['color_black', 'Color/Black']]],
       ['secondary_wheels', 'Secondary Wheels', [['one', 'One'], ['three', 'Three']]]],
   },
   // D-183.
@@ -15485,6 +15488,145 @@ function fxLevels(k, label) {
 
 // D-113 as After Effects draws Hue/Saturation: the colours going in on the top bar and what
 // each becomes under it, worked as `src/grade.rs` works them, which is the sRGB a CSS colour is.
+// ---- B-887 begin
+// D-1007: Color Grade's key tools, exactly `tools/color_grade_5_reference.py`'s `tool`; the
+// page check runs every case of `Fixtures/color_grade_5/expected_key_tools.json` through it.
+const KEY_NAMES = ['key_hue', 'key_hue_range', 'key_hue_softness', 'key_saturation_low',
+  'key_saturation_high', 'key_lightness_low', 'key_lightness_high', 'key_softness'];
+const KEY_DOTS = [['red', 0], ['yellow', 60], ['green', 120], ['cyan', 180], ['blue', 240], ['magenta', 300]];
+const pmod = (x, m) => { const r = x % m; return r < 0 ? r + m : r; };   // Python's %
+const rnd = (x) => Math.floor(x + 0.5);
+// colorsys.rgb_to_hls on the 8-bit colour: hue in degrees (null for a grey), saturation held to
+// 100, lightness, and the saturation unheld, as the key reads it.
+function hlsOf(hex) {
+  const e = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
+  const mx = Math.max(...e), mn = Math.min(...e), l = (mx + mn) / 2;
+  if (mx === mn) return [null, 0, l * 100, 0];
+  const d = mx - mn, s = l <= 0.5 ? d / (mx + mn) : d / (2 - mx - mn);
+  const [rc, gc, bc] = e.map((v) => (mx - v) / d);
+  const h = e[0] === mx ? bc - gc : e[1] === mx ? 2 + rc - bc : 4 + gc - rc;
+  return [pmod(h / 6, 1) * 360, Math.min(s, 1) * 100, l * 100, s * 100];
+}
+// Whether D-398's key takes the colour at all: a band leaves it out once past its softness.
+function keyTakes(k, hex) {
+  const [h, , l, s] = hlsOf(hex);
+  const out = (x, lo, hi, soft) => { const d = x < lo ? lo - x : x > hi ? x - hi : 0; return d > 0 && (soft === 0 || d >= soft); };
+  const d = Math.abs(pmod((h === null ? 0 : h) - k.key_hue + 180, 360) - 180);
+  return !((k.key_hue_range < 180 && (s === 0 || out(d, 0, k.key_hue_range, k.key_hue_softness)))
+    || out(s, k.key_saturation_low, k.key_saturation_high, k.key_softness)
+    || out(l, k.key_lightness_low, k.key_lightness_high, k.key_softness));
+}
+function keyTool(name, from, given) {
+  const k = { ...from };
+  if (name === 'dot') {
+    return Object.assign(k, { key_hue: KEY_DOTS.find((d) => d[0] === given)[1], key_hue_range: 30, key_hue_softness: 15,
+      key_saturation_low: 0, key_saturation_high: 100, key_lightness_low: 0, key_lightness_high: 100 });
+  }
+  const [hue, sat, light] = hlsOf(given);
+  const pairs = [['key_saturation_low', 'key_saturation_high', sat], ['key_lightness_low', 'key_lightness_high', light]];
+  const signed = (h, c) => pmod(h - c + 180, 360) - 180;
+  if (name === 'set') {
+    if (hue === null) k.key_hue_range = 180;
+    else Object.assign(k, { key_hue: pmod(rnd(hue), 360), key_hue_range: 15, key_hue_softness: 15 });
+    for (const [lo, hi, x] of pairs) { k[lo] = Math.max(0, rnd(x) - 20); k[hi] = Math.min(100, rnd(x) + 20); }
+    return k;
+  }
+  const r = k.key_hue_range, c = k.key_hue;
+  if (name === 'add') {
+    if (r < 180 && hue === null) k.key_hue_range = 180;
+    else if (r < 180) {
+      const d = signed(hue, c);
+      if (Math.abs(d) > r) {
+        const r2 = (r + Math.abs(d)) / 2, c2 = c + Math.sign(d) * (Math.abs(d) - r) / 2;
+        k.key_hue = pmod(rnd(c2), 360);
+        k.key_hue_range = Math.min(180, Math.ceil(r2 + Math.abs(c2 - rnd(c2))));
+      }
+    }
+    for (const [lo, hi, x] of pairs) { k[lo] = Math.min(k[lo], Math.floor(x)); k[hi] = Math.max(k[hi], Math.ceil(x)); }
+    return k;
+  }
+  if (!keyTakes(k, given)) return k;
+  // Each way of leaving the sample out, with the share of its band it takes; the cheapest is
+  // used, hue first, then saturation, then lightness, on a tie.
+  const ways = [];
+  if (r < 180 && hue !== null) {
+    const d = signed(hue, c), s1 = Math.max(k.key_hue_softness, 1);
+    if (Math.abs(d) < r + s1) {
+      const e = Math.abs(d) - s1, side = d < 0 ? -1 : 1;
+      let to = { key_hue_range: 0 };
+      if (e >= -r) {
+        const r2 = (r + e) / 2, c2 = c + side * (e - r) / 2;
+        to = { key_hue: pmod(rnd(c2), 360), key_hue_range: Math.max(0, Math.floor(r2 - Math.abs(c2 - rnd(c2)))) };
+      }
+      ways.push([(r - to.key_hue_range) / Math.max(r, 1), to]);
+    }
+  }
+  const ks = k.key_softness, k1 = Math.max(ks, 1);
+  for (const [lo, hi, x] of pairs) {
+    const low = k[lo], high = k[hi];
+    if ((low - ks < x && x < high + ks) || (low <= x && x <= high)) {
+      const [n, v] = x - low <= high - x ? [lo, Math.min(high, Math.ceil(x + k1))] : [hi, Math.max(low, Math.floor(x - k1))];
+      ways.push([Math.abs(v - k[n]) / Math.max(high - low, 1), { [n]: v }]);
+    }
+  }
+  if (ways.length) Object.assign(k, ways.reduce((a, w) => (w[0] < a[0] ? w : a))[1]);
+  return k;
+}
+// The key strip under HSL Secondary's numbers: Set, Add and Remove droppers (D-949's pick, sent
+// to a hidden colour field of its own), the six dots, and the H, S and L bars with the range.
+function fxKeyTools(k, label) {
+  const box = Object.assign(document.createElement('div'), { className: 'keytools' });
+  const now = () => Object.fromEntries(KEY_NAMES.map((n) => [n, Number(k.fields[n][0].value)]));
+  const apply = (name, given, what) => {
+    const to = keyTool(name, now(), given);
+    for (const n of KEY_NAMES) k.fields[n][0].value = to[n];
+    $('status').textContent = what;
+    k.send();
+  };
+  for (const [name, word, says] of [['set', 'Set', 'the key takes this colour and its near neighbours'],
+    ['add', 'Add', 'the key grows to take this colour too'], ['remove', 'Remove', 'the key leaves this colour out']]) {
+    const p = Object.assign(document.createElement('input'), { type: 'color', hidden: true });
+    p.setAttribute('aria-label', label + ' key ' + word);
+    p.onchange = () => apply(name, p.value, word + ' from ' + p.value + ': ' + says + '.');
+    const b = dropperFor(p);
+    b.append(' ' + word);
+    b.title = 'Then click the picture: ' + says + '. Escape stops. Pick with Show Key off: the picture is what is sampled';
+    box.append(p, b);
+  }
+  for (const [name, h] of KEY_DOTS) {
+    const b = Object.assign(document.createElement('button'), { type: 'button', className: 'keydot' });
+    b.style.background = 'hsl(' + h + ',100%,50%)';
+    b.title = 'Key the ' + name + 's: hue ' + h + ', range 30';
+    b.setAttribute('aria-label', label + ' ' + name + ' key');
+    b.onclick = () => apply('dot', name, 'Keyed the ' + name + 's.');
+    box.append(b);
+  }
+  const W = 240, c = fxCanvas(W, 40, 'fxview', label + ' key ranges');
+  c.title = 'The key on hue, saturation and lightness: white where whole, grey where it fades';
+  const g = c.getContext('2d'), v = now();
+  const bars = [
+    [(x) => 'hsl(' + (x * 360) + ',100%,50%)', (x) => {
+      if (v.key_hue_range >= 180) return 1;
+      const d = Math.abs(pmod(x * 360 - v.key_hue + 180, 360) - 180) - v.key_hue_range;
+      return d <= 0 ? 1 : d < v.key_hue_softness ? 0.5 : 0;
+    }, 'key_hue_softness'],
+    [(x) => 'hsl(' + v.key_hue + ',' + (x * 100) + '%,50%)', ['key_saturation_low', 'key_saturation_high']],
+    [(x) => 'hsl(0,0%,' + (x * 100) + '%)', ['key_lightness_low', 'key_lightness_high']],
+  ];
+  bars.forEach(([paint, w], i) => {
+    for (let x = 0; x < W; x++) {
+      const t = x / W, at = t * 100;
+      g.fillStyle = paint(t);
+      g.fillRect(x, i * 13, 1.5, 8);
+      const m = typeof w === 'function' ? w(t)
+        : at >= v[w[0]] && at <= v[w[1]] ? 1 : at > v[w[0]] - v.key_softness && at < v[w[1]] + v.key_softness ? 0.5 : 0;
+      if (m) { g.fillStyle = m === 1 ? '#ffffff' : '#888888'; g.fillRect(x, i * 13 + 9, 1, 3); }
+    }
+  });
+  box.append(c);
+  return box;
+}
+// ---- B-887 end
 function fxHues(k, label) {
   const W = 240;
   const c = fxCanvas(W, 48, 'fxview', label + ' colour bars');
@@ -16152,6 +16294,11 @@ function effectRow(layer, fx, at, of) {
     const dd = Object.assign(document.createElement('dd'), { className: 'wide' });
     dd.append(picture);
     dl.prepend(dd);
+  }
+  if (fx.type_id === 'core.color_grade' && fields.key_softness) {   // D-1007
+    const dd = Object.assign(document.createElement('dd'), { className: 'wide' });
+    dd.append(fxKeyTools(k, label));
+    fields.key_softness[0].closest('dd').after(dd);
   }
   // The hex is typed, because the Windows colour window has no box for one and the match is
   // exact. Enter or leaving the box sends it, the # optional; Escape puts it back. The panel

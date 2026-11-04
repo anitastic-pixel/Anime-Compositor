@@ -161,7 +161,7 @@ B-277, after Lumetri Color under our own name: RGB curves, hue versus saturation
 | fx_grade2_037.json is refused in a sentence naming hue versus saturation | Color Grade's hue versus saturation's hue goes up from point to point, and 100 is not above 200. | yes |
 | fx_grade2_038.json is refused in a sentence naming hue versus saturation | Color Grade's hue versus saturation takes up to 16 points, and this has 17. | yes |
 | fx_grade2_039.json is refused in a sentence naming key invert | Color Grade's key invert is "off" or "on", and this is "yes". | yes |
-| fx_grade2_040.json is refused in a sentence naming key view | Color Grade's key view is "off" or "mask", and this is "grey". | yes |
+| fx_grade2_040.json is refused in a sentence naming key view | Color Grade's key view is "off", "mask", "color_gray" or "color_black", and this is "grey". | yes |
 | a file with a Color Grade whose key invert is a number is refused as a fault in its shape | This project file cannot be opened, because part of it does not match the project format. | yes |
 | a file with a Color Grade whose red curve is numbers, not points is refused as a fault in its shape | This project file cannot be opened, because part of it does not match the project format. | yes |
 
