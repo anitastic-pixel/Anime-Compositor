@@ -5036,6 +5036,8 @@ pub(crate) struct Secondary {
     pub push: [f64; 3],
     pub three: Option<[[f64; 3]; 2]>,
     pub refine: (f64, f64),
+    /// D-1010: D-637's sharpen, -100..100, mixed in by the key after the correction.
+    pub sharpen: f64,
 }
 
 /// D-398: 1 from `lo` to `hi`, falling to 0 over `soft` outside them, eased.
@@ -5121,6 +5123,25 @@ fn secondary_refined_key(source: &WorkingBuffer, s: &Secondary) -> Vec<f32> {
 /// with three wheels the push Color Balance's (D-130) from the colour's luma.
 pub(crate) fn secondary(source: &mut WorkingBuffer, s: &Secondary) {
     let refined = (s.refine != (0.0, 0.0)).then(|| secondary_refined_key(source, s));
+    // D-1010: the key the correction uses, kept for the sharpen after it.
+    let keyed = (s.sharpen != 0.0 && !s.mask).then(|| match &refined {
+        Some(r) => r.clone(),
+        None => source
+            .data()
+            .chunks_exact(4)
+            .map(|px| {
+                let a = px[3] as f64;
+                if a > 0.0 {
+                    secondary_key(
+                        std::array::from_fn(|c| to_srgb((px[c] as f64 / a).clamp(0.0, 1.0))),
+                        s,
+                    ) as f32
+                } else {
+                    0.0
+                }
+            })
+            .collect(),
+    });
     grade_pixels(source, refined.is_some(), |i, e| {
         let m = match &refined {
             Some(r) => r[i] as f64,
@@ -5153,6 +5174,15 @@ pub(crate) fn secondary(source: &mut WorkingBuffer, s: &Secondary) {
         };
         std::array::from_fn(|i| e[i] + m * (c[i] + push[i] - e[i]))
     });
+    if let Some(keys) = keyed {
+        let mut sharp = source.clone();
+        crate::layer_fx::sharpen(&mut sharp, s.sharpen, 1.0, 0.0);
+        for ((px, q), m) in source.data_mut().chunks_exact_mut(4).zip(sharp.data().chunks_exact(4)).zip(keys) {
+            for c in 0..4 {
+                px[c] += m * (q[c] - px[c]);
+            }
+        }
+    }
 }
 
 /// D-376: the mean encoded straight colour, each pixel weighted by its covering, of the pixels

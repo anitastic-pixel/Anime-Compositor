@@ -2293,7 +2293,7 @@ pub enum Effect {
     /// points each; `secondary_wheels`, "one" or "three". D-637: `sharpen`, the 55th setting.
     /// D-1009: `sections`, the switches of `COLOR_GRADE_SECTIONS` in that order, "on" or "off".
     ColorGrade {
-        values: [f64; 55],
+        values: [f64; 56],
         sections: [String; 6],
         look: String,
         curves: [Vec<Vec<f64>>; 4],
@@ -5162,7 +5162,7 @@ pub const COLOR_GRADE: &str = "core.color_grade";
 /// highest, and the value when the effect is added. D-398 adds the 24 after the vignette's, and
 /// D-571 the last 8, which a file from before either leaves at their start. D-637 adds
 /// `sharpen` and takes the vignette's roundness below 0, its squarer shapes.
-pub const COLOR_GRADE_SETTINGS: [(&str, f64, f64, f64); 55] = [
+pub const COLOR_GRADE_SETTINGS: [(&str, f64, f64, f64); 56] = [
     ("temperature", -100.0, 100.0, 0.0),
     ("tint", -100.0, 100.0, 0.0),
     ("exposure", -5.0, 5.0, 0.0),
@@ -5218,6 +5218,8 @@ pub const COLOR_GRADE_SETTINGS: [(&str, f64, f64, f64); 55] = [
     ("key_denoise", 0.0, 100.0, 0.0),
     ("key_blur", 0.0, 100.0, 0.0),
     ("sharpen", -100.0, 100.0, 0.0),
+    // D-1010: HSL Secondary's sharpen, the 56th.
+    ("secondary_sharpen", -100.0, 100.0, 0.0),
 ];
 /// D-1009: Color Grade's section switches, in the order `sections` holds them; each "on" or
 /// "off", "on" when the effect is added and when a file has none.
@@ -21980,7 +21982,7 @@ pub(crate) fn color_grade_steps(
     };
     let [basic, creative_on, curves_on, wheels, secondary, vignette_on] =
         std::array::from_fn(|i| sections[i] != "off");
-    let mut v: [f64; 55] = std::array::from_fn(|i| {
+    let mut v: [f64; 56] = std::array::from_fn(|i| {
         values[i].clamp(COLOR_GRADE_SETTINGS[i].1, COLOR_GRADE_SETTINGS[i].2)
     });
     for (on, range) in [
@@ -21989,6 +21991,7 @@ pub(crate) fn color_grade_steps(
         (creative_on, 54..55),
         (wheels, 22..31),
         (secondary, 31..54),
+        (secondary, 55..56),
         (vignette_on, 18..22),
     ] {
         if !on {
@@ -22072,6 +22075,7 @@ pub(crate) fn color_grade_steps(
             .iter()
             .any(|x| *x != 0.0)
         || s_saturation != 100.0
+        || v[55] != 0.0
     {
         let push = |(hue, amount, lightness): (f64, f64, f64)| {
             wheel(hue, amount, lightness).map(|p| p / 200.0)
@@ -22093,6 +22097,7 @@ pub(crate) fn color_grade_steps(
             push: push((s_hue, s_amount, s_lightness)),
             three: three.then(|| [push(shadow), push(highlight)]),
             refine: (v[52] / 10.0, v[53] / 10.0),
+            sharpen: v[55],
         }));
     }
     if vignette != 0.0 && !mask {

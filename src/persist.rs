@@ -11844,7 +11844,7 @@ fn parse_effect(
         }
         crate::effects::COLOR_GRADE => {
             // D-398: a file from D-397, without the later settings, reads each as added.
-            let mut values = [0.0; 55];
+            let mut values = [0.0; 56];
             for (i, ((name, _, _, start), v)) in crate::effects::COLOR_GRADE_SETTINGS
                 .iter()
                 .zip(values.iter_mut())
