@@ -605,3 +605,48 @@ fn b956_space_moves_while_drawing() {
         &rows,
     );
 }
+
+/// D-1077 / B-957: Output templates, the export choices kept under a name and chosen again.
+#[test]
+fn b957_output_templates() {
+    let mut rows: Rows = Vec::new();
+    let asked = node(
+        "B-957",
+        "TEMPLATE_KEYS, keepTemplate",
+        "const test = { exportformat: 'exr-float', filmquality: 'standard', gifdither: false, soundwav: true, cardexport: false };\n\
+         const one = keepTemplate(undefined, 'test', test);\n\
+         const two = keepTemplate(one, 'film', { ...test, exportformat: 'mp4', filmquality: 'high' });\n\
+         const again = keepTemplate(two, 'test', { ...test, exportformat: 'png' });\n\
+         out({\n\
+           one: one.map((t) => t.name + ' ' + t.exportformat + (t.soundwav ? ' with WAV' : '')).join('; '),\n\
+           two: two.map((t) => t.name + ' ' + t.exportformat).join('; '),\n\
+           again: again.map((t) => t.name + ' ' + t.exportformat).join('; '),\n\
+           keys: TEMPLATE_KEYS.map((k) => k[0]).join(', '),\n\
+         });",
+    );
+    for (what, field, want) in [
+        ("Make template \"test\" on EXR full float with the WAV ticked", "one", "test exr-float with WAV"),
+        ("then \"film\" on MP4 High: both kept", "two", "test exr-float; film mp4"),
+        ("\"test\" made again on PNG: replaced, not doubled", "again", "film mp4; test png"),
+        ("what a template keeps (never the missing-drawing tick)", "keys", "exportformat, filmquality, gifdither, soundwav, cardexport"),
+    ] {
+        rows.push((what.into(), want.into(), asked[field].as_str().unwrap_or_default().to_string()));
+    }
+    let page = page();
+    for (what, line) in [
+        ("the Template list and Make template stand with the export choices", "<span><select id=\"outputtemplate\""),
+        ("kept with the window's preferences", "prefs.outputTemplates = keepTemplate(outputTemplates(), name, Object.fromEntries(TEMPLATE_KEYS.map(([id, key]) => [id, $(id)[key]])));"),
+        ("choosing one sets each choice as if picked by hand", "    $(id)[key] = t[id];\n    $(id).dispatchEvent(new Event('change'));"),
+        ("Export and Add to queue read the same choices", "$('addtoqueue').onclick = () => askQueue('do=add&' + exportChoices());"),
+    ] {
+        rows.push((what.into(), "true".into(), page.contains(line).to_string()));
+    }
+    table(
+        "B-957_output_templates_table.md",
+        "B-957: Output templates (D-1077)",
+        "b957_output_templates",
+        "After Effects' Output Module > Make Template (nTpT2PELCbA, about 0:40). `keepTemplate` is the \
+         page's own code run under Node; the other rows read the page.",
+        &rows,
+    );
+}

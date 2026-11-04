@@ -1934,6 +1934,8 @@
     <button id="export" data-line="Export PNG sequence" data-key="Ctrl+Alt+M">Export&hellip;</button>
     <button id="addtoqueue" data-key="Ctrl+M" title="Keep this composition, as it is now, in the Render panel's queue, to be written later with the others">Add to Render queue&hellip;</button>
     <div class="opts" data-stay>
+    <span><select id="outputtemplate" title="An Output template: the choices below kept under a name. Choosing one sets them"></select>
+    <button id="maketemplate" title="Keep the choices below under a name, to choose again later">Make template&hellip;</button></span>
     <select id="exportformat" title="What the export is written as: a file a frame, or one animated file. Lossless: the file keeps every value it is given, so there is no quality to choose">
       <option value="png">PNG, 8-bit, lossless</option>
       <option value="exr-half">EXR, half float</option>
@@ -22142,6 +22144,36 @@ $('soundwav').onchange = (e) => {
 };
 $('cardexport').onchange = (e) => {
   try { sessionStorage.setItem('cardexport', e.target.checked ? 'on' : 'off'); } catch (err) { /* as above */ }
+};
+// ---- B-957 begin
+// D-1077: the Output's choices kept under a name, as After Effects' Output Module templates. The
+// missing-drawing tick is never kept (document 07: chosen each time), nor the colour Output.
+const TEMPLATE_KEYS = [['exportformat', 'value'], ['filmquality', 'value'], ['gifdither', 'checked'], ['soundwav', 'checked'], ['cardexport', 'checked']];
+function keepTemplate(list, name, settings) {
+  return (Array.isArray(list) ? list : []).filter((t) => t && t.name !== name).concat([{ name, ...settings }]);
+}
+// ---- B-957 end
+const outputTemplates = () => (Array.isArray(prefs.outputTemplates) ? prefs.outputTemplates : []);
+function drawTemplates(chosen = '') {
+  $('outputtemplate').replaceChildren(new Option('Template: none', ''), ...outputTemplates().map((t) => new Option('Template: ' + t.name, t.name)));
+  $('outputtemplate').value = chosen;
+}
+drawTemplates();
+$('outputtemplate').onchange = () => {
+  const t = outputTemplates().find((o) => o.name === $('outputtemplate').value);
+  if (!t) return;
+  for (const [id, key] of TEMPLATE_KEYS) {
+    if (!(id in t)) continue;
+    $(id)[key] = t[id];
+    $(id).dispatchEvent(new Event('change'));
+  }
+};
+$('maketemplate').onclick = () => {
+  askName('Name the template', $('outputtemplate').value || $('exportformat').selectedOptions[0].textContent.split(',')[0], 'Keeps the format and the ticks beside it. Enter saves it, Esc leaves it.', (name) => {
+    prefs.outputTemplates = keepTemplate(outputTemplates(), name, Object.fromEntries(TEMPLATE_KEYS.map(([id, key]) => [id, $(id)[key]])));
+    savePrefs();
+    drawTemplates(name);
+  });
 };
 $('cancelexport').onclick = () => command('/cancel-export');
 // W-45 (D-248): the Render panel. One item, the open composition, rendered by the same Export and

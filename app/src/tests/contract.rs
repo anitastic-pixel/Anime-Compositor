@@ -5980,7 +5980,7 @@ fn every_command_the_page_sends_can_be_asked_for_without_a_mouse() {
 }
 
 /// Every control the page wires a handler to, or clicks for the person, or reads.
-const CONTROLS: [&str; 140] = [
+const CONTROLS: [&str; 142] = [
     "addadjust",
     "addeffect",
     "addexposure",
@@ -6052,6 +6052,7 @@ const CONTROLS: [&str; 140] = [
     "makecomp",
     "makeprecomp",
     "makesolid",
+    "maketemplate",
     "maptab",
     "mbswitch",
     "mirror",
@@ -6060,6 +6061,7 @@ const CONTROLS: [&str; 140] = [
     "notedetails",
     "onionbtn",
     "open",
+    "outputtemplate",
     "play",
     "precompmap",
     "precompname",
