@@ -617,7 +617,9 @@ class Scope:
         result = None
         for stmt in stmts:
             if stmt[0] == "let":
-                self.locals[stmt[1]] = self.number_or_array(self.eval(stmt[2]))
+                # D-1033: a name may also hold a layer, `var L = thisComp.layer(1)`.
+                v = self.eval(stmt[2])
+                self.locals[stmt[1]] = v if isinstance(v, LayerRef) else self.number_or_array(v)
             elif stmt[0] == "if":
                 self.step()
                 cond = self.number(self.eval(stmt[1]), "an if's condition")
@@ -831,10 +833,27 @@ class Scope:
         name = fn.name
         args = [self.eval(n) for n in arg_nodes]
         if name == "layer":
-            if len(args) != 1 or not isinstance(args[0], str):
-                raise type_error("thisComp.layer takes a layer's id, in quotes")
-            self.p.property(args[0], "position")  # a missing layer is reported here
-            return LayerRef(args[0])
+            # D-1033: a layer's id or, failing that, its name (the topmost layer of that name),
+            # in quotes; or its number, 1 at the top. layer_order is drawing order, bottom first.
+            order = self.p.comp["layer_order"]
+            if len(args) == 1 and isinstance(args[0], str):
+                lid = args[0]
+                if lid not in self.p.layers:
+                    named = [i for i in reversed(order) if self.p.layers[i]["name"] == lid]
+                    if not named:
+                        raise ExprError("EXPRESSION_REFERENCE_MISSING",
+                                        f"there is no layer named \"{lid}\"")
+                    lid = named[0]
+            elif len(args) == 1 and isinstance(args[0], (int, float)):
+                n = args[0]
+                if n != math.floor(n) or n < 1 or n > len(order):
+                    raise ExprError("EXPRESSION_REFERENCE_MISSING",
+                                    f"there is no layer number {n}")
+                lid = order[len(order) - int(n)]
+            else:
+                raise type_error("thisComp.layer takes a layer's name in quotes, or its number")
+            self.p.property(lid, "position")
+            return LayerRef(lid)
         if any(isinstance(a, str) for a in args) and name != "loopOut":
             raise type_error(f"{name} does not take a text")
         if name.startswith("Math."):
@@ -1399,6 +1418,43 @@ def main():
     ])
 
     controls_tables(controls)
+    layer_reference_table(data)
+
+
+def layer_reference_table(data):
+    """D-1033: FX-EXPR-021, a layer by its name or number, and a name holding a layer. Every
+    row is Spin's rotation at frame 12 in expression_project.json, whose layers from the top
+    are 1 Switched off, 2 Fade, 3 Loop, 4 Trail, 5 Lead, ... 9 Spin. At frame 12 Lead is at
+    (480, 540)."""
+    twins = copy.deepcopy(data)
+    Project(twins).layers["layer-fade"]["name"] = "Lead"
+    rows = []
+    for d, note, t in [
+        (data, "", 'thisComp.layer("Lead").position[0]'),
+        (data, "", 'thisComp.layer("layer-lead").position[0]'),
+        (data, "", "thisComp.layer(5).position[0]"),
+        (data, "", "thisComp.layer(1).opacity"),
+        (data, "", "thisComp.layer(9).position[1]"),
+        (data, "", 'var L = thisComp.layer("Lead");\nL.position[0] / 10'),
+        (data, "", 'target = thisComp.layer("Lead");\n'
+                   '(target.position[0] - (thisComp.width / 2)) / thisComp.width'),
+        (data, "", "let L = thisComp.layer(5); L.transform.position.valueAtTime(0)[0]"),
+        (data, "", "me = thisLayer; me.position[0]"),
+        (data, "", "c = thisComp.activeCamera; c.zoom / 100"),
+        (twins, "Fade renamed Lead, above the real Lead", 'thisComp.layer("Lead").position[0]'),
+        (data, "", 'thisComp.layer("Nobody").position[0]'),
+        (data, "", "thisComp.layer(0).position[0]"),
+        (data, "", "thisComp.layer(10).position[0]"),
+        (data, "", "thisComp.layer(2.5).position[0]"),
+        (data, "", "thisComp.layer([1, 2]).position[0]"),
+        (data, "", "L = thisComp.layer(5); L"),
+        (data, "", "L = thisComp.layer(5); L + 1"),
+    ]:
+        v, code, _ = evaluate(Project(with_expression(d, "layer-spin", "rotation", t)),
+                              "layer-spin", "rotation", 12)
+        rows.append(["`" + t.replace("\n", "\\n") + "`" + (f" ({note})" if note else ""),
+                     show(v), code or "none"])
+    table("FX-EXPR-021", ["Spin rotation expression", "value at frame 12", "diagnostic"], rows)
 
 
 def controls_tables(data):

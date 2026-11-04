@@ -224543,3 +224543,30 @@ FX-PSHAPE-016 (`fx_pshape_016.json`): Tris over the drawing (Composite With Orig
 FX-PSHAPE-017 (`fx_pshape_017.json`): Particle Type "cube": not built (D-1032, PROPOSED), so not one of the eleven. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-PSHAPE-018 (`fx_pshape_018.json`): Particle Type "triangle": the word is "tri". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### A layer by its name or number, and a name holding a layer (D-1033)
+
+Printed by `tools/expression_reference.py`, as FX-EXPR-001 to 020, whose numbers and project files it leaves as they were. Tolerance 1e-9.
+
+FX-EXPR-021: each row is Spin's rotation expression in `Fixtures/projects/expression_project.json`, evaluated at frame 12. Its layers from the top of the timeline are 1 Switched off, 2 Fade, 3 Loop, 4 Trail, 5 Lead, 6 Shake on threes, 7 Shake, 8 Follow and 9 Spin; at frame 12 Lead is at (480, 540). `\n` is a line break. The second row is the old form, by id; the seventh is the tutorial's (video 8 of lane w12f's list, 10:35). In the eleventh, Fade is renamed Lead, so two layers have the name and the top one is read. A failed expression leaves Spin's rotation at its keyed value, 0.
+
+| Spin rotation expression | value at frame 12 | diagnostic |
+| --- | --- | --- |
+| `thisComp.layer("Lead").position[0]` | 480 | none |
+| `thisComp.layer("layer-lead").position[0]` | 480 | none |
+| `thisComp.layer(5).position[0]` | 480 | none |
+| `thisComp.layer(1).opacity` | 100 | none |
+| `thisComp.layer(9).position[1]` | 540 | none |
+| `var L = thisComp.layer("Lead");\nL.position[0] / 10` | 48 | none |
+| `target = thisComp.layer("Lead");\n(target.position[0] - (thisComp.width / 2)) / thisComp.width` | -0.25 | none |
+| `let L = thisComp.layer(5); L.transform.position.valueAtTime(0)[0]` | 0 | none |
+| `me = thisLayer; me.position[0]` | 960 | none |
+| `c = thisComp.activeCamera; c.zoom / 100` | 19.2 | none |
+| `thisComp.layer("Lead").position[0]` (Fade renamed Lead, above the real Lead) | 960 | none |
+| `thisComp.layer("Nobody").position[0]` | 0 | EXPRESSION_REFERENCE_MISSING |
+| `thisComp.layer(0).position[0]` | 0 | EXPRESSION_REFERENCE_MISSING |
+| `thisComp.layer(10).position[0]` | 0 | EXPRESSION_REFERENCE_MISSING |
+| `thisComp.layer(2.5).position[0]` | 0 | EXPRESSION_REFERENCE_MISSING |
+| `thisComp.layer([1, 2]).position[0]` | 0 | EXPRESSION_TYPE |
+| `L = thisComp.layer(5); L` | 0 | EXPRESSION_TYPE |
+| `L = thisComp.layer(5); L + 1` | 0 | EXPRESSION_TYPE |

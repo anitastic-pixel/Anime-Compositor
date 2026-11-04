@@ -57,7 +57,7 @@ Position, anchor and scale are lists of two numbers; rotation, opacity, depth an
 
 - At most 4096 bytes of UTF-8. Longer is `EXPRESSION_SYNTAX`.
 - Statements are separated by line breaks or `;`. `//` starts a comment that runs to the end of the line.
-- A statement is either `name = expression`, which gives a local name a value, a bare expression, or (D-766) an `if`. The last bare expression run is the result. `var`, `let` and `const` may be written before an assignment and mean nothing.
+- A statement is either `name = expression`, which gives a local name a value, a bare expression, or (D-766) an `if`. The last bare expression run is the result. `var`, `let` and `const` may be written before an assignment and mean nothing. A local name holds a number, a list or (D-1033) a layer, from `thisComp.layer(...)`, `thisLayer` or `thisComp.activeCamera`; a layer is not a result and takes no arithmetic.
 - D-766: `if (condition) branch` with, if wanted, `else branch` after it on the same line or a later one, `else if` included. A branch is one statement or `{ statements }`. The condition must be one number; it holds when the number is neither 0 nor not-a-number, as JavaScript has it. An `if` gives the value of the last bare expression its branch ran, and nothing when the branch ran none, so `if (time < 1) 5` alone ends without a value after the first second (`EXPRESSION_TYPE`). After Effects' one-line `if (x == 1) 100 else 0` reads as written (FX-EXPR-018).
 - A local name must be given its value on an earlier line than the one that uses it. A name given its value only in a branch that was not taken has none, and using it is `EXPRESSION_TYPE`. A word of the language, `if`, `else`, `true` and `false` among them, cannot be given a value.
 - Numbers are decimal, with an optional fraction and exponent. Text is in single or double quotes, on one line, and exists only to name a layer or a kind of loop.
@@ -93,7 +93,7 @@ Opacity is then limited to 0..100 without a diagnostic, as the window limits a t
 
 ### What can be named
 
-- `thisComp.layer("id")` is a layer, **named by its ID and never by its name or index**, so renaming a layer or moving it in the stack cannot break a reference (FX-EXPR-009). An ID that names no layer is `EXPRESSION_REFERENCE_MISSING`.
+- `thisComp.layer("id")` is a layer, named by its ID, so renaming a layer or moving it in the stack cannot break a reference (FX-EXPR-009); the link the window writes uses the ID. D-1033: a text that is no layer's ID names the topmost layer with that name, and `thisComp.layer(n)` the layer numbered n, 1 at the top, n a whole number from 1 to the number of layers; those follow the name or the place (FX-EXPR-021). A text or number that finds no layer is `EXPRESSION_REFERENCE_MISSING`; anything else in the brackets is `EXPRESSION_TYPE`.
 - `thisComp.activeCamera` is the composition's camera, the default one of D-58 if the file gives none. `thisComp.width`, `thisComp.height` and `thisComp.frameDuration` (seconds) are numbers.
 - `thisLayer` is the layer the expression is on. On the camera it is `EXPRESSION_SYNTAX`: the camera is not a layer.
 - A layer answers `.anchor` (also `.anchorPoint`), `.position`, `.scale`, `.rotation`, `.opacity` and `.depth`, and `.transform` is the layer again so that `layer.transform.rotation` also reads. The camera answers `.position`, `.depth` and `.zoom`.
