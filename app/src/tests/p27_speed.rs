@@ -136,3 +136,99 @@ fn d1120_autosave_writes_the_same_file_outside_the_lock() {
     assert!(expected.contains("\"before\"") && !expected.contains("\"during\""));
     let _ = std::fs::remove_dir_all(&folder);
 }
+
+/// D-1116: after every command of a run of edits, the page's copy built by the page's own
+/// `mergeState` from "only what changed" equals a full `/state`, as JSON values, for the
+/// reference shot and the 200-layer copy. Run under Node, the page's code taken from its markers.
+#[test]
+fn d1116_the_page_copy_built_from_changes_equals_a_full_read() {
+    for layers in [4, 200] {
+        let viewer = viewer(layers);
+        let ids: Vec<String> = {
+            let held = viewer.lock().unwrap();
+            let comp = held.document.project().composition(&held.composition).unwrap();
+            let ids = comp.layers_in_order().map(|l| l.id.as_str().to_string()).collect();
+            ids
+        };
+        let (a, b) = (&ids[0], &ids[1]);
+        let edits: Vec<(&str, String)> = vec![
+            ("layer.rename", format!("layer={a}&name=p27")),
+            ("property.set_base", format!("layer={a}&frame=0&prop=position&value=120,300")),
+            ("layer.set_label", format!("layer={b}&label=16")),
+            ("layer.add_solid", "name=p27%20solid".into()),
+            ("layer.move_down", format!("layer={a}")),
+            ("layer.duplicate", format!("layer={b}")),
+            ("layer.delete", format!("layer={b}&frame=0")),
+            ("edit.undo", String::new()),
+            ("edit.undo", String::new()),
+            ("edit.redo", String::new()),
+            ("layer.set_solo", format!("layer={a}")),
+            ("edit.undo", String::new()),
+            ("edit.undo", String::new()),
+            ("edit.undo", String::new()),
+        ];
+        let first: serde_json::Value = serde_json::from_str(&state_since(&viewer, None)).unwrap();
+        let mut token = first["token"].as_u64().unwrap();
+        let mut steps = Vec::new();
+        for (name, query) in &edits {
+            let _ = edit_command(&viewer, name, Some(query.as_str()).filter(|q| !q.is_empty()));
+            let text = state_since(&viewer, Some(token));
+            let answer: serde_json::Value = serde_json::from_str(&text).unwrap();
+            token = answer["token"].as_u64().unwrap();
+            let expected: serde_json::Value =
+                serde_json::from_str(&state_before_d1115(&viewer)).unwrap();
+            steps.push(serde_json::json!({
+                "what": name, "bytes": text.len(), "answer": answer, "expected": expected,
+            }));
+        }
+        let data = std::env::temp_dir().join(format!("p27_d1116_{layers}.json"));
+        std::fs::write(&data, serde_json::json!({"first": first, "steps": steps}).to_string()).unwrap();
+        let script = std::env::temp_dir().join("p27_d1116.js");
+        std::fs::write(
+            &script,
+            "const fs = require('fs');\n\
+             const page = fs.readFileSync(process.argv[2], 'utf8');\n\
+             const from = page.indexOf('// ---- D-1116 merge begin');\n\
+             const to = page.indexOf('// ---- D-1116 merge end');\n\
+             if (from < 0 || to < from) throw new Error('the markers are not in the page');\n\
+             const { mergeState } = new Function(page.slice(from, to) + '\\nreturn { mergeState };')();\n\
+             const sorted = (v) => Array.isArray(v) ? v.map(sorted) : v && typeof v === 'object'\n\
+               ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, sorted(v[k])])) : v;\n\
+             const same = (a, b) => JSON.stringify(sorted(a)) === JSON.stringify(sorted(b));\n\
+             const data = JSON.parse(fs.readFileSync(process.argv[3], 'utf8'));\n\
+             let doc = data.first;\n\
+             const rows = data.steps.map((s) => {\n\
+               const merged = mergeState(doc, s.answer);\n\
+               if (!merged) return [s.what, 'refused', false, s.bytes];\n\
+               doc = merged;\n\
+               const { token, ...rest } = merged;\n\
+               return [s.what, s.answer.project ? 'whole' : 'changes', same(rest, s.expected), s.bytes];\n\
+             });\n\
+             console.log(JSON.stringify(rows));\n",
+        )
+        .unwrap();
+        let out = std::process::Command::new("node")
+            .arg(&script)
+            .arg(repo("app/ui/index.html"))
+            .arg(&data)
+            .output()
+            .expect("the page's code runs under Node, which must be installed");
+        assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
+        let rows: Vec<(String, String, bool, usize)> = serde_json::from_slice(&out.stdout).unwrap();
+        let _ = std::fs::remove_file(&data);
+        for row in &rows {
+            println!("{layers} layers: {row:?}");
+            assert!(row.2, "{layers} layers: the page's copy differs after {}", row.0);
+        }
+        // Edits inside the composition are sent as changes, not as the whole project.
+        assert_eq!(rows[0].1, "changes", "{layers}: a rename");
+        assert_eq!(rows[1].1, "changes", "{layers}: a value");
+        if layers == 200 {
+            assert!(rows[0].3 < 100_000, "a rename at 200 layers sends {} bytes", rows[0].3);
+        }
+        // A copy the window did not send last is answered with the whole project.
+        let stale: serde_json::Value =
+            serde_json::from_str(&state_since(&viewer, Some(token + 1000))).unwrap();
+        assert!(stale.get("project").is_some() && stale.get("changes").is_none());
+    }
+}

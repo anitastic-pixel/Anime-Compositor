@@ -18790,9 +18790,32 @@ function drawPanels() {
 
 // The open project, as the core describes it. Asked for after every command rather than tracked
 // here: the page holds no model of its own, so it cannot come to disagree with the file.
+// D-1116: the page's copy is sent as a number, and after an edit the core answers with only what
+// changed since it; the page swaps those objects in and keeps no rules of its own. An answer for
+// a copy the page no longer holds is not used: the whole project is asked for instead.
+// ---- D-1116 merge begin
+function mergeState(old, answer) {
+  if (answer.project) return answer;
+  if (!old || old.token !== answer.since) return null;
+  const compositions = old.project.compositions.map((comp) => {
+    const change = answer.changes[comp.id];
+    if (!change) return comp;
+    const kept = new Map(comp.layers.map((l) => [l.id, l]));
+    return Object.assign({}, comp, change.fields,
+      { layers: change.order.map((id) => change.layers[id] || kept.get(id)) });
+  });
+  const merged = Object.assign({}, answer, { project: Object.assign({}, old.project, { compositions }) });
+  delete merged.since;
+  delete merged.changes;
+  return merged;
+}
+// ---- D-1116 merge end
+
 async function refreshState() {
   try {
-    doc = await (await fetch(PROJECT + '/state')).json();
+    const since = doc && doc.token !== undefined ? '?since=' + doc.token : '';
+    doc = mergeState(doc, await (await fetch(PROJECT + '/state' + since)).json())
+      || await (await fetch(PROJECT + '/state')).json();
   } catch (e) {
     $('report').textContent = 'the project did not arrive: ' + e;
     $('report').className = 'dropped';

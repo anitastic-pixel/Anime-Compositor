@@ -20,11 +20,12 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 
 | Check | Expected | Actual | Result |
 |---|---|---|---|
-| the panels read 5 fields out of the whole answer | true | true | pass |
+| the panels read 6 fields out of the whole answer | true | true | pass |
 | `doc.composition` is in the answer | present | present | pass |
 | `doc.project` is in the answer | present | present | pass |
 | `doc.redo` is in the answer | present | present | pass |
 | `doc.solo` is in the answer | present | present | pass |
+| `doc.token` is in the answer | present | present | pass |
 | `doc.undo` is in the answer | present | present | pass |
 | the panels read 20 fields out of the composition on screen | true | true | pass |
 | `comp.ae_32bpc` is in the answer | present | present | pass |
@@ -686,3 +687,5 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | and the settings it sends for it - threshold, ratio, knee, attack, release, makeup, output_limit, auto_release - are the ones the command reads | accepted | accepted | pass |
 
 **664 of 664 checks pass.**
+
+**659 of 659 checks pass.**

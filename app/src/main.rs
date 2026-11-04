@@ -168,6 +168,9 @@ struct Viewer {
     /// autosave happens on a clock while somebody is doing something else, and overwriting
     /// "Saved to shot.json" with it would take away the answer they were waiting for.
     autosaved: String,
+    /// D-1116: the project as last sent by `/state`, and the number it was sent under, so the
+    /// next `/state?since=` that number can send only what changed. `None` before the first.
+    state_sent: Option<(u64, serde_json::Value)>,
     /// When this document first became dirty, as far as the timer has seen. `None` while it is
     /// clean. Document 07 asks for a snapshot "after two minutes of dirty activity", so the two
     /// minutes are measured from here.
@@ -2606,6 +2609,7 @@ fn open(path: &Path) -> Result<Viewer, Diagnostic> {
         status: String::new(),
         recovery: candidates.into_iter().map(|c| c.path).collect(),
         autosaved: String::new(),
+        state_sent: None,
         dirty_since: None,
         alpha_only: false,
         // On, because a transparent frame that reads as black is a frame a person
@@ -2833,6 +2837,7 @@ fn blank(root: PathBuf) -> Viewer {
         status: String::new(),
         recovery: Vec::new(),
         autosaved: String::new(),
+        state_sent: None,
         dirty_since: None,
         alpha_only: false,
         checkerboard: true,
@@ -3268,6 +3273,114 @@ fn state(viewer: &Mutex<Viewer>) -> String {
     let text = persist::to_json_compact(&project, &preserved);
     // `rest` is a non-empty object, so it starts with `{"`.
     format!("{{\"project\":{text},{}", &rest[1..])
+}
+
+/// D-1116: the numbers `/state` answers are sent under, one a reply, never reused.
+static STATE_SENT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+/// D-1116: `/state` as the page asks for it. [`state`]'s answer plus `token`, the number this
+/// answer is sent under. Given `since`, the token of the page's copy, and that copy is the last
+/// one sent, the project is left out and `changes` names what differs from it instead: for each
+/// composition that changed, its other fields that changed, its layer ids in order, and the layers
+/// whose text changed or that are new. Anything else that changed sends the whole project.
+fn state_since(viewer: &Mutex<Viewer>, since: Option<u64>) -> String {
+    let (project, preserved, rest, sent) = {
+        let viewer = &mut *viewer.lock().expect("the viewer lock was poisoned");
+        let rest = serde_json::json!({
+            "composition": viewer.composition.as_str(),
+            "revision": viewer.document.revision(),
+            "solo": viewer.solo.iter().map(|id| id.as_str()).collect::<Vec<_>>(),
+            "undo": viewer.document.undo_labels(),
+            "redo": viewer.document.redo_labels(),
+        })
+        .to_string();
+        let sent = viewer.state_sent.take();
+        (viewer.document.project().clone(), viewer.preserved.clone(), rest, sent)
+    };
+    let tree = persist::project_tree(&project, &preserved);
+    let token = STATE_SENT.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
+    let changes = match (since, &sent) {
+        (Some(since), Some((last, old))) if since == *last => {
+            state_changes(old, &tree).map(|c| (since, c))
+        }
+        _ => None,
+    };
+    let head = match changes {
+        Some((since, changes)) => {
+            format!("\"since\":{since},\"changes\":{}", persist::compact(&changes))
+        }
+        None => format!("\"project\":{}", persist::compact(&tree)),
+    };
+    // The tree replaced, if another reply stored one meanwhile, is let go of after the lock.
+    let _stale = viewer
+        .lock()
+        .expect("the viewer lock was poisoned")
+        .state_sent
+        .replace((token, tree));
+    format!("{{{head},\"token\":{token},{}", &rest[1..])
+}
+
+/// D-1116: what `new` changes from `old`, both as [`persist::project_tree`] writes them, if the
+/// change is only inside compositions' fields and layers; `None` when the whole must be sent.
+fn state_changes(old: &serde_json::Value, new: &serde_json::Value) -> Option<serde_json::Value> {
+    use serde_json::{Map, Value as J};
+    let (old, new) = (old.as_object()?, new.as_object()?);
+    let same_keys = |a: &Map<String, J>, b: &Map<String, J>| {
+        a.len() == b.len() && b.keys().all(|k| a.contains_key(k))
+    };
+    if !same_keys(old, new)
+        || new
+            .iter()
+            .any(|(k, v)| k != "compositions" && old.get(k) != Some(v))
+    {
+        return None;
+    }
+    let (was, now) = (
+        old.get("compositions")?.as_array()?,
+        new.get("compositions")?.as_array()?,
+    );
+    if was.len() != now.len() {
+        return None;
+    }
+    let mut changes = Map::new();
+    for (a, b) in was.iter().zip(now) {
+        if a == b {
+            continue;
+        }
+        let (a, b) = (a.as_object()?, b.as_object()?);
+        let id = b.get("id")?.as_str()?;
+        if a.get("id") != b.get("id") || !same_keys(a, b) || changes.contains_key(id) {
+            return None;
+        }
+        let fields: Map<String, J> = b
+            .iter()
+            .filter(|(k, v)| *k != "layers" && a.get(*k) != Some(*v))
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect();
+        let mut kept = std::collections::HashMap::new();
+        for layer in a.get("layers")?.as_array()? {
+            if kept.insert(layer.get("id")?.as_str()?, layer).is_some() {
+                return None;
+            }
+        }
+        let (mut order, mut seen, mut layers) =
+            (Vec::new(), std::collections::HashSet::new(), Map::new());
+        for layer in b.get("layers")?.as_array()? {
+            let lid = layer.get("id")?.as_str()?;
+            if !seen.insert(lid) {
+                return None;
+            }
+            order.push(J::from(lid));
+            if kept.get(lid) != Some(&layer) {
+                layers.insert(lid.to_string(), layer.clone());
+            }
+        }
+        changes.insert(
+            id.to_string(),
+            serde_json::json!({"fields": fields, "order": order, "layers": layers}),
+        );
+    }
+    Some(J::Object(changes))
 }
 
 /// Apply one command and say what happened, in the history record's own words.
@@ -19350,7 +19463,7 @@ fn command(app: &AppHandle, path: &str, query: Option<&str>) -> Response<Vec<u8>
     if path == "state" {
         return allow_the_page_to_read_this(Response::builder())
             .header("content-type", "application/json; charset=utf-8")
-            .body(state(&viewer).into_bytes())
+            .body(state_since(&viewer, parameter(query, "since").and_then(|s| s.parse().ok())).into_bytes())
             .expect("build the state response");
     }
     // P-19: the session log panel's one question, and its switch, Clear and Save a copy. Every

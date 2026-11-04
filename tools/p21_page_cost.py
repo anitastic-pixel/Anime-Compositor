@@ -10,6 +10,8 @@ web view's debugging port:
   draw_panels   drawPanels(), the page's redraw of every panel after an edit
   edit_total    await command('/layer.rename?...'): the page's whole edit path
                 (command, /state, parse, drawPanels, drawSketch), the frame request after it not waited
+  delta_fetch   after a rename sent on its own, fetch(PROJECT + '/state?since=' + the page's
+                copy) until the text has arrived (D-1116); delta_bytes its length
   zoom_redraw   the timeline zoom slider moved, its oninput handler run once
 Seven runs each, medians. Never touches the owner's profile, window.txt or recent.txt.
 """
@@ -57,6 +59,17 @@ JS = r"""(async () => {
     ed.push(performance.now() - t);
     while (inFlight || pending) await new Promise((res) => setTimeout(res, 20));
   }
+  // D-1116: what the page is sent after one rename when it names its copy (an older build
+  // ignores the number and sends the whole project, so this is the full read there).
+  const df = []; let dbytes = 0;
+  for (let i = 0; i < 7; i++) {
+    await fetch(PROJECT + '/layer.rename?layer=' + encodeURIComponent(first.id) + '&name=' + encodeURIComponent('p27 d ' + i));
+    const t = performance.now();
+    const text = await (await fetch(PROJECT + '/state?since=' + doc.token)).text();
+    df.push(performance.now() - t); dbytes = text.length;
+    doc = (typeof mergeState === 'function' && mergeState(doc, JSON.parse(text))) || JSON.parse(text);
+  }
+  r.delta_bytes = dbytes; r.delta_fetch = med(df);
   const z = document.getElementById('timezoom');
   for (let i = 0; i < 7; i++) {
     z.value = String(i % 2 ? z.min || 1 : z.max || 100);

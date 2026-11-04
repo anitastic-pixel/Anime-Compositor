@@ -1783,9 +1783,10 @@ fn every_field_the_panels_read_is_in_the_answer_the_window_gives() {
                 ])],
             });
     }
+    // D-1116: the answer `/state` gives a page with no copy yet, which adds the copy's `token`.
     let answer: serde_json::Value =
-        serde_json::from_str(&state(&viewer)).expect("the state answer is JSON");
-    let sound = answer["project"]["compositions"][0]["layers"]
+        serde_json::from_str(&state_since(&viewer, None)).expect("the state answer is JSON");
+    let sound =answer["project"]["compositions"][0]["layers"]
         .as_array()
         .and_then(|all| all.iter().find(|l| l["kind"] == "audio"))
         .cloned()

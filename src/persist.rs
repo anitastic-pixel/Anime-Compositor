@@ -8486,9 +8486,19 @@ pub fn to_json(project: &Project, preserved: &Preserved) -> String {
 /// D-1115: the same project as [`to_json`] on one line, for the window's `/state`: the tree
 /// written straight out, not written spaced, read back and written again.
 pub fn to_json_compact(project: &Project, preserved: &Preserved) -> String {
+    compact(&root_json(project, preserved))
+}
+
+/// D-1116: a tree as [`to_json_compact`] writes it, for the parts of the project `/state` sends.
+pub fn compact(value: &J) -> String {
     let mut text = String::new();
-    write_compact(&mut text, &root_json(project, preserved));
+    write_compact(&mut text, value);
     text
+}
+
+/// D-1116: the project as the tree [`to_json`] writes, so `/state` can tell which parts changed.
+pub fn project_tree(project: &Project, preserved: &Preserved) -> J {
+    root_json(project, preserved)
 }
 
 fn root_json(project: &Project, preserved: &Preserved) -> J {
