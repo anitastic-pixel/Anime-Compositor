@@ -74,7 +74,10 @@ impl EffectInstance {
     pub fn has_mix(&self) -> bool {
         !matches!(
             self.effect,
-            Effect::PosterizeTime { .. } | Effect::TextAnimator { .. } | Effect::Unsupported { .. }
+            Effect::PosterizeTime { .. }
+                | Effect::TextAnimator { .. }
+                | Effect::TextPath { .. }
+                | Effect::Unsupported { .. }
         ) && !self.effect.is_sound()
             && self.effect.control().is_none()
     }
@@ -115,7 +118,7 @@ impl EffectInstance {
         });
         if matches!(
             self.effect,
-            Effect::PosterizeTime { .. } | Effect::TextAnimator { .. }
+            Effect::PosterizeTime { .. } | Effect::TextAnimator { .. } | Effect::TextPath { .. }
         ) || self.effect.is_sound()
             || self.effect.control().is_some()
         {
@@ -152,7 +155,7 @@ impl EffectInstance {
         Some(
             if matches!(
                 self.effect,
-                Effect::PosterizeTime { .. } | Effect::TextAnimator { .. }
+                Effect::PosterizeTime { .. } | Effect::TextAnimator { .. } | Effect::TextPath { .. }
             ) || self.effect.is_sound()
                 || self.effect.control().is_some()
             {
@@ -168,6 +171,8 @@ impl EffectInstance {
                     "A sound effect works on sound and has no picture to mix"
                 } else if matches!(self.effect, Effect::TextAnimator { .. }) {
                     "Text Animator moves the letters before there is a picture"
+                } else if matches!(self.effect, Effect::TextPath { .. }) {
+                    "Path Options places the letters before there is a picture"
                 } else {
                     "Posterize Time holds its layer in time and has no picture to mix"
                 };
@@ -4720,6 +4725,22 @@ pub enum Effect {
         ease_high: f64,
         ease_low: f64,
     },
+    /// D-1085: Path Options, after After Effects' Path Options on a text layer: its letters set
+    /// along one of its masks (`text::lay_out`, document 21). `path`, the mask's number from 1, 0
+    /// for none; `reverse`, `perpendicular` and `force_alignment`, "off" or "on";
+    /// `first_margin` and `last_margin`, -100,000 to 100,000 pixels along the path. It has no
+    /// pixel work: compose hands it to the text's drawing. `line` is not a setting and is never
+    /// saved: compose fills it with the mask as it is on the frame, cut into pieces, and whether
+    /// it is closed.
+    TextPath {
+        path: f64,
+        reverse: String,
+        perpendicular: String,
+        force_alignment: String,
+        first_margin: f64,
+        last_margin: f64,
+        line: Option<(Vec<(f64, f64)>, bool)>,
+    },
     /// D-348: Depth Key, after After Effects' Depth Matte: what is nearer than `depth` in the
     /// layer's EXR depth taken out. `depth`, -1,000,000 to 1,000,000; `feather`, 0 to 1,000,000,
     /// both in the depth's own units; `invert`, "off" or "on". `channels` as Pass Extract's.
@@ -7047,6 +7068,8 @@ pub const IDENT_OUTPUTS: [&str; 4] = ["colors", "luma_matte", "alpha_matte", "ra
 /// D-522: Cryptomatte's outputs.
 pub const CRYPTO_OUTPUTS: [&str; 3] = ["colors", "matte", "keyed"];
 pub const TEXT_ANIMATOR: &str = "core.text_animator";
+/// D-1085: Path Options, text on a path.
+pub const TEXT_PATH: &str = "core.text_path";
 pub const STRETCH_LEVELS: &str = "core.stretch_levels";
 pub const STRETCH_CONTRAST: &str = "core.stretch_contrast";
 pub const STRETCH_COLOR: &str = "core.stretch_color";
@@ -10253,6 +10276,16 @@ impl Effect {
                 ("end", vec![end], 0.0, 100.0),
                 ("spacing", vec![spacing], 0.0, 100.0),
             ],
+            Effect::TextPath {
+                path,
+                first_margin,
+                last_margin,
+                ..
+            } => vec![
+                ("path", vec![path], 0.0, 1000.0),
+                ("first_margin", vec![first_margin], -1e5, 1e5),
+                ("last_margin", vec![last_margin], -1e5, 1e5),
+            ],
             Effect::TextAnimator {
                 position,
                 scale,
@@ -12607,6 +12640,7 @@ impl Effect {
             Effect::DepthOfField { .. } => "Depth of Field",
             Effect::Fog3d { .. } => "Fog 3D",
             Effect::TextAnimator { .. } => "Text Animator",
+            Effect::TextPath { .. } => "Path Options",
             Effect::AutoTone { kind: "levels", .. } => "Stretch Levels",
             Effect::AutoTone {
                 kind: "contrast", ..
@@ -12902,6 +12936,7 @@ impl Effect {
             Effect::DepthOfField { .. } => DEPTH_OF_FIELD,
             Effect::Fog3d { .. } => FOG_3D,
             Effect::TextAnimator { .. } => TEXT_ANIMATOR,
+            Effect::TextPath { .. } => TEXT_PATH,
             Effect::AutoTone { kind: "levels", .. } => STRETCH_LEVELS,
             Effect::AutoTone {
                 kind: "contrast", ..
@@ -14611,6 +14646,15 @@ impl Effect {
             Effect::IdKey { aux_channel, .. } if !["object_id", "material_id"].contains(&aux_channel.as_str()) => Some(format!(
                 "ID Key's channel is \"object_id\" or \"material_id\", and this is \"{aux_channel}\"."
             )),
+            Effect::TextPath { reverse: v, .. }
+            | Effect::TextPath { perpendicular: v, .. }
+            | Effect::TextPath { force_alignment: v, .. }
+                if !["off", "on"].contains(&v.as_str()) =>
+            {
+                Some(format!(
+                    "Path Options' Reverse Path, Perpendicular To Path and Force Alignment are \"off\" or \"on\", and this is \"{v}\"."
+                ))
+            }
             Effect::TextAnimator { fill, .. } if !["off", "on"].contains(&fill.as_str()) => Some(format!(
                 "Text Animator's fill is \"off\" or \"on\", and this is \"{fill}\"."
             )),
@@ -21389,7 +21433,7 @@ pub(crate) fn apply_stack_at(
             | Effect::ColorControl { .. }
             | Effect::LayerControl { .. } => {}
             // D-350: the letters were moved where the text was drawn.
-            Effect::TextAnimator { .. } => {}
+            Effect::TextAnimator { .. } | Effect::TextPath { .. } => {}
             // D-642: a sound effect is run by `audio::mix`; a picture is left as it is.
             Effect::NoiseGate { .. } | Effect::Compressor { .. } | Effect::Distortion { .. } => {}
             // D-351: by the whole picture's statistics, or the frames' compose added up.

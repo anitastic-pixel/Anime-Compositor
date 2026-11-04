@@ -7864,11 +7864,13 @@ function shapePoints(kind, x0, y0, x1, y1) {
   }
   const [cx, cy] = [(ax + bx) / 2, (ay + by) / 2];
   const [hx, hy] = [(bx - ax) / 2 * KAPPA, (by - ay) / 2 * KAPPA];
+  // D-1085: from the top, anticlockwise on the picture, as After Effects draws an ellipse mask,
+  // so words on it with Path Options sit as they do there.
   return [
-    [cx, ay, -hx, 0, hx, 0],
-    [bx, cy, 0, -hy, 0, hy],
-    [cx, by, hx, 0, -hx, 0],
-    [ax, cy, 0, hy, 0, -hy],
+    [cx, ay, hx, 0, -hx, 0],
+    [ax, cy, 0, -hy, 0, hy],
+    [cx, by, -hx, 0, hx, 0],
+    [bx, cy, 0, hy, 0, -hy],
   ];
 }
 
@@ -11103,6 +11105,7 @@ const EFFECT_NAMES = {
   'core.basic_text': 'Basic Text',
   'core.timecode': 'Timecode',
   'core.text_animator': 'Text Animator',
+  'core.text_path': 'Path Options',
   'core.stretch_levels': 'Stretch Levels',
   'core.stretch_contrast': 'Stretch Contrast',
   'core.stretch_color': 'Stretch Color',
@@ -11154,7 +11157,7 @@ const EFFECT_GROUPS = [
     'core.camera_shake', 'core.three_d_glasses', 'core.cc_spotlight', 'core.cc_cylinder', 'core.cc_environment', 'core.cc_sphere']],
   ['Time', ['core.echo', 'core.cc_wide_time', 'core.force_motion_blur', 'core.pixel_motion_blur', 'core.timewarp', 'core.time_difference', 'core.posterize_time', 'core.moment_map']],
   ['3D Channel', ['core.pass_extract', 'core.depth_key', 'core.id_key', 'core.cryptomatte', 'core.depth_of_field', 'core.fog_3d', 'core.identifier']],
-  ['Text', ['core.text_animator', 'core.numbers', 'core.timecode', 'core.basic_text']],
+  ['Text', ['core.text_animator', 'core.text_path', 'core.numbers', 'core.timecode', 'core.basic_text']],
   // D-766: settings for expressions to read, which draw nothing.
   ['Expression Controls', ['core.slider_control', 'core.checkbox_control', 'core.angle_control', 'core.point_control', 'core.color_control', 'core.layer_control']],
   // D-642: sound effects, which go on sound layers only.
@@ -11411,6 +11414,7 @@ const EFFECT_SEARCH = {
   'core.fog_3d': 'fog 3d mist haze atmosphere depth distance z zdepth exr render pass scattering density gradient background',
   'core.depth_of_field': 'depth of field dof focus defocus focal plane bokeh lens blur z zdepth exr render pass camera',
   'core.cryptomatte': 'cryptomatte crypto matte object material asset name names pick select isolate cut out exr render pass aov psyop blender redshift arnold vray coverage soft edge keyed colors',
+  'core.text_path': 'path options text on a path mask circle circular around along follow reverse perpendicular first margin last margin force alignment',
   'core.text_animator': 'text animator animate range selector per character letter word typewriter type on fade in by character wave tracking offset blur',
   'core.stretch_levels': 'stretch levels auto levels automatic black white point clip histogram flicker deflicker temporal smoothing scene detect',
   'core.stretch_contrast': 'stretch contrast auto contrast automatic black white point clip histogram flicker deflicker temporal smoothing scene detect',
@@ -11720,6 +11724,7 @@ const EFFECT_ABOUT = {
   'core.fog_3d': 'Lays fog over a 3D render that thickens with distance, read from the depth saved in the layer\'s EXR file; a grey layer can thin it in places.',
   'core.depth_of_field': 'Blurs a 3D render more the further each part lies from the distance in focus, read from the depth saved in the layer\'s EXR file.',
   'core.cryptomatte': 'Picks objects or materials by name from the Cryptomatte a 3D render saved in the layer\'s EXR file, with soft edges: shows every object in its own colour, the matte of the ones named, or the picture kept only where they are.',
+  'core.text_path': 'Sets the words of a text layer along one of its masks, as After Effects’ Path Options: round a circle, along a curve; slide them with First Margin.',
   'core.text_animator': 'Moves, scales, turns, fades or recolours the letters of a text layer one by one, as far as a range selector picks them: a typewriter, a fade by character, a wave.',
   'core.stretch_levels': 'Stretches each colour channel of the layer to its own darkest and lightest, read from the whole picture, so a dull picture fills the range and a cast lessens.',
   'core.stretch_contrast': 'Stretches the layer\'s darkest and lightest to black and white, the three channels together, so the colours keep their balance.',
@@ -12228,6 +12233,10 @@ const EFFECT_PARAMS = {
   'core.identifier': [['id', 'ID', 1, 1, 'the id the mattes keep, 0 to 1,000,000; an id within a half of it counts', '', 0]],
   'core.cryptomatte': [],
   // D-350, After Effects' own words: the animator's properties, then its Range Selector.
+  // D-1085, After Effects' own words.
+  'core.text_path': [['path', 'Path', 1, 1, 'the layer’s mask the words follow, numbered so from 1; 0 for none'],
+    ['first_margin', 'First Margin', 1, 1, 'pixels along the path the words start at (centred words: from halfway round)'],
+    ['last_margin', 'Last Margin', 1, 1, 'pixels from the path’s end the words stop at, for right-aligned words and Force Alignment']],
   'core.text_animator': [['position', 'Position', 2, 1, 'pixels each picked letter moves, x then y'],
     ['scale', 'Scale', 2, 1, 'per cent, x then y, about each letter\'s foot'],
     ['rotation', 'Rotation', 1, 1, 'degrees clockwise, each letter about its foot', 'dial'],
@@ -14736,6 +14745,12 @@ const EFFECT_WORDS = {
       ['selection', 'Selection', 'names, a comma between', null,
       'The objects or materials picked, by the names the 3D program gave them, a comma between']],
   },
+  // D-1085.
+  'core.text_path': {
+    choices: [['reverse', 'Reverse Path', [['off', 'Off'], ['on', 'On']]],
+      ['perpendicular', 'Perpendicular To Path', [['on', 'On'], ['off', 'Off']]],
+      ['force_alignment', 'Force Alignment', [['off', 'Off'], ['on', 'On']]]],
+  },
   // D-350.
   'core.text_animator': {
     choices: [['fill', 'Fill Color', [['off', 'Off'], ['on', 'On']]],
@@ -17032,7 +17047,7 @@ function effectRow(layer, fx, at, of) {
   // layer in time and has no picture to mix, so it has none; nor has a text animator, which
   // moves the letters before there is a picture (D-350).
   // D-766: nor has an Expression Control, which draws nothing.
-  if (!['core.posterize_time', 'core.text_animator', 'core.noise_gate', 'core.compressor', 'core.distortion'].includes(fx.type_id)
+  if (!['core.posterize_time', 'core.text_animator', 'core.text_path', 'core.noise_gate', 'core.compressor', 'core.distortion'].includes(fx.type_id)
     && !fx.type_id.endsWith('_control')) {
     const prop = fxName(fx, 'mix');
     const dt = document.createElement('dt');

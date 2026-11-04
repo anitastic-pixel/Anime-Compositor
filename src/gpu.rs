@@ -13508,6 +13508,7 @@ macro_rules! not_fx {
             | crate::effects::Effect::SpinZoomBlur { .. }
             | crate::effects::Effect::SpreadTones { .. }
             | crate::effects::Effect::TextAnimator { .. }
+            | crate::effects::Effect::TextPath { .. }
             | crate::effects::Effect::TimeDifference { .. }
             | crate::effects::Effect::Timewarp { .. }
             | crate::effects::Effect::TurbulentNoise { .. }

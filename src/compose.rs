@@ -4109,20 +4109,56 @@ fn effect_now(
 
 /// D-350: a text layer's animators as they are at `at`; one whose settings this build cannot use
 /// is left out (and said with the rest of the stack). D-373: Path Stroke's text outlines take
-/// the same.
+/// the same. D-1085: and its Path Options, each with its mask as it is at `at`, cut into pieces;
+/// one whose mask the layer does not have is left out (and said with the rest of the stack).
 fn text_animators(
     comp: &crate::model::Composition,
     layer: &crate::model::Layer,
     at: i32,
 ) -> Vec<crate::effects::Effect> {
+    use crate::effects::Effect;
     layer
         .effects
         .iter()
-        .filter(|i| i.enabled && matches!(i.effect, crate::effects::Effect::TextAnimator { .. }))
+        .filter(|i| i.enabled && matches!(i.effect, Effect::TextAnimator { .. } | Effect::TextPath { .. }))
         .map(|i| crate::expr::effect_at(comp, &layer.id, i, at, layer.key_time(at as f64)).0)
         .filter(|i| i.is_valid())
-        .map(|i| i.effect)
+        .filter_map(|i| match i.effect {
+            Effect::TextPath { path, .. } if path < 1.0 => None,
+            Effect::TextPath {
+                path,
+                reverse,
+                perpendicular,
+                force_alignment,
+                first_margin,
+                last_margin,
+                ..
+            } => {
+                let line = text_path_mask(layer, path, at)?;
+                Some(Effect::TextPath {
+                    path,
+                    reverse,
+                    perpendicular,
+                    force_alignment,
+                    first_margin,
+                    last_margin,
+                    line: Some(line),
+                })
+            }
+            e => Some(e),
+        })
         .collect()
+}
+
+/// D-1085: mask `path` (from 1) of `layer` as it is at `at`, cut into pieces, and whether it is
+/// closed; `None` when the layer has no such mask that is on with two points or more.
+fn text_path_mask(layer: &crate::model::Layer, path: f64, at: i32) -> Option<(Vec<(f64, f64)>, bool)> {
+    let m = layer
+        .masks
+        .get((path.floor() as usize).checked_sub(1)?)
+        .filter(|m| m.enabled && m.points.len() >= 2)?
+        .at_time(layer.key_time(at as f64));
+    Some((m.path(), m.closed))
 }
 
 fn resolve_rest(
@@ -4233,7 +4269,7 @@ fn resolve_rest(
         && layer
             .effects
             .iter()
-            .any(|i| i.enabled && matches!(i.effect, crate::effects::Effect::TextAnimator { .. }))
+            .any(|i| i.enabled && matches!(i.effect, crate::effects::Effect::TextAnimator { .. } | crate::effects::Effect::TextPath { .. }))
     {
         log.record(
             frame,
@@ -4249,6 +4285,28 @@ fn resolve_rest(
             )
             .with_remediation("Move the Text Animator to a text layer, or remove it."),
         );
+    }
+    // D-1085: Path Options names a mask the layer does not have.
+    for i in effects.iter().filter(|i| i.enabled && i.is_valid()) {
+        if let crate::effects::Effect::TextPath { path, .. } = i.effect {
+            if path >= 1.0 && layer.text.is_some() && text_path_mask(layer, path, at).is_none() {
+                log.record(
+                    frame,
+                    layer.name.clone(),
+                    Diagnostic::new(
+                        DiagnosticId::EffectPathMissing,
+                        Severity::Warning,
+                        format!(
+                            "Layer {}'s Path Options has no mask {} that is on with two points or more to set its words along.",
+                            layer.name,
+                            path.floor()
+                        ),
+                        format!("Frame {frame} draws the words where they are without a path. The effect is kept as it is."),
+                    )
+                    .with_remediation("Choose one of the layer's masks as the Path, or draw one."),
+                );
+            }
+        }
     }
     // D-351: an adjustment layer's frame beneath at other times is not to hand, so a Stretch
     // effect there reads its own frame only.

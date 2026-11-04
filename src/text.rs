@@ -450,6 +450,12 @@ impl Pen<'_> {
             (p.0 - t.anchor[0]) * t.scale[0],
             (p.1 - t.anchor[1]) * t.scale[1],
         );
+        // D-1085: on a path, the character turned about its anchor, lifted, then set at its
+        // point on the path, turned by the path's direction.
+        if let Some(a) = &t.along {
+            let (rx, ry) = (t.cos * dx - t.sin * dy, t.sin * dx + t.cos * dy + a.lift);
+            return (a.to[0] + a.cos * rx - a.sin * ry, a.to[1] + a.sin * rx + a.cos * ry);
+        }
         // Clockwise on the picture, whose y grows downwards.
         (
             t.anchor[0] + t.cos * dx - t.sin * dy + t.moved[0],
@@ -581,6 +587,92 @@ struct Turn {
     cos: f64,
     sin: f64,
     moved: [f64; 2],
+    /// D-1085: where on a path the anchor goes, with Path Options.
+    along: Option<Along>,
+}
+
+/// D-1085: a character's place on a path: its point, the path's direction there (or none,
+/// upright) and how far it is lifted off the path first.
+#[derive(Clone, Copy)]
+struct Along {
+    to: [f64; 2],
+    cos: f64,
+    sin: f64,
+    lift: f64,
+}
+
+/// D-1085: Path Options' mask as walked: its pieces, their lengths, the whole length and
+/// whether it is closed, and the settings that place the words on it.
+struct Walk {
+    pieces: Vec<((f64, f64), (f64, f64), f64)>,
+    total: f64,
+    closed: bool,
+    perpendicular: bool,
+    force: bool,
+    first: f64,
+    last: f64,
+}
+
+impl Walk {
+    fn new(animators: &[crate::effects::Effect]) -> Option<Walk> {
+        let crate::effects::Effect::TextPath {
+            reverse,
+            perpendicular,
+            force_alignment,
+            first_margin,
+            last_margin,
+            line: Some((points, closed)),
+            ..
+        } = animators
+            .iter()
+            .find(|a| matches!(a, crate::effects::Effect::TextPath { line: Some(_), .. }))?
+        else {
+            return None;
+        };
+        let mut points = points.clone();
+        if reverse == "on" {
+            // A closed path keeps its first point and goes round the other way.
+            let from = usize::from(*closed);
+            points[from..].reverse();
+        }
+        let mut ends: Vec<(f64, f64)> = points.clone();
+        if *closed {
+            ends.push(points[0]);
+        }
+        let pieces: Vec<_> = ends
+            .windows(2)
+            .map(|w| (w[0], w[1], (w[1].0 - w[0].0).hypot(w[1].1 - w[0].1)))
+            .filter(|p| p.2 > 0.0)
+            .collect();
+        let total = pieces.iter().map(|p| p.2).sum();
+        (!pieces.is_empty()).then_some(Walk {
+            pieces,
+            total,
+            closed: *closed,
+            perpendicular: perpendicular == "on",
+            force: force_alignment == "on",
+            first: *first_margin,
+            last: *last_margin,
+        })
+    }
+
+    /// The point `s` along the path and the path's direction there, cos then sin. A closed path
+    /// is walked round again; an open one goes on straight past its ends.
+    fn at(&self, mut s: f64) -> ([f64; 2], f64, f64) {
+        if self.closed {
+            s = s.rem_euclid(self.total);
+        }
+        let mut i = 0;
+        if s > 0.0 {
+            while i + 1 < self.pieces.len() && s >= self.pieces[i].2 {
+                s -= self.pieces[i].2;
+                i += 1;
+            }
+        }
+        let (a, b, d) = self.pieces[i];
+        let (cos, sin) = ((b.0 - a.0) / d, (b.1 - a.1) / d);
+        ([a.0 + cos * s, a.1 + sin * s], cos, sin)
+    }
 }
 
 /// D-350: one character as the text animators leave it. `index` counts the layer's characters
@@ -1143,6 +1235,7 @@ fn lay_out(text: &Text, animators: &[crate::effects::Effect], path: bool) -> Opt
     let picked: Vec<Vec<f64>> = animators.iter().map(|a| picks(&flat, a)).collect();
     let mut placed = Vec::new();
     let mut k = 0;
+    let walk = Walk::new(animators);
     for paragraph in words.split('\n') {
         let chars: Vec<char> = paragraph.trim_end_matches('\r').chars().collect();
         let mut states: Vec<(Placed, f64)> = chars
@@ -1293,8 +1386,33 @@ fn lay_out(text: &Text, animators: &[crate::effects::Effect], path: bool) -> Opt
             for i in order {
                 let p = &mut states[i].0;
                 p.anchor = [x + raw[i] / 2.0, y];
-                let turn =
-                    (p.moved != [0.0; 2] || p.turn != 0.0 || p.scale != [1.0; 2]).then(|| {
+                // D-1085: the character's distance along the path, as document 21 gives it.
+                let along = walk.as_ref().map(|path| {
+                    let c = p.anchor[0] - left;
+                    let n = e - a;
+                    let s = if path.force && n > 1 {
+                        path.first + c + (i - a) as f64 * (path.total - path.last - path.first - w) / (n - 1) as f64
+                    } else {
+                        match text.align {
+                            Align::Left | Align::Justify => path.first + c,
+                            Align::Right => path.total - path.last - w + c,
+                            Align::Center => (path.total - w) / 2.0 + path.first - path.last + c,
+                        }
+                    };
+                    let (to, cos, sin) = path.at(s + p.moved[0]);
+                    let (cos, sin) = if path.perpendicular { (cos, sin) } else { (1.0, 0.0) };
+                    Along {
+                        to,
+                        cos,
+                        sin,
+                        lift: p.moved[1] + y - first,
+                    }
+                });
+                let turn = (along.is_some()
+                    || p.moved != [0.0; 2]
+                    || p.turn != 0.0
+                    || p.scale != [1.0; 2])
+                    .then(|| {
                         let (sin, cos) = p.turn.to_radians().sin_cos();
                         Turn {
                             anchor: p.anchor,
@@ -1302,8 +1420,13 @@ fn lay_out(text: &Text, animators: &[crate::effects::Effect], path: bool) -> Opt
                             cos,
                             sin,
                             moved: p.moved,
+                            along,
                         }
                     });
+                if let Some(g) = along {
+                    p.anchor = [g.to[0] - g.sin * g.lift, g.to[1] + g.cos * g.lift];
+                    p.turn += g.sin.atan2(g.cos).to_degrees();
+                }
                 let from = contours.len();
                 let mut gx = 0;
                 for g in glyphs.iter().filter(|g| g.ch == i) {
@@ -1364,6 +1487,11 @@ fn lay_out(text: &Text, animators: &[crate::effects::Effect], path: bool) -> Opt
         across[1],
         last - face.descender() as f64 * scale,
     ];
+    // D-1085: words on a path are where their outlines are.
+    if walk.is_some() && !contours.is_empty() {
+        let (x, y) = contours.iter().flatten().next().copied().unwrap_or_default();
+        bounds = [x, y, x, y];
+    }
     for &(x, y) in contours.iter().flatten() {
         bounds = [
             bounds[0].min(x),

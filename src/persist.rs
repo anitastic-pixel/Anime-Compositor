@@ -7662,6 +7662,23 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("ease_high".into(), num(*ease_high));
             params.insert("ease_low".into(), num(*ease_low));
         }
+        // D-1085: the mask's pieces are never saved; they are read again from the mask.
+        Effect::TextPath {
+            path,
+            reverse,
+            perpendicular,
+            force_alignment,
+            first_margin,
+            last_margin,
+            ..
+        } => {
+            params.insert("path".into(), num(*path));
+            params.insert("reverse".into(), J::from(reverse.as_str()));
+            params.insert("perpendicular".into(), J::from(perpendicular.as_str()));
+            params.insert("force_alignment".into(), J::from(force_alignment.as_str()));
+            params.insert("first_margin".into(), num(*first_margin));
+            params.insert("last_margin".into(), num(*last_margin));
+        }
         // D-351: the frames a smoothing added up are never saved; they are read again.
         Effect::AutoTone {
             kind,
@@ -9375,6 +9392,7 @@ fn parse_effect(
         crate::effects::DEPTH_OF_FIELD,
         crate::effects::FOG_3D,
         crate::effects::TEXT_ANIMATOR,
+        crate::effects::TEXT_PATH,
         crate::effects::STRETCH_LEVELS,
         crate::effects::STRETCH_CONTRAST,
         crate::effects::STRETCH_COLOR,
@@ -13073,6 +13091,16 @@ fn parse_effect(
             smoothness: effect_number(params, "smoothness", at)?,
             ease_high: effect_number(params, "ease_high", at)?,
             ease_low: effect_number(params, "ease_low", at)?,
+        }),
+        // D-1085: the words kept as written, so one outside the contract is refused by name.
+        crate::effects::TEXT_PATH => Some(crate::effects::Effect::TextPath {
+            path: effect_number(params, "path", at)?,
+            reverse: effect_word(params, "reverse", at)?,
+            perpendicular: effect_word(params, "perpendicular", at)?,
+            force_alignment: effect_word(params, "force_alignment", at)?,
+            first_margin: effect_number(params, "first_margin", at)?,
+            last_margin: effect_number(params, "last_margin", at)?,
+            line: None,
         }),
         crate::effects::STRETCH_LEVELS
         | crate::effects::STRETCH_CONTRAST

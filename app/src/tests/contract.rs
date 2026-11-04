@@ -5315,6 +5315,18 @@ const EFFECT_KINDS: &[(&str, &[(&str, &str)])] = &[
             ("ease_low", "75"),
         ],
     ),
+    // D-1085: the mask, every word and both margins.
+    (
+        "core.text_path",
+        &[
+            ("path", "2"),
+            ("reverse", "on"),
+            ("perpendicular", "off"),
+            ("force_alignment", "on"),
+            ("first_margin", "73.6"),
+            ("last_margin", "12"),
+        ],
+    ),
     // D-351.
     (
         "core.stretch_levels",
