@@ -15,7 +15,7 @@ After Effects: with a mask selected, Edit > Duplicate (Ctrl+D) copies it, everyt
 | Undo takes the copy back | Mask 1 subtract 4 points 2 keys, feather 8, inverted; Mask 2 add 4 points 0 keys, feather 0 | Mask 1 subtract 4 points 2 keys, feather 8, inverted; Mask 2 add 4 points 0 keys, feather 0 | pass |
 | A mask that is not there is refused, with how many there are | Which mask? "Cel" has 2. | Which mask? "Cel" has 2. | pass |
 | and nothing changed | Mask 1 subtract 4 points 2 keys, feather 8, inverted; Mask 2 add 4 points 0 keys, feather 0 | Mask 1 subtract 4 points 2 keys, feather 8, inverted; Mask 2 add 4 points 0 keys, feather 0 | pass |
-| The page holds: Ctrl+D and Edit > Duplicate copy the chosen mask first | true | true | pass |
+| The page holds: Ctrl+D (and the finder line that presses it) copies the chosen mask first | true | true | pass |
 | The page holds: only with a mask chosen, one layer chosen, and a layer of masks rather than shapes | true | true | pass |
 | The page holds: the copy becomes the mask chosen | true | true | pass |
 | The page holds: a mask's name in the timeline chooses it (a shape's does not) | true | true | pass |

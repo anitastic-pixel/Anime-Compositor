@@ -197,7 +197,7 @@ fn b907_mask_duplicate() {
     pins(
         &mut rows,
         &[
-            ("Ctrl+D and Edit > Duplicate copy the chosen mask first", "  if (duplicateMask()) return;"),
+            ("Ctrl+D (and the finder line that presses it) copies the chosen mask first", "  if (duplicateMask()) return;"),
             (
                 "only with a mask chosen, one layer chosen, and a layer of masks rather than shapes",
                 "if (!maskChosen || selection.length !== 1 || !layer || drawsShapes(layer) || !masksOf(layer)[maskPicked]) return false;",

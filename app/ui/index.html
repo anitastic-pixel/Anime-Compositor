@@ -6533,9 +6533,8 @@ function maskRows(comp, layer, shapes = false) {
     name.title = 'Press to work on this ' + (shapes ? 'shape' : 'mask') + '’s points on the picture';
     // D-989: and names the path, for Ctrl+C to copy and paste into a Position.
     name.onclick = (e) => {
-      e.stopPropagation(); select(layer.id, false); pickKey(null, false); maskPicked = at;
+      e.stopPropagation(); select(layer.id, false); pickKey(null, false); maskPicked = at; maskChosen = !shapes;
       namedProp = { layer: layer.id, prop: (shapes ? 'shape:' : 'mask:') + at };
-      maskChosen = !shapes;
       drawLayers(); drawBoxes();
     };
     name.tabIndex = 0;
@@ -6981,8 +6980,8 @@ const svgEl = (kind) => document.createElementNS($('boxes').namespaceURI, kind);
 // cannot show five numbers for three layers, and picking one of them silently would be worse
 // than saying which one it is.
 function select(id, add) {
-  namedProp = null;
   maskChosen = false;
+  namedProp = null;
   if (id) cameraPicked = false;
   if (!add || !id) selection = id ? [id] : [];
   else if (selection.includes(id)) selection = selection.filter((held) => held !== id);

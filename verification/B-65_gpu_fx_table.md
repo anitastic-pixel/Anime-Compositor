@@ -4,9 +4,9 @@ Written by `tests/b65_gpu_fx.rs`. The card: NVIDIA GeForce RTX 4070 Ti SUPER (Di
 
 Each row compares the eight-bit picture the page receives, drawn by the CPU and by the GPU, with the layer's last effect of the ten done on the card. **The rule: no channel of any pixel more than 1 level of 255 apart** (D-122). An effect that changes nothing or whose settings are invalid, and a Levels that is a threshold, is not left to the card; on those rows any difference is the card's layering, held to the same 1 level by D-100. On every row both paths must give the same warnings.
 
-**2910 of 2910 checks pass.**
+**3200 of 3200 checks pass.**
 
-The worst comparison is "the reference shot with Hue/Saturation frame 100, Full": largest difference 1 of 255, pixels differing: 79669. Its pictures are in `verification/B-65 pictures/`: `cpu.png`, `gpu.png`, and `difference.png`, black where the two agree and a white 7 by 7 square around every pixel where they do not.
+The worst comparison is "the reference shot with Hue/Saturation frame 100, Full": largest difference 1 of 255, pixels differing: 79673. Its pictures are in `verification/B-65 pictures/`: `cpu.png`, `gpu.png`, and `difference.png`, black where the two agree and a white 7 by 7 square around every pixel where they do not.
 
 ## Each effect
 
@@ -17,9 +17,9 @@ Every fixture frame of the effect and the reference shot with it, at Full and Dr
 | Curves | 206 | 136 | 1 | 206 of 206 |
 | Levels | 246 | 150 | 1 | 246 of 246 |
 | Hue/Saturation | 366 | 172 | 1 | 366 of 366 |
-| Gradient | 226 | 146 | 1 | 226 of 226 |
-| Drop Shadow | 306 | 226 | 1 | 306 of 306 |
-| Lens Blur | 696 | 486 | 1 | 696 of 696 |
+| Gradient | 326 | 158 | 1 | 326 of 326 |
+| Drop Shadow | 336 | 256 | 1 | 336 of 336 |
+| Lens Blur | 856 | 508 | 1 | 856 of 856 |
 | Rim Light | 286 | 204 | 1 | 286 of 286 |
 | Outline | 206 | 124 | 1 | 206 of 206 |
 | Noise | 186 | 114 | 1 | 186 of 186 |
@@ -1049,6 +1049,106 @@ Every fixture frame of the effect and the reference shot with it, at Full and Dr
 | fx_grad_022 frame 2, Draft | 0 | 1 | 3 | EFFECT_PARAMETER_INVALID, on both | PASS |
 | fx_grad_022 frame 3, Draft | 0 | 1 | 3 | EFFECT_PARAMETER_INVALID, on both | PASS |
 | fx_grad_022 frame 4, Draft | 0 | 1 | 3 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_grad_023 frame 0, Full | 0 | 1 | 3 | none | PASS |
+| fx_grad_023 frame 1, Full | 0 | 1 | 3 | none | PASS |
+| fx_grad_023 frame 2, Full | 0 | 1 | 3 | none | PASS |
+| fx_grad_023 frame 3, Full | 0 | 1 | 3 | none | PASS |
+| fx_grad_023 frame 4, Full | 0 | 1 | 3 | none | PASS |
+| fx_grad_023 frame 0, Draft | 0 | 1 | 2 | none | PASS |
+| fx_grad_023 frame 1, Draft | 0 | 1 | 2 | none | PASS |
+| fx_grad_023 frame 2, Draft | 0 | 1 | 2 | none | PASS |
+| fx_grad_023 frame 3, Draft | 0 | 1 | 2 | none | PASS |
+| fx_grad_023 frame 4, Draft | 0 | 1 | 2 | none | PASS |
+| fx_grad_024 frame 0, Full | 1 | 0 | 0 | none | PASS |
+| fx_grad_024 frame 1, Full | 1 | 0 | 0 | none | PASS |
+| fx_grad_024 frame 2, Full | 1 | 0 | 0 | none | PASS |
+| fx_grad_024 frame 3, Full | 1 | 0 | 0 | none | PASS |
+| fx_grad_024 frame 4, Full | 1 | 0 | 0 | none | PASS |
+| fx_grad_024 frame 0, Draft | 1 | 1 | 4 | none | PASS |
+| fx_grad_024 frame 1, Draft | 1 | 1 | 4 | none | PASS |
+| fx_grad_024 frame 2, Draft | 1 | 1 | 4 | none | PASS |
+| fx_grad_024 frame 3, Draft | 1 | 1 | 4 | none | PASS |
+| fx_grad_024 frame 4, Draft | 1 | 1 | 4 | none | PASS |
+| fx_grad_025 frame 0, Full | 0 | 0 | 0 | none | PASS |
+| fx_grad_025 frame 1, Full | 0 | 0 | 0 | none | PASS |
+| fx_grad_025 frame 2, Full | 0 | 0 | 0 | none | PASS |
+| fx_grad_025 frame 3, Full | 0 | 0 | 0 | none | PASS |
+| fx_grad_025 frame 4, Full | 0 | 0 | 0 | none | PASS |
+| fx_grad_025 frame 0, Draft | 0 | 1 | 2 | none | PASS |
+| fx_grad_025 frame 1, Draft | 0 | 1 | 2 | none | PASS |
+| fx_grad_025 frame 2, Draft | 0 | 1 | 2 | none | PASS |
+| fx_grad_025 frame 3, Draft | 0 | 1 | 2 | none | PASS |
+| fx_grad_025 frame 4, Draft | 0 | 1 | 2 | none | PASS |
+| fx_grad_026 frame 0, Full | 0 | 0 | 0 | none | PASS |
+| fx_grad_026 frame 1, Full | 0 | 0 | 0 | none | PASS |
+| fx_grad_026 frame 2, Full | 0 | 0 | 0 | none | PASS |
+| fx_grad_026 frame 3, Full | 0 | 0 | 0 | none | PASS |
+| fx_grad_026 frame 4, Full | 0 | 0 | 0 | none | PASS |
+| fx_grad_026 frame 0, Draft | 0 | 1 | 3 | none | PASS |
+| fx_grad_026 frame 1, Draft | 0 | 1 | 3 | none | PASS |
+| fx_grad_026 frame 2, Draft | 0 | 1 | 3 | none | PASS |
+| fx_grad_026 frame 3, Draft | 0 | 1 | 3 | none | PASS |
+| fx_grad_026 frame 4, Draft | 0 | 1 | 3 | none | PASS |
+| fx_grad_027 frame 0, Full | 1 | 0 | 0 | none | PASS |
+| fx_grad_027 frame 1, Full | 0 | 1 | 3 | none | PASS |
+| fx_grad_027 frame 2, Full | 0 | 1 | 4 | none | PASS |
+| fx_grad_027 frame 3, Full | 0 | 1 | 4 | none | PASS |
+| fx_grad_027 frame 4, Full | 0 | 1 | 2 | none | PASS |
+| fx_grad_027 frame 0, Draft | 1 | 1 | 4 | none | PASS |
+| fx_grad_027 frame 1, Draft | 0 | 1 | 2 | none | PASS |
+| fx_grad_027 frame 2, Draft | 0 | 1 | 3 | none | PASS |
+| fx_grad_027 frame 3, Draft | 0 | 1 | 2 | none | PASS |
+| fx_grad_027 frame 4, Draft | 0 | 1 | 2 | none | PASS |
+| fx_grad_028 frame 0, Full | 0 | 1 | 2 | none | PASS |
+| fx_grad_028 frame 1, Full | 0 | 1 | 2 | none | PASS |
+| fx_grad_028 frame 2, Full | 0 | 1 | 2 | none | PASS |
+| fx_grad_028 frame 3, Full | 0 | 1 | 2 | none | PASS |
+| fx_grad_028 frame 4, Full | 0 | 1 | 2 | none | PASS |
+| fx_grad_028 frame 0, Draft | 0 | 0 | 0 | none | PASS |
+| fx_grad_028 frame 1, Draft | 0 | 0 | 0 | none | PASS |
+| fx_grad_028 frame 2, Draft | 0 | 0 | 0 | none | PASS |
+| fx_grad_028 frame 3, Draft | 0 | 0 | 0 | none | PASS |
+| fx_grad_028 frame 4, Draft | 0 | 0 | 0 | none | PASS |
+| fx_grad_029 frame 0, Full | 0 | 0 | 0 | none | PASS |
+| fx_grad_029 frame 1, Full | 0 | 0 | 0 | none | PASS |
+| fx_grad_029 frame 2, Full | 0 | 0 | 0 | none | PASS |
+| fx_grad_029 frame 3, Full | 0 | 0 | 0 | none | PASS |
+| fx_grad_029 frame 4, Full | 0 | 0 | 0 | none | PASS |
+| fx_grad_029 frame 0, Draft | 0 | 1 | 2 | none | PASS |
+| fx_grad_029 frame 1, Draft | 0 | 1 | 2 | none | PASS |
+| fx_grad_029 frame 2, Draft | 0 | 1 | 2 | none | PASS |
+| fx_grad_029 frame 3, Draft | 0 | 1 | 2 | none | PASS |
+| fx_grad_029 frame 4, Draft | 0 | 1 | 2 | none | PASS |
+| fx_grad_030 frame 0, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_grad_030 frame 1, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_grad_030 frame 2, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_grad_030 frame 3, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_grad_030 frame 4, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_grad_030 frame 0, Draft | 0 | 1 | 3 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_grad_030 frame 1, Draft | 0 | 1 | 3 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_grad_030 frame 2, Draft | 0 | 1 | 3 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_grad_030 frame 3, Draft | 0 | 1 | 3 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_grad_030 frame 4, Draft | 0 | 1 | 3 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_grad_031 frame 0, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_grad_031 frame 1, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_grad_031 frame 2, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_grad_031 frame 3, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_grad_031 frame 4, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_grad_031 frame 0, Draft | 0 | 1 | 3 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_grad_031 frame 1, Draft | 0 | 1 | 3 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_grad_031 frame 2, Draft | 0 | 1 | 3 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_grad_031 frame 3, Draft | 0 | 1 | 3 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_grad_031 frame 4, Draft | 0 | 1 | 3 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_grad_032 frame 0, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_grad_032 frame 1, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_grad_032 frame 2, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_grad_032 frame 3, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_grad_032 frame 4, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_grad_032 frame 0, Draft | 0 | 1 | 3 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_grad_032 frame 1, Draft | 0 | 1 | 3 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_grad_032 frame 2, Draft | 0 | 1 | 3 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_grad_032 frame 3, Draft | 0 | 1 | 3 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_grad_032 frame 4, Draft | 0 | 1 | 3 | EFFECT_PARAMETER_INVALID, on both | PASS |
 | fx_shadow_001 frame 0, Full | 1 | 0 | 0 | none | PASS |
 | fx_shadow_001 frame 1, Full | 1 | 0 | 0 | none | PASS |
 | fx_shadow_001 frame 2, Full | 1 | 0 | 0 | none | PASS |
@@ -1349,6 +1449,36 @@ Every fixture frame of the effect and the reference shot with it, at Full and Dr
 | fx_shadow_030 frame 2, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
 | fx_shadow_030 frame 3, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
 | fx_shadow_030 frame 4, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_shadow_031 frame 0, Full | 1 | 0 | 0 | none | PASS |
+| fx_shadow_031 frame 1, Full | 1 | 0 | 0 | none | PASS |
+| fx_shadow_031 frame 2, Full | 1 | 0 | 0 | none | PASS |
+| fx_shadow_031 frame 3, Full | 1 | 0 | 0 | none | PASS |
+| fx_shadow_031 frame 4, Full | 1 | 0 | 0 | none | PASS |
+| fx_shadow_031 frame 0, Draft | 1 | 0 | 0 | none | PASS |
+| fx_shadow_031 frame 1, Draft | 1 | 0 | 0 | none | PASS |
+| fx_shadow_031 frame 2, Draft | 1 | 0 | 0 | none | PASS |
+| fx_shadow_031 frame 3, Draft | 1 | 0 | 0 | none | PASS |
+| fx_shadow_031 frame 4, Draft | 1 | 0 | 0 | none | PASS |
+| fx_shadow_032 frame 0, Full | 1 | 0 | 0 | none | PASS |
+| fx_shadow_032 frame 1, Full | 1 | 0 | 0 | none | PASS |
+| fx_shadow_032 frame 2, Full | 1 | 0 | 0 | none | PASS |
+| fx_shadow_032 frame 3, Full | 1 | 0 | 0 | none | PASS |
+| fx_shadow_032 frame 4, Full | 1 | 0 | 0 | none | PASS |
+| fx_shadow_032 frame 0, Draft | 1 | 0 | 0 | none | PASS |
+| fx_shadow_032 frame 1, Draft | 1 | 0 | 0 | none | PASS |
+| fx_shadow_032 frame 2, Draft | 1 | 0 | 0 | none | PASS |
+| fx_shadow_032 frame 3, Draft | 1 | 0 | 0 | none | PASS |
+| fx_shadow_032 frame 4, Draft | 1 | 0 | 0 | none | PASS |
+| fx_shadow_033 frame 0, Full | 1 | 0 | 0 | none | PASS |
+| fx_shadow_033 frame 1, Full | 1 | 0 | 0 | none | PASS |
+| fx_shadow_033 frame 2, Full | 1 | 0 | 0 | none | PASS |
+| fx_shadow_033 frame 3, Full | 1 | 0 | 0 | none | PASS |
+| fx_shadow_033 frame 4, Full | 1 | 0 | 0 | none | PASS |
+| fx_shadow_033 frame 0, Draft | 1 | 0 | 0 | none | PASS |
+| fx_shadow_033 frame 1, Draft | 1 | 0 | 0 | none | PASS |
+| fx_shadow_033 frame 2, Draft | 1 | 0 | 0 | none | PASS |
+| fx_shadow_033 frame 3, Draft | 1 | 0 | 0 | none | PASS |
+| fx_shadow_033 frame 4, Draft | 1 | 0 | 0 | none | PASS |
 | fx_lens_001 frame 0, Full | 1 | 0 | 0 | none | PASS |
 | fx_lens_001 frame 1, Full | 1 | 0 | 0 | none | PASS |
 | fx_lens_001 frame 2, Full | 1 | 0 | 0 | none | PASS |
@@ -2039,6 +2169,166 @@ Every fixture frame of the effect and the reference shot with it, at Full and Dr
 | fx_lens_069 frame 2, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
 | fx_lens_069 frame 3, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
 | fx_lens_069 frame 4, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_lens_070 frame 0, Full | 1 | 0 | 0 | none | PASS |
+| fx_lens_070 frame 1, Full | 1 | 0 | 0 | none | PASS |
+| fx_lens_070 frame 2, Full | 1 | 0 | 0 | none | PASS |
+| fx_lens_070 frame 3, Full | 1 | 0 | 0 | none | PASS |
+| fx_lens_070 frame 4, Full | 1 | 0 | 0 | none | PASS |
+| fx_lens_070 frame 0, Draft | 1 | 0 | 0 | none | PASS |
+| fx_lens_070 frame 1, Draft | 1 | 0 | 0 | none | PASS |
+| fx_lens_070 frame 2, Draft | 1 | 0 | 0 | none | PASS |
+| fx_lens_070 frame 3, Draft | 1 | 0 | 0 | none | PASS |
+| fx_lens_070 frame 4, Draft | 1 | 0 | 0 | none | PASS |
+| fx_lens_071 frame 0, Full | 0 | 1 | 14 | none | PASS |
+| fx_lens_071 frame 1, Full | 0 | 1 | 14 | none | PASS |
+| fx_lens_071 frame 2, Full | 0 | 1 | 14 | none | PASS |
+| fx_lens_071 frame 3, Full | 0 | 1 | 14 | none | PASS |
+| fx_lens_071 frame 4, Full | 0 | 1 | 14 | none | PASS |
+| fx_lens_071 frame 0, Draft | 0 | 0 | 0 | none | PASS |
+| fx_lens_071 frame 1, Draft | 0 | 0 | 0 | none | PASS |
+| fx_lens_071 frame 2, Draft | 0 | 0 | 0 | none | PASS |
+| fx_lens_071 frame 3, Draft | 0 | 0 | 0 | none | PASS |
+| fx_lens_071 frame 4, Draft | 0 | 0 | 0 | none | PASS |
+| fx_lens_072 frame 0, Full | 0 | 1 | 9 | none | PASS |
+| fx_lens_072 frame 1, Full | 0 | 1 | 9 | none | PASS |
+| fx_lens_072 frame 2, Full | 0 | 1 | 9 | none | PASS |
+| fx_lens_072 frame 3, Full | 0 | 1 | 9 | none | PASS |
+| fx_lens_072 frame 4, Full | 0 | 1 | 9 | none | PASS |
+| fx_lens_072 frame 0, Draft | 0 | 0 | 0 | none | PASS |
+| fx_lens_072 frame 1, Draft | 0 | 0 | 0 | none | PASS |
+| fx_lens_072 frame 2, Draft | 0 | 0 | 0 | none | PASS |
+| fx_lens_072 frame 3, Draft | 0 | 0 | 0 | none | PASS |
+| fx_lens_072 frame 4, Draft | 0 | 0 | 0 | none | PASS |
+| fx_lens_073 frame 0, Full | 0 | 0 | 0 | none | PASS |
+| fx_lens_073 frame 1, Full | 0 | 0 | 0 | none | PASS |
+| fx_lens_073 frame 2, Full | 0 | 0 | 0 | none | PASS |
+| fx_lens_073 frame 3, Full | 0 | 0 | 0 | none | PASS |
+| fx_lens_073 frame 4, Full | 0 | 0 | 0 | none | PASS |
+| fx_lens_073 frame 0, Draft | 0 | 1 | 3 | none | PASS |
+| fx_lens_073 frame 1, Draft | 0 | 1 | 3 | none | PASS |
+| fx_lens_073 frame 2, Draft | 0 | 1 | 3 | none | PASS |
+| fx_lens_073 frame 3, Draft | 0 | 1 | 3 | none | PASS |
+| fx_lens_073 frame 4, Draft | 0 | 1 | 3 | none | PASS |
+| fx_lens_074 frame 0, Full | 0 | 1 | 4 | none | PASS |
+| fx_lens_074 frame 1, Full | 0 | 1 | 4 | none | PASS |
+| fx_lens_074 frame 2, Full | 0 | 1 | 4 | none | PASS |
+| fx_lens_074 frame 3, Full | 0 | 1 | 4 | none | PASS |
+| fx_lens_074 frame 4, Full | 0 | 1 | 4 | none | PASS |
+| fx_lens_074 frame 0, Draft | 0 | 1 | 3 | none | PASS |
+| fx_lens_074 frame 1, Draft | 0 | 1 | 3 | none | PASS |
+| fx_lens_074 frame 2, Draft | 0 | 1 | 3 | none | PASS |
+| fx_lens_074 frame 3, Draft | 0 | 1 | 3 | none | PASS |
+| fx_lens_074 frame 4, Draft | 0 | 1 | 3 | none | PASS |
+| fx_lens_075 frame 0, Full | 1 | 0 | 0 | none | PASS |
+| fx_lens_075 frame 1, Full | 1 | 0 | 0 | none | PASS |
+| fx_lens_075 frame 2, Full | 1 | 0 | 0 | none | PASS |
+| fx_lens_075 frame 3, Full | 1 | 0 | 0 | none | PASS |
+| fx_lens_075 frame 4, Full | 1 | 0 | 0 | none | PASS |
+| fx_lens_075 frame 0, Draft | 1 | 0 | 0 | none | PASS |
+| fx_lens_075 frame 1, Draft | 1 | 0 | 0 | none | PASS |
+| fx_lens_075 frame 2, Draft | 1 | 0 | 0 | none | PASS |
+| fx_lens_075 frame 3, Draft | 1 | 0 | 0 | none | PASS |
+| fx_lens_075 frame 4, Draft | 1 | 0 | 0 | none | PASS |
+| fx_lens_076 frame 0, Full | 1 | 0 | 0 | none | PASS |
+| fx_lens_076 frame 1, Full | 0 | 1 | 6 | none | PASS |
+| fx_lens_076 frame 2, Full | 0 | 1 | 14 | none | PASS |
+| fx_lens_076 frame 3, Full | 0 | 1 | 4 | none | PASS |
+| fx_lens_076 frame 4, Full | 0 | 1 | 6 | none | PASS |
+| fx_lens_076 frame 0, Draft | 1 | 0 | 0 | none | PASS |
+| fx_lens_076 frame 1, Draft | 0 | 0 | 0 | none | PASS |
+| fx_lens_076 frame 2, Draft | 0 | 0 | 0 | none | PASS |
+| fx_lens_076 frame 3, Draft | 0 | 1 | 1 | none | PASS |
+| fx_lens_076 frame 4, Draft | 0 | 1 | 1 | none | PASS |
+| fx_lens_077 frame 0, Full | 0 | 0 | 0 | none | PASS |
+| fx_lens_077 frame 1, Full | 0 | 0 | 0 | none | PASS |
+| fx_lens_077 frame 2, Full | 0 | 0 | 0 | none | PASS |
+| fx_lens_077 frame 3, Full | 0 | 0 | 0 | none | PASS |
+| fx_lens_077 frame 4, Full | 0 | 0 | 0 | none | PASS |
+| fx_lens_077 frame 0, Draft | 0 | 0 | 0 | none | PASS |
+| fx_lens_077 frame 1, Draft | 0 | 0 | 0 | none | PASS |
+| fx_lens_077 frame 2, Draft | 0 | 0 | 0 | none | PASS |
+| fx_lens_077 frame 3, Draft | 0 | 0 | 0 | none | PASS |
+| fx_lens_077 frame 4, Draft | 0 | 0 | 0 | none | PASS |
+| fx_lens_078 frame 0, Full | 0 | 1 | 32 | none | PASS |
+| fx_lens_078 frame 1, Full | 0 | 1 | 32 | none | PASS |
+| fx_lens_078 frame 2, Full | 0 | 1 | 32 | none | PASS |
+| fx_lens_078 frame 3, Full | 0 | 1 | 32 | none | PASS |
+| fx_lens_078 frame 4, Full | 0 | 1 | 32 | none | PASS |
+| fx_lens_078 frame 0, Draft | 0 | 0 | 0 | none | PASS |
+| fx_lens_078 frame 1, Draft | 0 | 0 | 0 | none | PASS |
+| fx_lens_078 frame 2, Draft | 0 | 0 | 0 | none | PASS |
+| fx_lens_078 frame 3, Draft | 0 | 0 | 0 | none | PASS |
+| fx_lens_078 frame 4, Draft | 0 | 0 | 0 | none | PASS |
+| fx_lens_079 frame 0, Full | 0 | 1 | 4 | none | PASS |
+| fx_lens_079 frame 1, Full | 0 | 1 | 4 | none | PASS |
+| fx_lens_079 frame 2, Full | 0 | 1 | 4 | none | PASS |
+| fx_lens_079 frame 3, Full | 0 | 1 | 4 | none | PASS |
+| fx_lens_079 frame 4, Full | 0 | 1 | 4 | none | PASS |
+| fx_lens_079 frame 0, Draft | 0 | 0 | 0 | none | PASS |
+| fx_lens_079 frame 1, Draft | 0 | 0 | 0 | none | PASS |
+| fx_lens_079 frame 2, Draft | 0 | 0 | 0 | none | PASS |
+| fx_lens_079 frame 3, Draft | 0 | 0 | 0 | none | PASS |
+| fx_lens_079 frame 4, Draft | 0 | 0 | 0 | none | PASS |
+| fx_lens_080 frame 0, Full | 0 | 1 | 14 | none | PASS |
+| fx_lens_080 frame 1, Full | 0 | 1 | 14 | none | PASS |
+| fx_lens_080 frame 2, Full | 0 | 1 | 14 | none | PASS |
+| fx_lens_080 frame 3, Full | 0 | 1 | 14 | none | PASS |
+| fx_lens_080 frame 4, Full | 0 | 1 | 14 | none | PASS |
+| fx_lens_080 frame 0, Draft | 0 | 0 | 0 | none | PASS |
+| fx_lens_080 frame 1, Draft | 0 | 0 | 0 | none | PASS |
+| fx_lens_080 frame 2, Draft | 0 | 0 | 0 | none | PASS |
+| fx_lens_080 frame 3, Draft | 0 | 0 | 0 | none | PASS |
+| fx_lens_080 frame 4, Draft | 0 | 0 | 0 | none | PASS |
+| fx_lens_081 frame 0, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_lens_081 frame 1, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_lens_081 frame 2, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_lens_081 frame 3, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_lens_081 frame 4, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_lens_081 frame 0, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_lens_081 frame 1, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_lens_081 frame 2, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_lens_081 frame 3, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_lens_081 frame 4, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_lens_082 frame 0, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_lens_082 frame 1, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_lens_082 frame 2, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_lens_082 frame 3, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_lens_082 frame 4, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_lens_082 frame 0, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_lens_082 frame 1, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_lens_082 frame 2, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_lens_082 frame 3, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_lens_082 frame 4, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_lens_083 frame 0, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_lens_083 frame 1, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_lens_083 frame 2, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_lens_083 frame 3, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_lens_083 frame 4, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_lens_083 frame 0, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_lens_083 frame 1, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_lens_083 frame 2, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_lens_083 frame 3, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_lens_083 frame 4, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_lens_084 frame 0, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_lens_084 frame 1, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_lens_084 frame 2, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_lens_084 frame 3, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_lens_084 frame 4, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_lens_084 frame 0, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_lens_084 frame 1, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_lens_084 frame 2, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_lens_084 frame 3, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_lens_084 frame 4, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_lens_085 frame 0, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_lens_085 frame 1, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_lens_085 frame 2, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_lens_085 frame 3, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_lens_085 frame 4, Full | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_lens_085 frame 0, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_lens_085 frame 1, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_lens_085 frame 2, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_lens_085 frame 3, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
+| fx_lens_085 frame 4, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
 | fx_rim_001 frame 0, Full | 1 | 0 | 0 | none | PASS |
 | fx_rim_001 frame 1, Full | 1 | 0 | 0 | none | PASS |
 | fx_rim_001 frame 2, Full | 1 | 0 | 0 | none | PASS |
@@ -2859,64 +3149,64 @@ Every fixture frame of the effect and the reference shot with it, at Full and Dr
 | fx_chroma_016 frame 2, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
 | fx_chroma_016 frame 3, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
 | fx_chroma_016 frame 4, Draft | 0 | 0 | 0 | EFFECT_PARAMETER_INVALID, on both | PASS |
-| the reference shot with Curves frame 0, Full | 3 | 1 | 694 | none | PASS |
+| the reference shot with Curves frame 0, Full | 3 | 1 | 695 | none | PASS |
 | the reference shot with Curves frame 100, Full | 3 | 0 | 0 | none | PASS |
 | the reference shot with Curves frame 239, Full | 3 | 1 | 262 | none | PASS |
 | the reference shot with Curves frame 0, Draft | 3 | 1 | 48 | none | PASS |
 | the reference shot with Curves frame 100, Draft | 3 | 1 | 42 | none | PASS |
 | the reference shot with Curves frame 239, Draft | 3 | 1 | 37 | none | PASS |
-| the reference shot with Levels frame 0, Full | 3 | 1 | 1 | none | PASS |
-| the reference shot with Levels frame 100, Full | 3 | 1 | 1 | none | PASS |
-| the reference shot with Levels frame 239, Full | 3 | 1 | 1 | none | PASS |
+| the reference shot with Levels frame 0, Full | 3 | 0 | 0 | none | PASS |
+| the reference shot with Levels frame 100, Full | 3 | 1 | 2 | none | PASS |
+| the reference shot with Levels frame 239, Full | 3 | 0 | 0 | none | PASS |
 | the reference shot with Levels frame 0, Draft | 3 | 1 | 41 | none | PASS |
-| the reference shot with Levels frame 100, Draft | 3 | 1 | 56 | none | PASS |
+| the reference shot with Levels frame 100, Draft | 3 | 1 | 57 | none | PASS |
 | the reference shot with Levels frame 239, Draft | 3 | 1 | 46 | none | PASS |
-| the reference shot with Hue/Saturation frame 0, Full | 3 | 1 | 79182 | none | PASS |
-| the reference shot with Hue/Saturation frame 100, Full | 3 | 1 | 79669 | none | PASS |
+| the reference shot with Hue/Saturation frame 0, Full | 3 | 1 | 79185 | none | PASS |
+| the reference shot with Hue/Saturation frame 100, Full | 3 | 1 | 79673 | none | PASS |
 | the reference shot with Hue/Saturation frame 239, Full | 3 | 1 | 77408 | none | PASS |
 | the reference shot with Hue/Saturation frame 0, Draft | 3 | 1 | 4720 | none | PASS |
 | the reference shot with Hue/Saturation frame 100, Draft | 3 | 1 | 4721 | none | PASS |
 | the reference shot with Hue/Saturation frame 239, Draft | 3 | 1 | 4619 | none | PASS |
-| the reference shot with Gradient frame 0, Full | 3 | 1 | 1306 | none | PASS |
+| the reference shot with Gradient frame 0, Full | 3 | 1 | 1309 | none | PASS |
 | the reference shot with Gradient frame 100, Full | 3 | 1 | 1324 | none | PASS |
 | the reference shot with Gradient frame 239, Full | 3 | 1 | 1372 | none | PASS |
 | the reference shot with Gradient frame 0, Draft | 3 | 1 | 77 | none | PASS |
 | the reference shot with Gradient frame 100, Draft | 3 | 1 | 92 | none | PASS |
 | the reference shot with Gradient frame 239, Draft | 3 | 1 | 83 | none | PASS |
-| the reference shot with Drop Shadow frame 0, Full | 3 | 1 | 3782 | none | PASS |
-| the reference shot with Drop Shadow frame 100, Full | 3 | 1 | 1465 | none | PASS |
+| the reference shot with Drop Shadow frame 0, Full | 3 | 1 | 3781 | none | PASS |
+| the reference shot with Drop Shadow frame 100, Full | 3 | 1 | 1419 | none | PASS |
 | the reference shot with Drop Shadow frame 239, Full | 3 | 1 | 1773 | none | PASS |
 | the reference shot with Drop Shadow frame 0, Draft | 3 | 1 | 128 | none | PASS |
 | the reference shot with Drop Shadow frame 100, Draft | 3 | 1 | 32 | none | PASS |
-| the reference shot with Drop Shadow frame 239, Draft | 3 | 1 | 48 | none | PASS |
-| the reference shot with Lens Blur frame 0, Full | 3 | 1 | 761 | none | PASS |
-| the reference shot with Lens Blur frame 100, Full | 3 | 1 | 954 | none | PASS |
-| the reference shot with Lens Blur frame 239, Full | 3 | 1 | 643 | none | PASS |
-| the reference shot with Lens Blur frame 0, Draft | 3 | 1 | 54 | none | PASS |
+| the reference shot with Drop Shadow frame 239, Draft | 3 | 1 | 47 | none | PASS |
+| the reference shot with Lens Blur frame 0, Full | 3 | 1 | 762 | none | PASS |
+| the reference shot with Lens Blur frame 100, Full | 3 | 1 | 955 | none | PASS |
+| the reference shot with Lens Blur frame 239, Full | 3 | 1 | 641 | none | PASS |
+| the reference shot with Lens Blur frame 0, Draft | 3 | 1 | 53 | none | PASS |
 | the reference shot with Lens Blur frame 100, Draft | 3 | 1 | 82 | none | PASS |
-| the reference shot with Lens Blur frame 239, Draft | 3 | 1 | 52 | none | PASS |
+| the reference shot with Lens Blur frame 239, Draft | 3 | 1 | 51 | none | PASS |
 | the reference shot with Rim Light frame 0, Full | 3 | 1 | 3781 | none | PASS |
-| the reference shot with Rim Light frame 100, Full | 3 | 1 | 1417 | none | PASS |
-| the reference shot with Rim Light frame 239, Full | 3 | 1 | 1776 | none | PASS |
+| the reference shot with Rim Light frame 100, Full | 3 | 1 | 1421 | none | PASS |
+| the reference shot with Rim Light frame 239, Full | 3 | 1 | 1772 | none | PASS |
 | the reference shot with Rim Light frame 0, Draft | 3 | 1 | 128 | none | PASS |
 | the reference shot with Rim Light frame 100, Draft | 3 | 1 | 33 | none | PASS |
 | the reference shot with Rim Light frame 239, Draft | 3 | 1 | 47 | none | PASS |
-| the reference shot with Outline frame 0, Full | 3 | 1 | 3781 | none | PASS |
-| the reference shot with Outline frame 100, Full | 3 | 1 | 1418 | none | PASS |
+| the reference shot with Outline frame 0, Full | 3 | 1 | 3782 | none | PASS |
+| the reference shot with Outline frame 100, Full | 3 | 1 | 1417 | none | PASS |
 | the reference shot with Outline frame 239, Full | 3 | 1 | 1773 | none | PASS |
 | the reference shot with Outline frame 0, Draft | 3 | 1 | 128 | none | PASS |
 | the reference shot with Outline frame 100, Draft | 3 | 1 | 32 | none | PASS |
 | the reference shot with Outline frame 239, Draft | 3 | 1 | 47 | none | PASS |
-| the reference shot with Noise frame 0, Full | 3 | 1 | 961 | none | PASS |
-| the reference shot with Noise frame 100, Full | 3 | 1 | 1048 | none | PASS |
+| the reference shot with Noise frame 0, Full | 3 | 1 | 963 | none | PASS |
+| the reference shot with Noise frame 100, Full | 3 | 1 | 1049 | none | PASS |
 | the reference shot with Noise frame 239, Full | 3 | 1 | 944 | none | PASS |
 | the reference shot with Noise frame 0, Draft | 3 | 1 | 65 | none | PASS |
 | the reference shot with Noise frame 100, Draft | 3 | 1 | 67 | none | PASS |
 | the reference shot with Noise frame 239, Draft | 3 | 1 | 69 | none | PASS |
-| the reference shot with Chromatic Aberration frame 0, Full | 3 | 1 | 2862 | none | PASS |
+| the reference shot with Chromatic Aberration frame 0, Full | 3 | 1 | 2861 | none | PASS |
 | the reference shot with Chromatic Aberration frame 100, Full | 3 | 1 | 1975 | none | PASS |
 | the reference shot with Chromatic Aberration frame 239, Full | 3 | 1 | 1754 | none | PASS |
-| the reference shot with Chromatic Aberration frame 0, Draft | 3 | 1 | 65 | none | PASS |
+| the reference shot with Chromatic Aberration frame 0, Draft | 3 | 1 | 66 | none | PASS |
 | the reference shot with Chromatic Aberration frame 100, Draft | 3 | 1 | 54 | none | PASS |
 | the reference shot with Chromatic Aberration frame 239, Draft | 3 | 1 | 56 | none | PASS |
 | the reference shot with Curves frame 100, Full: the plan made for the card, drawn by the CPU | — | — | byte-identical | — | PASS |
