@@ -1681,6 +1681,8 @@ pub enum Effect {
     CheckboxControl { checkbox: f64 },
     AngleControl { angle: f64 },
     PointControl { point: [f64; 2] },
+    /// D-1090: x, y and z in the layer's pixels.
+    Point3DControl { point: [f64; 3] },
     ColorControl { color: [f64; 3] },
     LayerControl { layer: String },
     /// D-520: `forward_steps` and `backward_steps`, 0 to 100 frames, each taken whole below; and
@@ -5183,6 +5185,7 @@ pub const SLIDER_CONTROL: &str = "core.slider_control";
 pub const CHECKBOX_CONTROL: &str = "core.checkbox_control";
 pub const ANGLE_CONTROL: &str = "core.angle_control";
 pub const POINT_CONTROL: &str = "core.point_control";
+pub const POINT3D_CONTROL: &str = "core.point3d_control";
 pub const COLOR_CONTROL: &str = "core.color_control";
 pub const LAYER_CONTROL: &str = "core.layer_control";
 pub const CHANGE_TO_COLOR: &str = "core.change_to_color";
@@ -10967,6 +10970,9 @@ impl Effect {
             Effect::CheckboxControl { checkbox } => vec![("checkbox", vec![checkbox], 0.0, 1.0)],
             Effect::AngleControl { angle } => vec![("angle", vec![angle], -1e9, 1e9)],
             Effect::PointControl { point } => vec![("point", point.iter_mut().collect(), -1e9, 1e9)],
+            Effect::Point3DControl { point } => {
+                vec![("point", point.iter_mut().collect(), -1e9, 1e9)]
+            }
             Effect::ColorControl { color } => {
                 vec![("color", color.iter_mut().collect(), -f64::MAX, f64::MAX)]
             }
@@ -12374,6 +12380,7 @@ impl Effect {
                 | Effect::CheckboxControl { .. }
                 | Effect::AngleControl { .. }
                 | Effect::PointControl { .. }
+                | Effect::Point3DControl { .. }
                 | Effect::ColorControl { .. }
                 | Effect::LayerControl { .. }
         )
@@ -12486,6 +12493,7 @@ impl Effect {
             Effect::CheckboxControl { .. } => "Checkbox Control",
             Effect::AngleControl { .. } => "Angle Control",
             Effect::PointControl { .. } => "Point Control",
+            Effect::Point3DControl { .. } => "3D Point Control",
             Effect::ColorControl { .. } => "Color Control",
             Effect::LayerControl { .. } => "Layer Control",
             Effect::ChangeToColor { .. } => "Change to Color",
@@ -12782,6 +12790,7 @@ impl Effect {
             Effect::CheckboxControl { .. } => CHECKBOX_CONTROL,
             Effect::AngleControl { .. } => ANGLE_CONTROL,
             Effect::PointControl { .. } => POINT_CONTROL,
+            Effect::Point3DControl { .. } => POINT3D_CONTROL,
             Effect::ColorControl { .. } => COLOR_CONTROL,
             Effect::LayerControl { .. } => LAYER_CONTROL,
             Effect::ChangeToColor { .. } => CHANGE_TO_COLOR,
@@ -13168,6 +13177,7 @@ impl Effect {
             Effect::CheckboxControl { .. } => ("ADBE Checkbox Control", "Checkbox", "checkbox"),
             Effect::AngleControl { .. } => ("ADBE Angle Control", "Angle", "angle"),
             Effect::PointControl { .. } => ("ADBE Point Control", "Point", "point"),
+            Effect::Point3DControl { .. } => ("ADBE Point3D Control", "3D Point", "point"),
             Effect::ColorControl { .. } => ("ADBE Color Control", "Color", "color"),
             Effect::LayerControl { .. } => ("ADBE Layer Control", "Layer", "layer"),
             _ => return None,
@@ -21449,6 +21459,7 @@ pub(crate) fn apply_stack_at(
             | Effect::CheckboxControl { .. }
             | Effect::AngleControl { .. }
             | Effect::PointControl { .. }
+            | Effect::Point3DControl { .. }
             | Effect::ColorControl { .. }
             | Effect::LayerControl { .. } => {}
             // D-350: the letters were moved where the text was drawn.

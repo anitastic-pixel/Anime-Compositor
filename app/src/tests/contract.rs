@@ -2710,6 +2710,7 @@ const EFFECT_KINDS: &[(&str, &[(&str, &str)])] = &[
     ("core.checkbox_control", &[("checkbox", "1")]),
     ("core.angle_control", &[("angle", "90")]),
     ("core.point_control", &[("point", "100, 200")]),
+    ("core.point3d_control", &[("point", "100, 200, -300")]),
     ("core.color_control", &[("color", "0.25, 0.5, 0.75")]),
     ("core.layer_control", &[("control_layer", "layer-4")]),
     // D-520: the two step counts and the word.

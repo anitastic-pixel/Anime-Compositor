@@ -3591,6 +3591,9 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
         Effect::PointControl { point } => {
             params.insert("point".into(), J::Array(point.iter().map(|v| num(*v)).collect()));
         }
+        Effect::Point3DControl { point } => {
+            params.insert("point".into(), J::Array(point.iter().map(|v| num(*v)).collect()));
+        }
         Effect::ColorControl { color } => {
             params.insert("color".into(), J::Array(color.iter().map(|v| num(*v)).collect()));
         }
@@ -9232,6 +9235,7 @@ fn parse_effect(
         crate::effects::CHECKBOX_CONTROL,
         crate::effects::ANGLE_CONTROL,
         crate::effects::POINT_CONTROL,
+        crate::effects::POINT3D_CONTROL,
         crate::effects::COLOR_CONTROL,
         crate::effects::LAYER_CONTROL,
         crate::effects::CHANGE_TO_COLOR,
@@ -10716,6 +10720,13 @@ fn parse_effect(
         }),
         crate::effects::POINT_CONTROL => Some(crate::effects::Effect::PointControl {
             point: effect_pair_or(params, "point", at, [0.0, 0.0])?,
+        }),
+        // D-1090: x, y and z.
+        crate::effects::POINT3D_CONTROL => Some(crate::effects::Effect::Point3DControl {
+            point: match params.and_then(|p| p.get("point")) {
+                Some(_) => effect_array(params, "point", "three numbers, x, y and z", at)?,
+                None => [0.0; 3],
+            },
         }),
         crate::effects::COLOR_CONTROL => Some(crate::effects::Effect::ColorControl {
             color: match params.and_then(|p| p.get("color")) {

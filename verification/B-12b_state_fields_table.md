@@ -275,6 +275,8 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | and the settings it sends for it - angle - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.point_control` is an effect this build has | added | added | pass |
 | and the settings it sends for it - point - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.point3d_control` is an effect this build has | added | added | pass |
+| and the settings it sends for it - point - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.color_control` is an effect this build has | added | added | pass |
 | and the settings it sends for it - color - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.layer_control` is an effect this build has | added | added | pass |
@@ -687,3 +689,5 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 **654 of 654 checks pass.**
 
 **655 of 655 checks pass.**
+
+**657 of 657 checks pass.**

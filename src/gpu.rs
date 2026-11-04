@@ -13495,6 +13495,7 @@ macro_rules! not_fx {
             | crate::effects::Effect::CheckboxControl { .. }
             | crate::effects::Effect::AngleControl { .. }
             | crate::effects::Effect::PointControl { .. }
+            | crate::effects::Effect::Point3DControl { .. }
             | crate::effects::Effect::ColorControl { .. }
             | crate::effects::Effect::LayerControl { .. }
             | crate::effects::Effect::LayerStyle { .. }

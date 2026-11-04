@@ -10989,6 +10989,7 @@ const EFFECT_NAMES = {
   'core.checkbox_control': 'Checkbox Control',
   'core.angle_control': 'Angle Control',
   'core.point_control': 'Point Control',
+  'core.point3d_control': '3D Point Control',
   'core.color_control': 'Color Control',
   'core.layer_control': 'Layer Control',
   'core.change_to_color': 'Change to Color',
@@ -11201,7 +11202,7 @@ const EFFECT_GROUPS = [
   ['3D Channel', ['core.pass_extract', 'core.depth_key', 'core.id_key', 'core.cryptomatte', 'core.depth_of_field', 'core.fog_3d', 'core.identifier']],
   ['Text', ['core.text_animator', 'core.text_path', 'core.numbers', 'core.timecode', 'core.basic_text']],
   // D-766: settings for expressions to read, which draw nothing.
-  ['Expression Controls', ['core.slider_control', 'core.checkbox_control', 'core.angle_control', 'core.point_control', 'core.color_control', 'core.layer_control']],
+  ['Expression Controls', ['core.slider_control', 'core.checkbox_control', 'core.angle_control', 'core.point_control', 'core.point3d_control', 'core.color_control', 'core.layer_control']],
   // D-642: sound effects, which go on sound layers only.
   ['Audio', ['core.compressor', 'core.distortion', 'core.noise_gate']],
   ['Transition', ['core.linear_wipe', 'core.gradient_wipe', 'core.glass_melt', 'core.tile_wipe', 'core.teeth_wipe', 'core.glow_wipe', 'core.stripe_sweep', 'core.push_iris', 'core.stretch_wipe', 'core.twister', 'core.warp_blend', 'core.channel_wipe', 'core.radial_wipe', 'core.venetian_blinds', 'core.iris_wipe', 'core.block_dissolve', 'core.card_wipe']],
@@ -11303,6 +11304,7 @@ const EFFECT_SEARCH = {
   'core.checkbox_control': 'checkbox control expression controls switch toggle on off if else rig',
   'core.angle_control': 'angle control expression controls rotation degrees dial rig',
   'core.point_control': 'point control expression controls position xy coordinates rig',
+  'core.point3d_control': '3d point control expression controls position xyz z depth coordinates rig',
   'core.color_control': 'color colour control expression controls rgb swatch rig',
   'core.layer_control': 'layer control expression controls pick target reference rig',
   'core.change_to_color': 'change to color colour replace recolor recolour swap costume palette hue shift',
@@ -11611,6 +11613,7 @@ const EFFECT_ABOUT = {
   'core.checkbox_control': 'An Expression Control: draws nothing, and holds one switch, 1 on and 0 off, for an expression to read as effect("Checkbox Control")("Checkbox"). A second one on the same layer is "Checkbox Control 2".',
   'core.angle_control': 'An Expression Control: draws nothing, and holds one angle in degrees for an expression to read as effect("Angle Control")("Angle"). A second one on the same layer is "Angle Control 2".',
   'core.point_control': 'An Expression Control: draws nothing, and holds one point, x and y, for an expression to read as effect("Point Control")("Point"). A second one on the same layer is "Point Control 2".',
+  'core.point3d_control': 'An Expression Control: draws nothing, and holds one point, x, y and z, for an expression to read as effect("3D Point Control")("3D Point"); [2] is the z, which can drive the depth of a layer. A second one on the same layer is "3D Point Control 2".',
   'core.color_control': 'An Expression Control: draws nothing, and holds one colour, red, green and blue, for an expression to read as effect("Color Control")("Color"). A second one on the same layer is "Color Control 2".',
   'core.layer_control': 'An Expression Control: draws nothing, and holds one layer of this composition for an expression to read as effect("Layer Control")("Layer"). A second one on the same layer is "Layer Control 2".',
   'core.change_to_color': 'Turns one colour into another, with the shades painted in it, and leaves the rest alone.',
@@ -12682,6 +12685,7 @@ const EFFECT_PARAMS = {
   'core.checkbox_control': [['checkbox', 'Checkbox', 1, 1, '1 on, 0 off']],
   'core.angle_control': [['angle', 'Angle', 1, 1, 'degrees']],
   'core.point_control': [['point', 'Point', 2, 1, 'pixels, x then y']],
+  'core.point3d_control': [['point', '3D Point', 3, 1, 'pixels, x, y and z']],
   'core.color_control': [['color', 'Color', 3, 0.01, 'red, green and blue, 0 to 1']],
   'core.layer_control': [],
   // D-197.
