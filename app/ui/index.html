@@ -11459,7 +11459,7 @@ const EFFECT_SEARCH = {
   'core.depth_of_field': 'depth of field dof focus defocus focal plane bokeh lens blur z zdepth exr render pass camera',
   'core.cryptomatte': 'cryptomatte crypto matte object material asset name names pick select isolate cut out exr render pass aov psyop blender redshift arnold vray coverage soft edge keyed colors',
   'core.text_path': 'path options text on a path mask circle circular around along follow reverse perpendicular first margin last margin force alignment',
-  'core.text_animator': 'text animator animate range selector per character letter word typewriter type on fade in by character wave tracking offset blur',
+  'core.text_animator': 'text animator animate range selector per character letter word typewriter type on fade in by character wave tracking offset blur wiggly selector wiggle flicker random neon',
   'core.stretch_levels': 'stretch levels auto levels automatic black white point clip histogram flicker deflicker temporal smoothing scene detect',
   'core.stretch_contrast': 'stretch contrast auto contrast automatic black white point clip histogram flicker deflicker temporal smoothing scene detect',
   'core.stretch_color': 'stretch color colour auto color automatic white balance colour cast neutral midtones grey histogram flicker deflicker temporal smoothing scene detect',
@@ -12296,7 +12296,15 @@ const EFFECT_PARAMS = {
     ['amount', 'Amount', 1, 1, 'per cent, -100 to 100, how much of the properties a picked letter gets'],
     ['smoothness', 'Smoothness', 1, 1, 'per cent, 0 to 100; for Square, how soft the range\'s edge is'],
     ['ease_high', 'Ease High', 1, 1, 'per cent, -100 to 100, how slowly the shape leaves fully picked; below 0, how fast'],
-    ['ease_low', 'Ease Low', 1, 1, 'per cent, -100 to 100, how slowly the shape leaves not picked; below 0, how fast']],
+    ['ease_low', 'Ease Low', 1, 1, 'per cent, -100 to 100, how slowly the shape leaves not picked; below 0, how fast'],
+    // D-1068: the Wiggly Selector, used when Wiggly Selector is on.
+    ['wiggly_max', 'Wiggly Max Amount', 1, 1, 'per cent, -100 to 100, the most a wiggle picks', '', 100],
+    ['wiggly_min', 'Wiggly Min Amount', 1, 1, 'per cent, -100 to 100, the least a wiggle picks', '', -100],
+    ['wiggly_rate', 'Wiggles/Second', 1, 0.1, 'wiggles a second, 0 to 100', '', 2],
+    ['wiggly_correlation', 'Correlation', 1, 1, 'per cent, 0 to 100; 100 wiggles every letter together', '', 50],
+    ['wiggly_temporal_phase', 'Temporal Phase', 1, 1, 'degrees, shifts the wiggle in time', 'dial', 0],
+    ['wiggly_spatial_phase', 'Spatial Phase', 1, 1, 'degrees, shifts the wiggle from letter to letter', 'dial', 0],
+    ['wiggly_seed', 'Random Seed', 1, 1, '0 to 1000000, another seed is another wiggle', '', 0]],
   // D-351, After Effects' own words. Blend With Original is the Mix every effect has (100 less it).
   'core.stretch_levels': [['temporal_smoothing', 'Temporal Smoothing (seconds)', 1, 0.05, 'seconds each side whose pictures are read with this one, 0 to 10; 0 reads this frame only'],
     ['black_clip', 'Black Clip', 1, 0.05, 'per cent of the darkest pixels taken to black, 0 to 10'],
@@ -14807,7 +14815,11 @@ const EFFECT_WORDS = {
       ['based_on', 'Based On', [['characters', 'Characters'], ['characters_excluding_spaces', 'Characters Excluding Spaces'],
         ['words', 'Words'], ['lines', 'Lines']]],
       ['shape', 'Shape', [['square', 'Square'], ['ramp_up', 'Ramp Up'], ['ramp_down', 'Ramp Down'], ['triangle', 'Triangle'],
-        ['round', 'Round'], ['smooth', 'Smooth']]]],
+        ['round', 'Round'], ['smooth', 'Smooth']]],
+      // D-1068. Intersect first: it is the mode a Wiggly Selector starts with.
+      ['wiggly', 'Wiggly Selector', [['off', 'Off'], ['on', 'On']]],
+      ['wiggly_mode', 'Wiggly Mode', [['intersect', 'Intersect'], ['add', 'Add'], ['subtract', 'Subtract'],
+        ['min', 'Min'], ['max', 'Max'], ['difference', 'Difference']]]],
   },
   // D-564: Auto Amounts runs on the processor.
   'core.shadow_highlight': {

@@ -4715,7 +4715,12 @@ pub enum Effect {
     /// "characters", "characters_excluding_spaces", "words" or "lines" (D-1067); `shape`,
     /// "square", "ramp_up", "ramp_down", "triangle", "round" or "smooth"; `smoothness`, 0 to 100
     /// per cent; `ease_high` and `ease_low`, -100 to 100 per cent (D-1067). It has no pixel work: compose hands it to the text's drawing. D-990:
-    /// `blur`, x then y, 0 to 1,000 pixels, each picked letter blurred by it.
+    /// `blur`, x then y, 0 to 1,000 pixels, each picked letter blurred by it. D-1068: the Wiggly
+    /// Selector, `wiggly` "off" or "on"; `wiggly_mode`, one of [`WIGGLY_MODES`]; `wiggly_max` and
+    /// `wiggly_min`, -100 to 100; `wiggly_rate`, 0 to 100 wiggles a second;
+    /// `wiggly_correlation`, 0 to 100 per cent; `wiggly_temporal_phase` and
+    /// `wiggly_spatial_phase`, degrees; `wiggly_seed`, 0 to 1,000,000. `wiggly_time` is not a
+    /// setting and is never saved: compose puts the composition's time, in seconds, in it.
     TextAnimator {
         position: [f64; 2],
         scale: [f64; 2],
@@ -4734,6 +4739,16 @@ pub enum Effect {
         smoothness: f64,
         ease_high: f64,
         ease_low: f64,
+        wiggly: String,
+        wiggly_mode: String,
+        wiggly_max: f64,
+        wiggly_min: f64,
+        wiggly_rate: f64,
+        wiggly_correlation: f64,
+        wiggly_temporal_phase: f64,
+        wiggly_spatial_phase: f64,
+        wiggly_seed: f64,
+        wiggly_time: f64,
     },
     /// D-1085: Path Options, after After Effects' Path Options on a text layer: its letters set
     /// along one of its masks (`text::lay_out`, document 21). `path`, the mask's number from 1, 0
@@ -7154,6 +7169,8 @@ pub const PAINT_STYLES: [&str; 3] = ["on_original", "on_transparent", "reveal"];
 pub const VEGAS_MODES: [&str; 4] = ["over", "under", "transparent", "stencil"];
 /// D-351: Spread Tones' ways.
 pub const EQUALIZE: [&str; 3] = ["rgb", "brightness", "photoshop"];
+/// D-1068: how a text animator's Wiggly Selector joins its Range Selector, After Effects' order.
+pub const WIGGLY_MODES: [&str; 6] = ["add", "subtract", "intersect", "min", "max", "difference"];
 /// D-350: what a text animator's selector counts, and the shapes of its range. D-1067: lines.
 pub const TEXT_BASED_ON: [&str; 4] = ["characters", "characters_excluding_spaces", "words", "lines"];
 pub const TEXT_SHAPES: [&str; 6] = [
@@ -10371,6 +10388,13 @@ impl Effect {
                 smoothness,
                 ease_high,
                 ease_low,
+                wiggly_max,
+                wiggly_min,
+                wiggly_rate,
+                wiggly_correlation,
+                wiggly_temporal_phase,
+                wiggly_spatial_phase,
+                wiggly_seed,
                 ..
             } => vec![
                 ("position", position.iter_mut().collect(), -1e5, 1e5),
@@ -10388,6 +10412,13 @@ impl Effect {
                 // D-1067: After Effects' -100 to 100.
                 ("ease_high", vec![ease_high], -100.0, 100.0),
                 ("ease_low", vec![ease_low], -100.0, 100.0),
+                ("wiggly_max", vec![wiggly_max], -100.0, 100.0),
+                ("wiggly_min", vec![wiggly_min], -100.0, 100.0),
+                ("wiggly_rate", vec![wiggly_rate], 0.0, 100.0),
+                ("wiggly_correlation", vec![wiggly_correlation], 0.0, 100.0),
+                ("wiggly_temporal_phase", vec![wiggly_temporal_phase], -1e6, 1e6),
+                ("wiggly_spatial_phase", vec![wiggly_spatial_phase], -1e6, 1e6),
+                ("wiggly_seed", vec![wiggly_seed], 0.0, 1e6),
             ],
             Effect::LineBlur {
                 length, strength, ..
@@ -14755,6 +14786,12 @@ impl Effect {
             )),
             Effect::TextAnimator { shape, .. } if !TEXT_SHAPES.contains(&shape.as_str()) => Some(format!(
                 "Text Animator's shape is \"square\", \"ramp_up\", \"ramp_down\", \"triangle\", \"round\" or \"smooth\", and this is \"{shape}\"."
+            )),
+            Effect::TextAnimator { wiggly, .. } if !["off", "on"].contains(&wiggly.as_str()) => Some(format!(
+                "Text Animator's Wiggly Selector is \"off\" or \"on\", and this is \"{wiggly}\"."
+            )),
+            Effect::TextAnimator { wiggly_mode, .. } if !WIGGLY_MODES.contains(&wiggly_mode.as_str()) => Some(format!(
+                "Text Animator's Wiggly mode is \"add\", \"subtract\", \"intersect\", \"min\", \"max\" or \"difference\", and this is \"{wiggly_mode}\"."
             )),
             Effect::ShadowHighlight { auto_amounts: v, .. } | Effect::ShadowHighlight { scene_detect: v, .. } if !["off", "on"].contains(&v.as_str()) => Some(format!(
                 "Shadow/Highlight's auto amounts and scene detect are \"off\" or \"on\", and this is \"{v}\"."

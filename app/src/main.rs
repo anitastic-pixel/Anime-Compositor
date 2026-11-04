@@ -7491,6 +7491,17 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             smoothness: 100.0,
             ease_high: 0.0,
             ease_low: 0.0,
+            // D-1068: the Wiggly Selector off, with After Effects' settings when switched on.
+            wiggly: "off".to_string(),
+            wiggly_mode: "intersect".to_string(),
+            wiggly_max: 100.0,
+            wiggly_min: -100.0,
+            wiggly_rate: 2.0,
+            wiggly_correlation: 50.0,
+            wiggly_temporal_phase: 0.0,
+            wiggly_spatial_phase: 0.0,
+            wiggly_seed: 0.0,
+            wiggly_time: 0.0,
         }),
         // D-1085: After Effects' Path Options as a new text layer has them, on the layer's first
         // mask; Perpendicular To Path on.
@@ -7587,6 +7598,14 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
         text.trim()
             .parse::<f64>()
             .map_err(|_| format!("{name} needs a number. Not \"{text}\"."))
+    };
+    // D-1068: a number a window from before it does not send, as added.
+    let number_or = |name: &str, start: f64| -> Result<f64, String> {
+        if parameter(query, name).is_some() {
+            number(name)
+        } else {
+            Ok(start)
+        }
     };
     // D-89 on: a word or a colour as written, in small letters; whether it is right is the
     // core's check, in its words.
@@ -11020,6 +11039,17 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             smoothness: number("smoothness")?,
             ease_high: number("ease_high")?,
             ease_low: number("ease_low")?,
+            // D-1068: a window from before it sends none.
+            wiggly: word("wiggly").unwrap_or_else(|_| "off".to_string()),
+            wiggly_mode: word("wiggly_mode").unwrap_or_else(|_| "intersect".to_string()),
+            wiggly_max: number_or("wiggly_max", 100.0)?,
+            wiggly_min: number_or("wiggly_min", -100.0)?,
+            wiggly_rate: number_or("wiggly_rate", 2.0)?,
+            wiggly_correlation: number_or("wiggly_correlation", 50.0)?,
+            wiggly_temporal_phase: number_or("wiggly_temporal_phase", 0.0)?,
+            wiggly_spatial_phase: number_or("wiggly_spatial_phase", 0.0)?,
+            wiggly_seed: number_or("wiggly_seed", 0.0)?,
+            wiggly_time: 0.0,
         }),
         TEXT_PATH => Ok(Effect::TextPath {
             path: number("path")?,

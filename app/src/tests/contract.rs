@@ -5359,6 +5359,16 @@ const EFFECT_KINDS: &[(&str, &[(&str, &str)])] = &[
             ("smoothness", "50"),
             ("ease_high", "25"),
             ("ease_low", "75"),
+            // D-1068.
+            ("wiggly", "on"),
+            ("wiggly_mode", "add"),
+            ("wiggly_max", "90"),
+            ("wiggly_min", "-80"),
+            ("wiggly_rate", "3"),
+            ("wiggly_correlation", "40"),
+            ("wiggly_temporal_phase", "30"),
+            ("wiggly_spatial_phase", "45"),
+            ("wiggly_seed", "7"),
         ],
     ),
     // D-1085: the mask, every word and both margins.

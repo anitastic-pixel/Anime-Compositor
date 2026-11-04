@@ -4177,7 +4177,17 @@ pub(crate) fn text_animators(
                     line: Some(line),
                 })
             }
-            e => Some(e),
+            mut e => {
+                // D-1068: a Wiggly Selector reads the composition's time; only then, so an animator
+                // without one stays the same from frame to frame.
+                if let Effect::TextAnimator { wiggly, wiggly_time, .. } = &mut e {
+                    if wiggly == "on" {
+                        let fps = comp.frame_rate.numerator() as f64 / comp.frame_rate.denominator() as f64;
+                        *wiggly_time = at as f64 / fps;
+                    }
+                }
+                Some(e)
+            }
         })
         .collect()
 }

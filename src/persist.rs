@@ -7659,6 +7659,16 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             smoothness,
             ease_high,
             ease_low,
+            wiggly,
+            wiggly_mode,
+            wiggly_max,
+            wiggly_min,
+            wiggly_rate,
+            wiggly_correlation,
+            wiggly_temporal_phase,
+            wiggly_spatial_phase,
+            wiggly_seed,
+            wiggly_time: _,
         } => {
             let list = |v: &[f64]| J::Array(v.iter().map(|x| num(*x)).collect());
             params.insert("position".into(), list(position));
@@ -7684,6 +7694,22 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("smoothness".into(), num(*smoothness));
             params.insert("ease_high".into(), num(*ease_high));
             params.insert("ease_low".into(), num(*ease_low));
+            // D-1068: the Wiggly Selector saved only when on, keyed or already in the file; its
+            // time is compose's and never saved.
+            if wiggly == "on"
+                || instance.tracks.keys().any(|k| k.starts_with("wiggly_"))
+                || params.contains_key("wiggly")
+            {
+                params.insert("wiggly".into(), J::from(wiggly.as_str()));
+                params.insert("wiggly_mode".into(), J::from(wiggly_mode.as_str()));
+                params.insert("wiggly_max".into(), num(*wiggly_max));
+                params.insert("wiggly_min".into(), num(*wiggly_min));
+                params.insert("wiggly_rate".into(), num(*wiggly_rate));
+                params.insert("wiggly_correlation".into(), num(*wiggly_correlation));
+                params.insert("wiggly_temporal_phase".into(), num(*wiggly_temporal_phase));
+                params.insert("wiggly_spatial_phase".into(), num(*wiggly_spatial_phase));
+                params.insert("wiggly_seed".into(), num(*wiggly_seed));
+            }
         }
         // D-1085: the mask's pieces are never saved; they are read again from the mask.
         Effect::TextPath {
@@ -13134,6 +13160,17 @@ fn parse_effect(
             smoothness: effect_number(params, "smoothness", at)?,
             ease_high: effect_number(params, "ease_high", at)?,
             ease_low: effect_number(params, "ease_low", at)?,
+            // D-1068: a file from before it has none: off, with After Effects' settings.
+            wiggly: effect_word_or(params, "wiggly", at, "off")?,
+            wiggly_mode: effect_word_or(params, "wiggly_mode", at, "intersect")?,
+            wiggly_max: effect_number_or(params, "wiggly_max", at, 100.0)?,
+            wiggly_min: effect_number_or(params, "wiggly_min", at, -100.0)?,
+            wiggly_rate: effect_number_or(params, "wiggly_rate", at, 2.0)?,
+            wiggly_correlation: effect_number_or(params, "wiggly_correlation", at, 50.0)?,
+            wiggly_temporal_phase: effect_number_or(params, "wiggly_temporal_phase", at, 0.0)?,
+            wiggly_spatial_phase: effect_number_or(params, "wiggly_spatial_phase", at, 0.0)?,
+            wiggly_seed: effect_number_or(params, "wiggly_seed", at, 0.0)?,
+            wiggly_time: 0.0,
         }),
         // D-1085: the words kept as written, so one outside the contract is refused by name.
         crate::effects::TEXT_PATH => Some(crate::effects::Effect::TextPath {

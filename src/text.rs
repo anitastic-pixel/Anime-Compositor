@@ -883,6 +883,16 @@ fn picks(chars: &[char], lines: &[usize], animator: &crate::effects::Effect) -> 
         smoothness,
         ease_high,
         ease_low,
+        wiggly,
+        wiggly_mode,
+        wiggly_max,
+        wiggly_min,
+        wiggly_rate,
+        wiggly_correlation,
+        wiggly_temporal_phase,
+        wiggly_spatial_phase,
+        wiggly_seed,
+        wiggly_time,
         ..
     } = animator
     else {
@@ -969,11 +979,46 @@ fn picks(chars: &[char], lines: &[usize], animator: &crate::effects::Effect) -> 
         } else {
             v
         };
+        // D-1068: the Wiggly Selector, joined to the range's pick by its mode.
+        let v = if wiggly == "on" {
+            let seed = *wiggly_seed as u64;
+            let t = wiggly_time * wiggly_rate + wiggly_temporal_phase / 360.0;
+            let c = wiggly_correlation / 100.0;
+            let shared = wiggle(crate::expr::mix(seed, u64::MAX), t, 0.0);
+            let own = wiggle(seed, t, k as f64 + wiggly_spatial_phase / 360.0);
+            let w = c * shared + (1.0 - c) * own;
+            let x = (wiggly_min + (w + 1.0) / 2.0 * (wiggly_max - wiggly_min)) / 100.0;
+            match wiggly_mode.as_str() {
+                "add" => v + x,
+                "subtract" => v - x,
+                "min" => v.min(x),
+                "max" => v.max(x),
+                "difference" => (v - x).abs(),
+                _ => v * x,
+            }
+            .clamp(-1.0, 1.0)
+        } else {
+            v
+        };
         v * amount / 100.0
     };
     unit.into_iter()
         .map(|u| u.filter(|_| n > 0).map_or(0.0, pick))
         .collect()
+}
+
+/// D-1068: the Wiggly Selector's smooth noise, -1 to 1: a level at each whole step of time `t`
+/// and of unit `s`, from `seed`, joined by a smoothstep both ways.
+fn wiggle(seed: u64, t: f64, s: f64) -> f64 {
+    let (ti, si) = (t.floor(), s.floor());
+    let ease = |f: f64| f * f * (3.0 - 2.0 * f);
+    let (ft, fs) = (ease(t - ti), ease(s - si));
+    let level = |a: f64, b: f64| {
+        let h = crate::expr::mix(crate::expr::mix(seed, a as i64 as u64), b as i64 as u64);
+        crate::expr::unit(h) * 2.0 - 1.0
+    };
+    let row = |b: f64| level(ti, b) + (level(ti + 1.0, b) - level(ti, b)) * ft;
+    row(si) + (row(si + 1.0) - row(si)) * fs
 }
 
 /// D-350: character `index` as the animators, top first, leave it, and the room they add after it.
