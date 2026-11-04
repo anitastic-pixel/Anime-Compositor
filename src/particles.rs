@@ -132,6 +132,10 @@ pub(crate) const TILE: usize = 16;
 
 /// D-612: the Star's kind in the sprite list.
 const STAR_KIND: usize = 8;
+/// D-1031: Particle Space's Quad, Tri and Motion Polygon in the sprite list.
+const QUAD_KIND: usize = 11;
+const TRI_KIND: usize = 12;
+const MOTION_KIND: usize = 13;
 /// D-612: the star's outline, point j 36 j degrees clockwise from up, the outer five 1 from the
 /// centre and the inner five 0.4: the reference's table, the rule itself.
 const STAR: [[f64; 2]; 10] = [
@@ -651,7 +655,9 @@ fn run_of(e: &Effect) -> Option<(Run<'_>, Look<'_>)> {
                 flat: false,
             };
             let look = Look {
-                kind: w(2),
+                // D-1031: Tri, Quad and Motion Polygon, the words' 8 to 10, are the sprite
+                // list's 12, 11 and 13 (8 to 10 are the Star's and the Emitter's).
+                kind: [0, 1, 2, 3, 4, 5, 6, 7, TRI_KIND, QUAD_KIND, MOTION_KIND][w(2)],
                 cmap: w(3),
                 transfer: w(4),
                 cue: w(5),
@@ -921,7 +927,27 @@ pub(crate) fn sprite_numbers(
                     fog = fd;
                 }
             }
-            let sprite = if kind == 0 {
+            let sprite = if kind == MOTION_KIND {
+                // D-1031: tip, base point, radius (after the small sizes' rule), opacity, colour.
+                let tail = see(sub(p.x, mul(p.v, size / 0.15 / run.fps)))?;
+                if rad < 0.7 {
+                    alpha *= (rad / 0.7) * (rad / 0.7);
+                    rad = 0.7;
+                }
+                [
+                    kind as f64,
+                    x,
+                    y,
+                    tail[0],
+                    tail[1],
+                    rad,
+                    alpha,
+                    col[0],
+                    col[1],
+                    col[2],
+                    0.0,
+                ]
+            } else if kind == 0 {
                 let tail = see(sub(p.x, mul(p.v, size / 0.15 / run.fps)))?;
                 [
                     0.0,
@@ -941,12 +967,13 @@ pub(crate) fn sprite_numbers(
                     alpha *= (rad / 0.7) * (rad / 0.7);
                     rad = 0.7;
                 }
-                if textured {
+                // D-1031: Quad and Tri turn as the textured kinds do, never textured.
+                if textured || kind == QUAD_KIND || kind == TRI_KIND {
                     let age = (run.u as f64 - p.b) / run.fps;
                     let turn = (run.at(INITIAL_ROTATION, p.b) * run.r(p.k, 10)
                         + run.at(ROTATION_SPEED, p.b) * age)
                         .to_radians();
-                    let c = if read { cue_color } else { col };
+                    let c = if read && textured { cue_color } else { col };
                     [
                         kind as f64,
                         x,
@@ -1012,8 +1039,9 @@ pub(crate) fn tile_lists(
     let (tw, th) = (w.div_ceil(TILE), h.div_ceil(TILE));
     let mut lists = vec![Vec::new(); tw * th];
     for (n, s) in k[HEAD..].chunks_exact(STRIDE).enumerate() {
-        let (xs, ys) = if s[0] == 0.0 {
-            let r = s[5] / 2.0 + 1.0;
+        let (xs, ys) = if s[0] == 0.0 || s[0] == MOTION_KIND as f64 {
+            // D-1031: a Motion Polygon's base reaches its radius beyond the base point.
+            let r = if s[0] == 0.0 { s[5] / 2.0 } else { s[5] } + 1.0;
             (
                 (s[1].min(s[3]) - r, s[1].max(s[3]) + r),
                 (s[2].min(s[4]) - r, s[2].max(s[4]) + r),
@@ -1022,7 +1050,7 @@ pub(crate) fn tile_lists(
             // D-611: a turned square reaches as far as its corners.
             // D-615: a soft sphere as far as half its feather beyond.
             let r =
-                s[3] * if s[0] == 5.0 {
+                s[3] * if s[0] == 5.0 || s[0] == QUAD_KIND as f64 || s[0] == TRI_KIND as f64 {
                     std::f64::consts::SQRT_2
                 } else {
                     1.0
@@ -1081,6 +1109,21 @@ fn cover(k: &[f64], n: usize, x: f64, y: f64, tex: Option<Tex>) -> Option<[f64; 
             return None;
         }
         let a = s[6] * cv;
+        return Some([s[7] * a, s[8] * a, s[9] * a, a]);
+    }
+    // D-1031: Quad, Tri and Motion Polygon, unlit and never textured.
+    if s[0] >= QUAD_KIND as f64 {
+        let (rad, dx, dy) = (s[3], x - s[1], y - s[2]);
+        let m = if s[0] == QUAD_KIND as f64 {
+            let (a, c) = (dx * s[4] + dy * s[5], -dx * s[5] + dy * s[4]);
+            (rad - a.abs() + 0.5).clamp(0.0, 1.0) * (rad - c.abs() + 0.5).clamp(0.0, 1.0)
+        } else {
+            triangle(shape_corners(s)?, x, y)
+        };
+        if m <= 0.0 {
+            return None;
+        }
+        let a = s[6] * m;
         return Some([s[7] * a, s[8] * a, s[9] * a, a]);
     }
     if s[0] >= 5.0 {
@@ -1155,6 +1198,45 @@ fn cover(k: &[f64], n: usize, x: f64, y: f64, tex: Option<Tex>) -> Option<[f64; 
     }
     let a = s[6] * cv;
     Some([s[7] * shade * a, s[8] * shade * a, s[9] * shade * a, a])
+}
+
+/// D-1031: a Tri's corners (side 2R about the centre, the first straight up before the turn) or
+/// a Motion Polygon's (its tip, then its base 2R wide across the way it moves); `None` for a
+/// Motion Polygon that does not move.
+fn shape_corners(s: &[f64]) -> Option<[[f64; 2]; 3]> {
+    let (x, y) = (s[1], s[2]);
+    if s[0] == TRI_KIND as f64 {
+        let (rad, co, si) = (s[3], s[4], s[5]);
+        let q = rad / 3f64.sqrt();
+        return Some([(0.0, -2.0 * q), (rad, q), (-rad, q)].map(|(a, c)| [x + a * co - c * si, y + a * si + c * co]));
+    }
+    let (bx, by, rad) = (s[3], s[4], s[5]);
+    let (dx, dy) = (bx - x, by - y);
+    let ll = dx.hypot(dy);
+    if ll == 0.0 {
+        return None;
+    }
+    let (nx, ny) = (-dy / ll * rad, dx / ll * rad);
+    Some([[x, y], [bx + nx, by + ny], [bx - nx, by - ny]])
+}
+
+/// D-1031: a triangle's covering at (x, y), as the Star's: with e the distance to the nearest of
+/// its three edges, 1/2 + e inside, 1/2 - e outside, held to 0 to 1.
+fn triangle(v: [[f64; 2]; 3], x: f64, y: f64) -> f64 {
+    let [a, b, c] = v;
+    let sign = if (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]) > 0.0 {
+        1.0
+    } else {
+        -1.0
+    };
+    let (mut e, mut inside) = (f64::INFINITY, true);
+    for (p, q) in [(a, b), (b, c), (c, a)] {
+        let (ex, ey) = (q[0] - p[0], q[1] - p[1]);
+        inside &= sign * (ex * (y - p[1]) - ey * (x - p[0])) >= 0.0;
+        let t = (((x - p[0]) * ex + (y - p[1]) * ey) / (ex * ex + ey * ey)).clamp(0.0, 1.0);
+        e = e.min((x - p[0] - t * ex).hypot(y - p[1] - t * ey));
+    }
+    (if inside { 0.5 + e } else { 0.5 - e }).clamp(0.0, 1.0)
 }
 
 /// D-612: a star of outer radius `rad` at (dx, dy) from its centre: with e the distance to the

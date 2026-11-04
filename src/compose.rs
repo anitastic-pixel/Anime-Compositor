@@ -1536,6 +1536,10 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
         // D-758: the card mixes 4-Color Gradient's weights without jitter only.
         // ponytail: hash the jitter on the card if a jittered gradient is slow here.
         && !matches!(&instance.effect, crate::effects::Effect::FourColorGradient { jitter, .. } if *jitter != 0.0)
+        // D-1031: the card's particles pass has no Tri, Quad or Motion Polygon.
+        // ponytail: processor only; teach the card's sprite branch the three if one is slow here.
+        && !matches!(&instance.effect, crate::effects::Effect::ParticleSpace { words, .. }
+            if matches!(words[2].as_str(), "tri" | "quad" | "motion_polygon"))
         // D-1029: the card lays Gradient without Ramp Scatter or Blend With Original only.
         // ponytail: processor only; hash the scatter on the card if a scattered ramp is slow here.
         && !matches!(&instance.effect, crate::effects::Effect::Gradient { ramp_scatter, blend_with_original, .. }

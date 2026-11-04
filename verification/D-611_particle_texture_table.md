@@ -110,7 +110,7 @@ B-491 (P0-6): three more particle types, Textured Square, Textured Disc and Text
 | fx_ptex_030.json opened and saved holds what it held, out-of-range values, wrong words and keys included | the same | yes |
 | fx_ptex_004.json is saved with its 62 settings, the texture layer dot, particle type textured_square, and not the picture it reads | 62 settings; texture layer "dot", particle type "textured_square", texture None | yes |
 | a file written before D-611, without rotation speed, initial rotation or texture layer, reads them as added and is saved without them | as added: true; saved with 59 settings | yes |
-| fx_ptex_026.json is refused in a sentence naming particle type | Particle Space's particle type is one of "line", "faded_sphere", "shaded_sphere", "disc", "bubble", "textured_square", "textured_disc", "textured_faded_disc", and this is "textured_polygon". | yes |
+| fx_ptex_026.json is refused in a sentence naming particle type | Particle Space's particle type is one of "line", "faded_sphere", "shaded_sphere", "disc", "bubble", "textured_square", "textured_disc", "textured_faded_disc", "tri", "quad", "motion_polygon", and this is "textured_polygon". | yes |
 | fx_ptex_027.json is refused in a sentence naming rotation speed | Particle Space's rotation speed runs from -3600 to 3600, and this is 3601. | yes |
 | fx_ptex_028.json is refused in a sentence naming initial rotation | Particle Space's initial rotation runs from 0 to 360, and this is -1. | yes |
 | fx_ptex_029.json is refused in a sentence naming initial rotation | Particle Space's initial rotation runs from 0 to 360, and this is 361. | yes |

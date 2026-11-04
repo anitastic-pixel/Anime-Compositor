@@ -5802,6 +5802,10 @@ pub const PARTICLE_SPACE_WORDS: [(&str, &[&str], &str); 8] = [
             "textured_square",
             "textured_disc",
             "textured_faded_disc",
+            // D-1031: the flat shapes.
+            "tri",
+            "quad",
+            "motion_polygon",
         ],
         "line",
     ),
