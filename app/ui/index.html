@@ -1923,11 +1923,8 @@
     <button data-run="New composition"></button>
     <button data-run="New comp from selection"></button>
     <button data-run="Composition settings"></button>
-<<<<<<< HEAD
     <button data-run="Trim comp to work area"></button>
-=======
     <button data-run="Crop comp to region of interest"></button>
->>>>>>> 799b581f (B-952: Crop comp to region of interest (D-1072))
     <button data-run="Pre-compose"></button>
     <button data-run="Map of compositions"></button>
     <hr>
@@ -7929,6 +7926,13 @@ function shapePoints(kind, x0, y0, x1, y1) {
 }
 
 // D-738 (a): After Effects' five shape tools, in the order Q steps through them.
+// ---- B-956 begin
+// D-1076: where a shape being dragged out starts. With Space held it travels with the pointer,
+// so the whole shape moves; without, it stays and the pointer sizes the shape.
+function spaceMove(start, last, now, held) {
+  return held && last ? [start[0] + now[0] - last[0], start[1] + now[1] - last[1]] : start;
+}
+// ---- B-956 end
 const SHAPE_TOOLS = ['rectangle', 'rounded', 'ellipse', 'polygon', 'star'];
 const PARAMETRIC_SETTINGS = {
   rectangle: ['size', 'position', 'roundness'],
@@ -8631,11 +8635,22 @@ stage.onpointerdown = (e) => {
     let drawn = false;
     let settings = null;
     stage.setPointerCapture(e.pointerId);
+    // D-1076: Space held moves the shape being drawn rather than sizing it, and does not play.
+    let from = [lx, ly], last = null, space = false;
+    const spaceKey = (k) => {
+      if (k.key !== ' ') return;
+      if (k.type === 'keydown') { k.preventDefault(); k.stopPropagation(); }
+      space = k.type === 'keydown';
+    };
+    window.addEventListener('keydown', spaceKey, true);
+    window.addEventListener('keyup', spaceKey, true);
     const escape = (k) => { if (k.key === 'Escape') stop(false); };
     const stop = async (keep) => {
       stage.onpointermove = null;
       stage.onpointerup = null;
       window.removeEventListener('keydown', escape, true);
+      window.removeEventListener('keydown', spaceKey, true);
+      window.removeEventListener('keyup', spaceKey, true);
       const drew = penDraft;
       penDraft = null;
       if (!(keep && drawn && drew)) return drawBoxes();
@@ -8652,11 +8667,14 @@ stage.onpointerdown = (e) => {
     };
     stage.onpointermove = (m) => {
       const [mx, my] = shaping.toLayer(...atCanvas(m));
-      if (Math.abs(mx - lx) < 1 && Math.abs(my - ly) < 1) return;
+      from = spaceMove(from, last, [mx, my], space);
+      last = [mx, my];
+      const [ox, oy] = from;
+      if (Math.abs(mx - ox) < 1 && Math.abs(my - oy) < 1) return;
       drawn = true;
       // D-1027: Shift a square or circle, Ctrl out from the middle; the star and polygon are
-      // already drawn out from their middle.
-      const box = kind === 'polygon' || kind === 'star' ? [lx, ly, mx, my] : dragCorners(lx, ly, mx, my, m);
+      // already drawn out from their middle. D-1076: from the corner Space has moved.
+      const box = kind === 'polygon' || kind === 'star' ? [ox, oy, mx, my] : dragCorners(ox, oy, mx, my, m);
       settings = shapeSettings(kind, ...box);
       penDraft = kind === 'rectangle' || kind === 'ellipse' ? shapePoints(kind, ...box)
         : parametricOutline(settings);

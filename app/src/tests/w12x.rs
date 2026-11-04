@@ -564,3 +564,44 @@ fn b955_parent_and_jump() {
         &rows,
     );
 }
+
+/// D-1076 / B-956: Space held while dragging out a shape or mask moves it rather than sizing it.
+#[test]
+fn b956_space_moves_while_drawing() {
+    let mut rows: Rows = Vec::new();
+    let asked = node(
+        "B-956",
+        "spaceMove",
+        "// A drag from (10, 10): to (50, 40) sizing, to (70, 60) with Space held, to (80, 80) after.\n\
+         const steps = [[[50, 40], false], [[70, 60], true], [[80, 80], false]];\n\
+         let start = [10, 10], last = null; const seen = [];\n\
+         for (const [now, held] of steps) { start = spaceMove(start, last, now, held); last = now; seen.push(start.join(', ') + ' to ' + now.join(', ')); }\n\
+         out({ seen, first: spaceMove([5, 5], null, [9, 9], true).join(', ') });",
+    );
+    let seen: Vec<String> = asked["seen"].as_array().unwrap().iter().map(|s| s.as_str().unwrap().to_string()).collect();
+    for (what, want, got) in [
+        ("dragged from (10, 10) to (50, 40): the shape is sized, its corner stays", "10, 10 to 50, 40", &seen[0]),
+        ("Space held, on to (70, 60): the whole shape moves by (20, 20), its size kept", "30, 30 to 70, 60", &seen[1]),
+        ("Space let go, on to (80, 80): sized again from where it was moved to", "30, 30 to 80, 80", &seen[2]),
+    ] {
+        rows.push((what.into(), want.into(), got.clone()));
+    }
+    rows.push(("Space already held at the first step: nothing to move by yet".into(), "5, 5".into(), asked["first"].as_str().unwrap().to_string()));
+    let page = page();
+    for (what, line) in [
+        ("Space during the drag is the drag's, so it does not play", "if (k.type === 'keydown') { k.preventDefault(); k.stopPropagation(); }"),
+        ("every step of the drag goes through it", "from = spaceMove(from, last, [mx, my], space);"),
+        ("the shape is drawn from where it was moved to", "settings = shapeSettings(kind, ox, oy, mx, my);"),
+        ("the keys are let go of when the drag ends", "window.removeEventListener('keyup', spaceKey, true);"),
+    ] {
+        rows.push((what.into(), "true".into(), page.contains(line).to_string()));
+    }
+    table(
+        "B-956_space_moves_while_drawing_table.md",
+        "B-956: Space moves a shape or mask while drawing it (D-1076)",
+        "b956_space_moves_while_drawing",
+        "After Effects' Space held while dragging out a shape (4GeGLgK2BBk, about 3:00). `spaceMove` is \
+         the page's own code run under Node, in layer pixels; the other rows read the page.",
+        &rows,
+    );
+}
