@@ -934,7 +934,7 @@
      (on) or its crossed-out one (off); the text is typed into; an error is red under the text. */
   .expr { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 2px; margin: 2px 0 4px; }
   .exprtext {
-    font: 12px/1.35 Consolas, 'Cascadia Mono', monospace; color: #e6e6ea; background: #141416;
+    font: var(--exprsize, 12px)/1.35 Consolas, 'Cascadia Mono', monospace; color: #e6e6ea; background: #141416;
     border: 1px solid #3a3a40; border-radius: 3px; padding: 2px 4px; resize: vertical;
     min-height: 1.6em; box-sizing: border-box; width: 100%;
   }
@@ -5197,6 +5197,15 @@ try { Object.assign(prefs, JSON.parse(localStorage.getItem('prefs') || '{}')); }
 function savePrefs() {
   try { localStorage.setItem('prefs', JSON.stringify(prefs)); } catch (e) { /* kept for this run only */ }
 }
+// ---- B-954 begin
+// D-1074: Ctrl + wheel over an expression: a pixel bigger a notch up, smaller a notch down, 8 to 32.
+function exprSizeStep(size, deltaY) {
+  const now = Number(size) || 12;
+  return deltaY ? Math.min(32, Math.max(8, now + (deltaY < 0 ? 1 : -1))) : now;
+}
+// ---- B-954 end
+const showExprSize = () => document.documentElement.style.setProperty('--exprsize', exprSizeStep(prefs.exprSize, 0) + 'px');
+showExprSize();
 
 // B-13e: the camera's own group, at the top of the timeline and above the layers.
 //
@@ -9919,6 +9928,15 @@ function exprParts(layer, prop, where) {
   text.onpointerdown = (e) => e.stopPropagation();
   text.onclick = (e) => e.stopPropagation();
   text.oninput = fit;
+  // D-1074: Ctrl + wheel sizes every expression's text, kept with the window's preferences.
+  text.onwheel = (e) => {
+    if (!e.ctrlKey) return;
+    e.preventDefault();
+    e.stopPropagation();
+    prefs.exprSize = exprSizeStep(prefs.exprSize, e.deltaY);
+    savePrefs();
+    showExprSize();
+  };
   // Every key typed here is text, not a shortcut. Ctrl+S saves what is typed first.
   text.onkeydown = (e) => {
     e.stopPropagation();

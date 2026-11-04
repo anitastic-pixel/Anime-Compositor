@@ -418,3 +418,51 @@ fn loop_picture(grid: &[anime_compositor::WorkingBuffer]) {
     anime_compositor::png_out::write_rgba(&dir.join("loop.png"), ow, oh, OutputDepth::Eight, &[], &out)
         .expect("write the picture");
 }
+
+/// D-1074 / B-954: Ctrl + wheel over an expression sizes its text, 8 to 32 pixels.
+#[test]
+fn b954_expression_text_size() {
+    let mut rows: Rows = Vec::new();
+    let asked = node(
+        "B-954",
+        "exprSizeStep",
+        "const run = (start, deltas) => deltas.reduce((s, d) => exprSizeStep(s, d), start);\n\
+         out({\n\
+           first: exprSizeStep(undefined, -100),\n\
+           down: exprSizeStep(undefined, 100),\n\
+           five: run(12, [-1, -1, -1, -1, -1]),\n\
+           top: run(12, Array(40).fill(-120)),\n\
+           bottom: run(12, Array(40).fill(120)),\n\
+           none: exprSizeStep(15, 0),\n\
+           junk: exprSizeStep('big', 0),\n\
+         });",
+    );
+    for (what, field, want) in [
+        ("no size kept yet, one notch up (Ctrl + wheel away from you)", "first", "13"),
+        ("no size kept yet, one notch down", "down", "11"),
+        ("five notches up from 12", "five", "17"),
+        ("forty notches up: no bigger than", "top", "32"),
+        ("forty notches down: no smaller than", "bottom", "8"),
+        ("no turn: the kept size", "none", "15"),
+        ("a kept size that is not a number: the 12 every box starts at", "junk", "12"),
+    ] {
+        rows.push((what.into(), want.into(), asked[field].to_string()));
+    }
+    let page = page();
+    for (what, line) in [
+        ("the expression box listens for Ctrl + wheel and only for it", "  text.onwheel = (e) => {\n    if (!e.ctrlKey) return;\n    e.preventDefault();"),
+        ("the size is kept with the window's preferences", "    prefs.exprSize = exprSizeStep(prefs.exprSize, e.deltaY);\n    savePrefs();"),
+        ("every expression box takes the size", "font: var(--exprsize, 12px)/1.35 Consolas"),
+        ("the kept size is used when the window opens", "showExprSize();\n"),
+    ] {
+        rows.push((what.into(), "true".into(), page.contains(line).to_string()));
+    }
+    table(
+        "B-954_expression_text_size_table.md",
+        "B-954: Ctrl + wheel sizes the expression text (D-1074)",
+        "b954_expression_text_size",
+        "After Effects' Ctrl + wheel over an expression (4GeGLgK2BBk, about 3:40). `exprSizeStep` is \
+         the page's own code run under Node; the other rows read the page.",
+        &rows,
+    );
+}
