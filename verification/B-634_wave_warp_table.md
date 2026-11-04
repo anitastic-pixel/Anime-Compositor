@@ -128,7 +128,7 @@ D-755, accepted on 2026-10-23 by the owner's message "Proceed, if an effect is m
 
 | Check | The build's answer | Matches |
 | --- | --- | --- |
-| fx_wave_003.json, written before D-755, opens with shape sine as it always did | EffectInstance { instance_id: Id("fx-0-0"), enabled: true, effect: WaveWarp { shape: "sine", height: 2.0, width: 8.0, direction: 90.0, speed: 0.0, phase: 0.0, edges: "transparent", pinning: "none", frame: 0 }, tracks: {}, mix: 100.0, record: FileRecord(Some(Object {"enabled": Bool(true), "instance_id": String("fx-0-0"), "parameters": Object {"direction": Number(90), "edges": String("transparent"), "height": Number(2), "phase": Number(0), "shape": String("sine"), "speed": Number(0), "width": Number(8)}, "type_id": String("core.wave_warp")})) } | yes |
+| fx_wave_003.json, written before D-755, opens with shape sine as it always did | EffectInstance { instance_id: Id("fx-0-0"), enabled: true, effect: WaveWarp { shape: "sine", height: 2.0, width: 8.0, direction: 90.0, speed: 0.0, phase: 0.0, edges: "transparent", pinning: "none", rule: "d149", frame: 0 }, tracks: {}, mix: 100.0, record: FileRecord(Some(Object {"enabled": Bool(true), "instance_id": String("fx-0-0"), "parameters": Object {"direction": Number(90), "edges": String("transparent"), "height": Number(2), "phase": Number(0), "shape": String("sine"), "speed": Number(0), "width": Number(8)}, "type_id": String("core.wave_warp")})) } | yes |
 | a circle saved before D-755 is saved again as circle | {"direction":90,"edges":"transparent","height":2,"phase":0,"shape":"circle","speed":0,"width":8} | yes |
 
 ## The file

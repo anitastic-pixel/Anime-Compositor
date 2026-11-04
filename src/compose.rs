@@ -3663,6 +3663,18 @@ fn effect_now(
                 *time = (u - layer.in_frame as f64) / fps;
             }
         }
+        // D-1066: After Effects' Wave Warp: Width is half a wave, Speed waves a second; the
+        // renderer's are a whole wave and degrees a frame.
+        if let crate::effects::Effect::WaveWarp {
+            width, speed, rule, ..
+        } = &mut now.effect
+        {
+            if rule == "after_effects" {
+                let fps = comp.frame_rate.numerator() as f64 / comp.frame_rate.denominator() as f64;
+                *width *= 2.0;
+                *speed *= 360.0 / fps;
+            }
+        }
         // D-466: Strobe Light strobes by the same time, and draws by the frame count from it.
         if let crate::effects::Effect::StrobeLight { time, count, .. } = &mut now.effect {
             let fps = comp.frame_rate.numerator() as f64 / comp.frame_rate.denominator() as f64;

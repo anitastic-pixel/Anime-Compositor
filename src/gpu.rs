@@ -2715,8 +2715,16 @@ fn wave_knot(kind: u32, j: f64) -> f64 {
     return f64(wave_mix(wave_mix(kind) ^ bitcast<u32>(i32(j)))) / 4294967296.0lf * 2.0lf - 1.0lf;
 }
 
-// D-755: layer_fx::wave_value for shapes 3 (square) to 8 (smooth noise).
-fn wave_more(shape: u32, a: f64) -> f64 {
+// D-1066: the level at grid corner (i, j) of D-1066's noise `shape`, as layer_fx::wave_value
+// reads it.
+fn wave_corner(shape: u32, i: f64, j: f64) -> f64 {
+    let h = wave_mix(wave_mix(wave_mix(shape) ^ bitcast<u32>(i32(i))) ^ bitcast<u32>(i32(j)));
+    return f64(h) / 4294967296.0lf * 2.0lf - 1.0lf;
+}
+
+// D-755: layer_fx::wave_value for shapes 3 (square) to 8 (smooth noise), and D-1066's 9 and
+// 10, `b` waves across.
+fn wave_more(shape: u32, a: f64, b: f64) -> f64 {
     let q = a / 6.283185307179586lf;
     let u = q - floor(q);
     let arch = sqrt(max(1.0lf - (2.0lf * u - 1.0lf) * (2.0lf * u - 1.0lf), 0.0lf));
@@ -2739,6 +2747,25 @@ fn wave_more(shape: u32, a: f64) -> f64 {
             let f = n - j;
             let p = wave_knot(1u, j);
             return p + (wave_knot(1u, j + 1.0lf) - p) * f;
+        }
+        case 9u, 10u: {
+            var along = 4.0lf;
+            var across = 2.0lf;
+            if shape == 9u {
+                along = 16.0lf;
+                across = 4.0lf;
+            }
+            let n = q * along;
+            let m = b * across;
+            let i = floor(n);
+            let j = floor(m);
+            let f = n - i;
+            let g = m - j;
+            let p = wave_corner(shape, i, j);
+            let top = p + (wave_corner(shape, i + 1.0lf, j) - p) * f;
+            let r = wave_corner(shape, i, j + 1.0lf);
+            let low = r + (wave_corner(shape, i + 1.0lf, j + 1.0lf) - r) * f;
+            return top + (low - top) * g;
         }
         default: {
             let n = q * 2.0lf;
@@ -4850,7 +4877,7 @@ fn warp(@builtin(global_invocation_id) id: vec3<u32>) {
                     v = -v;
                 }
             } else if k[9] >= 3.0lf {
-                v = wave_more(u32(k[9]), a);
+                v = wave_more(u32(k[9]), a, (k[4] * (x - k[0]) + k[5] * (y - k[1])) / k[6]);
             }
             let px = x - k[0];
             let py = y - k[1];
@@ -17394,6 +17421,7 @@ impl Gpu {
                 phase,
                 edges,
                 pinning,
+                rule,
                 frame,
             } => {
                 let repeat = edges == "repeat";
@@ -17411,7 +17439,7 @@ impl Gpu {
                     *width,
                     phi,
                     *height,
-                    crate::effects::wave_shape(shape) as f64,
+                    crate::effects::wave_shape_for(shape, rule) as f64,
                     w.saturating_sub(2 * ox) as f64,
                     h.saturating_sub(2 * oy) as f64,
                     pins[0] as u8 as f64,

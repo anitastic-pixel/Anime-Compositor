@@ -621,6 +621,7 @@ fn cases() -> Vec<(&'static str, Effect)> {
                 phase: 0.0,
                 edges: "transparent".to_string(),
                 pinning: "none".to_string(),
+                rule: "d149".to_string(),
                 frame: 0,
             },
         ),

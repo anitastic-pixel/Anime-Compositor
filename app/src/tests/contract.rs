@@ -2499,6 +2499,8 @@ const EFFECT_KINDS: &[(&str, &[(&str, &str)])] = &[
             ("edges", "repeat"),
             // D-745.
             ("pinning", "left_edge"),
+            // D-1066.
+            ("rule", "d149"),
         ],
     ),
     // D-150: the centre and the five numbers.

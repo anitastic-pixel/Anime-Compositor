@@ -2611,8 +2611,13 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             phase,
             edges,
             pinning,
+            rule,
             ..
         } => {
+            // D-1066: written only when After Effects', so a file from before is saved as it was.
+            if rule != "d149" || params.contains_key("rule") {
+                params.insert("rule".into(), J::from(rule.as_str()));
+            }
             params.insert("shape".into(), J::from(shape.as_str()));
             params.insert("height".into(), num(*height));
             params.insert("width".into(), num(*width));
@@ -10070,6 +10075,7 @@ fn parse_effect(
             phase: effect_number(params, "phase", at)?,
             edges: effect_word(params, "edges", at)?,
             pinning: effect_word_or(params, "pinning", at, "none")?,
+            rule: effect_word_or(params, "rule", at, "d149")?,
             frame: 0,
         }),
         crate::effects::RIPPLE => Some(crate::effects::Effect::Ripple {

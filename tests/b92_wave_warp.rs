@@ -23,6 +23,7 @@ fn wave(n: [f64; 5], shape: &str, edges: &str) -> Effect {
         phase: n[4],
         edges: edges.to_string(),
         pinning: "none".to_string(),
+        rule: "d149".to_string(),
         frame: 0,
     }
 }

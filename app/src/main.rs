@@ -4884,16 +4884,18 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             second_amount: 0.0,
             second_blend: "soft_light".to_string(),
         }),
-        // D-149: a still sine wave, pushing up and down.
+        // D-149: a sine wave, pushing up and down; D-1066: After Effects' rule and its settings
+        // when added, the wave moving one wave a second.
         WAVE_WARP => Some(Effect::WaveWarp {
             shape: "sine".to_string(),
             height: 10.0,
             width: 40.0,
             direction: 90.0,
-            speed: 0.0,
+            speed: 1.0,
             phase: 0.0,
             edges: "transparent".to_string(),
             pinning: "none".to_string(),
+            rule: "after_effects".to_string(),
             frame: 0,
         }),
         // D-150: rings spreading from the middle.
@@ -8391,6 +8393,7 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             phase: number("phase")?,
             edges: word("edges")?,
             pinning: if parameter(query, "pinning").is_some() { word("pinning")? } else { "none".to_string() },
+            rule: word("rule").unwrap_or_else(|_| "d149".to_string()),
             frame: 0,
         }),
         RIPPLE => Ok(Effect::Ripple {

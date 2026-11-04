@@ -80,8 +80,8 @@ D-149, accepted on 2026-09-26 by the owner's message asking for thirty more effe
 | with transparent edges, height 2.5 grows the drawing's bounds by 3 pixels | 3 | yes |
 | with repeat edges it grows them by nothing | 0 | yes |
 | at height 0 it grows them by nothing | 0 | yes |
-| a half-size draft preview halves the height and the width | WaveWarp { shape: "sine", height: 5.0, width: 20.0, direction: 90.0, speed: 0.0, phase: 0.0, edges: "transparent", pinning: "none", frame: 0 } | yes |
-| a half-size draft of width 1 holds the width at 1, its range's bottom, rather than leaving the effect out | WaveWarp { shape: "sine", height: 5.0, width: 1.0, direction: 90.0, speed: 0.0, phase: 0.0, edges: "transparent", pinning: "none", frame: 0 } | yes |
+| a half-size draft preview halves the height and the width | WaveWarp { shape: "sine", height: 5.0, width: 20.0, direction: 90.0, speed: 0.0, phase: 0.0, edges: "transparent", pinning: "none", rule: "d149", frame: 0 } | yes |
+| a half-size draft of width 1 holds the width at 1, its range's bottom, rather than leaving the effect out | WaveWarp { shape: "sine", height: 5.0, width: 1.0, direction: 90.0, speed: 0.0, phase: 0.0, edges: "transparent", pinning: "none", rule: "d149", frame: 0 } | yes |
 
 ## The file
 

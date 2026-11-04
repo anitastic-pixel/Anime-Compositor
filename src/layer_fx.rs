@@ -3679,7 +3679,8 @@ pub(crate) fn wave_warp(
             let (x, y) = ((i % w) as f64 + 0.5, (i / w) as f64 + 0.5);
             let s = tx * (x - ox) + ty * (y - oy);
             let a = tau * s / width + phi;
-            let v = wave_value(shape, a) * wave_pin(pins, (dw, dh), x - ox, y - oy);
+            let b = (nx * (x - ox) + ny * (y - oy)) / width;
+            let v = wave_value(shape, a, b) * wave_pin(pins, (dw, dh), x - ox, y - oy);
             let mut sx = x - height * v * nx;
             let mut sy = y - height * v * ny;
             if repeat {
@@ -3699,7 +3700,11 @@ pub(crate) fn wave_warp(
 /// semicircle turned over. Noise and smooth noise are ours, After Effects' being random: a fixed
 /// random level at every sixteenth of a wave with straight lines between (noise), or at every
 /// half wave joined smoothly (smooth noise), so they travel with the phase as the others do.
-pub(crate) fn wave_value(shape: u32, a: f64) -> f64 {
+/// D-1066: 9 and 10 are After Effects' noise and smooth noise as its stills show them, jagged
+/// streaks: random levels at the corners of a grid lying along the wave, `b` waves across it,
+/// joined by straight lines both ways; a sixteenth of a wave along by a quarter across (9), a
+/// quarter along by a half across (10).
+pub(crate) fn wave_value(shape: u32, a: f64, b: f64) -> f64 {
     let q = a / std::f64::consts::TAU;
     let u = q - q.floor();
     let arch = || (1.0 - (2.0 * u - 1.0).powi(2)).max(0.0).sqrt();
@@ -3723,6 +3728,19 @@ pub(crate) fn wave_value(shape: u32, a: f64) -> f64 {
         8 => {
             let (p, n, f) = knots(2.0, 2);
             p + (n - p) * f * f * (3.0 - 2.0 * f)
+        }
+        9 | 10 => {
+            let (along, across) = if shape == 9 { (16.0, 4.0) } else { (4.0, 2.0) };
+            let (n, m) = (q * along, b * across);
+            let (i, j) = (n.floor(), m.floor());
+            let (f, g) = (n - i, m - j);
+            let mix = crate::along::mix;
+            let at = |i: f64, j: f64| {
+                mix(mix(mix(shape) ^ i as i64 as u32) ^ j as i64 as u32) as f64 / 4294967296.0 * 2.0 - 1.0
+            };
+            let top = at(i, j) + (at(i + 1.0, j) - at(i, j)) * f;
+            let low = at(i, j + 1.0) + (at(i + 1.0, j + 1.0) - at(i, j + 1.0)) * f;
+            top + (low - top) * g
         }
         _ => a.sin(),
     }
