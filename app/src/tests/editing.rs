@@ -1369,6 +1369,37 @@ fn d314_chosen_keys_reverse_and_a_drawing_freezes() {
     );
 }
 
+/// D-1048: After Effects' names for Mix lead to it in both effect searches (FX-MIXNAME-001).
+/// The page's rule is pinned as written, then worked here on every row of document 25's table.
+#[test]
+fn d1048_effect_search_names_mix_for_after_effects_words() {
+    let page = include_str!("../../ui/index.html");
+    let aliases = ["effect opacity", "compositing options", "blend with original"];
+    for pinned in [
+        "const MIX_ALIASES = ['effect opacity', 'compositing options', 'blend with original'];",
+        "const MIX_NOTE = 'Effect Opacity is called Mix here: the last row of every effect card, 0 to 100 per cent, keyable.';",
+        "return t.length >= 8 && MIX_ALIASES.some((a) => a.startsWith(t) || t.includes(a)) ? MIX_NOTE : '';",
+        "const note = mixNote($('fxsearch').value);",
+        "const out = mixNote(typed) ? [el('p', 'hint', mixNote(typed))] : [];",
+    ] {
+        assert!(page.contains(pinned), "the page has: {pinned}");
+    }
+    let shown = |typed: &str| {
+        let t = typed.to_lowercase().split_whitespace().collect::<Vec<_>>().join(" ");
+        t.len() >= 8 && aliases.iter().any(|a| a.starts_with(&t) || t.contains(a))
+    };
+    let doc = std::fs::read_to_string(repo("Markdown/25_Test_Fixture_Catalog.md")).expect("doc 25");
+    let section = doc.split("FX-MIXNAME-001").nth(1).expect("the FX-MIXNAME-001 section");
+    let mut rows = 0;
+    for line in section.lines().filter(|l| l.starts_with("| `")) {
+        let cells: Vec<&str> = line.trim_matches('|').split('|').map(str::trim).collect();
+        let typed = cells[0].trim_matches('`');
+        assert_eq!(shown(typed), cells[1] == "yes", "typed {typed:?}");
+        rows += 1;
+    }
+    assert_eq!(rows, 11, "every row of the table");
+}
+
 /// D-1047: Freeze Frame on footage turns Time Remapping on with one hold key
 /// (FX-FREEZE-FOOTAGE-001); a drawn layer keeps D-314's freeze (FX-FREEZE-FOOTAGE-002).
 #[test]

@@ -21343,6 +21343,13 @@ function effectItem(key) {
   return row;
 }
 const searchable = (s) => s.toLowerCase().replace(/colour/g, 'color');
+// D-1048: After Effects' names for Mix (D-202). Typed into either effect search, a line says where it is.
+const MIX_ALIASES = ['effect opacity', 'compositing options', 'blend with original'];
+const MIX_NOTE = 'Effect Opacity is called Mix here: the last row of every effect card, 0 to 100 per cent, keyable.';
+function mixNote(typed) {
+  const t = searchable(typed).trim().replace(/\s+/g, ' ');
+  return t.length >= 8 && MIX_ALIASES.some((a) => a.startsWith(t) || t.includes(a)) ? MIX_NOTE : '';
+}
 function drawEffectList() {
   const words = searchable($('fxsearch').value).split(/\s+/).filter(Boolean);
   const grouped = new Set(EFFECT_GROUPS.flatMap(([, ids]) => ids));
@@ -21371,8 +21378,10 @@ function drawEffectList() {
       ...hits.map(effectItem));
     out.push(box);
   }
-  $('fxlist').replaceChildren(...(out.length ? out : [Object.assign(document.createElement('p'),
-    { className: 'empty', textContent: 'No effect matches "' + $('fxsearch').value.trim() + '".' })]));
+  const note = mixNote($('fxsearch').value);
+  $('fxlist').replaceChildren(...(note ? [Object.assign(document.createElement('p'), { className: 'empty', textContent: note })] : []),
+    ...(out.length || note ? out : [Object.assign(document.createElement('p'),
+      { className: 'empty', textContent: 'No effect matches "' + $('fxsearch').value.trim() + '".' })]));
 }
 $('fxsearch').oninput = drawEffectList;
 $('fxsearch').onkeydown = (e) => {
@@ -21586,7 +21595,7 @@ function fxConsole() {
     matches = groups.flatMap(([, keys]) => keys);
     at = Math.min(at, Math.max(0, matches.length - 1));
     const lit = searchable(words[0] || '');
-    const out = [];
+    const out = mixNote(typed) ? [el('p', 'hint', mixNote(typed))] : [];
     for (const [title, keys] of groups) {
       out.push(el('div', 'fh', title));
       for (const key of keys) {
@@ -21609,7 +21618,7 @@ function fxConsole() {
         out.push(line);
       }
     }
-    if (!matches.length && typed) {
+    if (!matches.length && typed && !mixNote(typed)) {
       out.push(el('p', 'hint', 'No effect or preset is called “' + typed + '”.'));
       const look = el('button', 'fxlook', 'Look for “' + typed + '” in the commands');
       look.type = 'button';
