@@ -136,6 +136,7 @@ const SENT: &[&str] = &[
     "layer.delete",
     "layer.duplicate",
     "layer.freeze_frame",
+    "layer.masks_from_text",
     "layer.move",
     "layer.move_down",
     "layer.move_up",
@@ -153,6 +154,7 @@ const SENT: &[&str] = &[
     "layer.set_parent",
     "layer.set_time_remap",
     "layer.set_time_stretch",
+    "layer.shapes_from_text",
     "layer.shift",
     "layer.split",
     "layer.toggle_frame_blend",
@@ -696,6 +698,9 @@ const REACHED: &[(&str, &str)] = &[
     ("layer.set_time_remap", "a command the window answers"),
     // D-314, from D-309: Freeze Frame.
     ("layer.freeze_frame", "a command the window answers"),
+    // D-1086: Create Shapes from Text and Create Masks from Text.
+    ("layer.shapes_from_text", "a command the window answers"),
+    ("layer.masks_from_text", "a command the window answers"),
     ("layer.set_drawing_dissolve", "a command the window answers"),
     // D-74, accepted on 2026-09-19 and built in the core by B-23b; B-23c put both in the
     // window.

@@ -4111,7 +4111,7 @@ fn effect_now(
 /// is left out (and said with the rest of the stack). D-373: Path Stroke's text outlines take
 /// the same. D-1085: and its Path Options, each with its mask as it is at `at`, cut into pieces;
 /// one whose mask the layer does not have is left out (and said with the rest of the stack).
-fn text_animators(
+pub(crate) fn text_animators(
     comp: &crate::model::Composition,
     layer: &crate::model::Layer,
     at: i32,

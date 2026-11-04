@@ -1062,7 +1062,7 @@ fn the_shortcut_window_changes_keys_on_this_computer_only() {
     let keyed: Vec<&(String, String)> = lines.iter().filter(|(_, k)| !k.is_empty()).collect();
     report.check(
         "command finder lines the window lists",
-        "145 lines, 98 with keys of their own",
+        "147 lines, 98 with keys of their own",
         format!(
             "{} lines, {} with keys of their own",
             lines.len(),
@@ -15415,4 +15415,26 @@ fn the_export_output_is_in_the_window() {
     assert_eq!(format_name(OutputFormat::Png, rec709), "PNG sequence, in Rec.709 (BT.1886)");
     assert_eq!(format_name(OutputFormat::Exr(ExrSamples::Float), acescg), "EXR sequence, full float, in ACEScg");
     assert_eq!(format_name(OutputFormat::Png, ExportChoices::default()), "PNG sequence");
+}
+
+/// D-1086: Create Shapes from Text in the window, and the sentence saying what of the words the
+/// outlines leave behind (here faux bold), so nothing is lost without a word (document 28).
+#[test]
+fn d1086_outlines_from_text_say_what_they_leave_behind() {
+    let fixture = repo("Fixtures/text_outlines/fx_txo_020.json");
+    let viewer = Mutex::new(open(&fixture).expect("fx_txo_020 opens"));
+    let plain = run(&viewer, "layer.shapes_from_text?layer=art&frame=2");
+    assert!(!plain.contains("not part of"), "{plain}");
+    assert_eq!(names(&viewer), "Title, Title Outlines");
+    assert_eq!(layer(&viewer, "art", |l| l.enabled), Some(false));
+
+    let mut project: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(&fixture).expect("read")).expect("JSON");
+    project["compositions"][0]["layers"][0]["source_text"]["faux_bold"] = true.into();
+    let bold = std::env::temp_dir().join("d1086_faux_bold.json");
+    std::fs::write(&bold, project.to_string()).expect("write");
+    let viewer = Mutex::new(open(&bold).expect("the bold copy opens"));
+    let said = run(&viewer, "layer.masks_from_text?layer=art&frame=2");
+    assert!(said.contains("faux bold is not part of the outlines"), "{said}");
+    assert_eq!(names(&viewer), "Title, Title Outlines");
 }

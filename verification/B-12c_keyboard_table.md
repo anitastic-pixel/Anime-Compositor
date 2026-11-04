@@ -96,6 +96,7 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | `layer.delete` can be asked for without a mouse | yes | yes | pass |
 | `layer.duplicate` can be asked for without a mouse | yes | yes | pass |
 | `layer.freeze_frame` can be asked for without a mouse | yes | yes | pass |
+| `layer.masks_from_text` can be asked for without a mouse | yes | yes | pass |
 | `layer.move` can be asked for without a mouse | yes | yes | pass |
 | `layer.move_down` can be asked for without a mouse | yes | yes | pass |
 | `layer.move_up` can be asked for without a mouse | yes | yes | pass |
@@ -113,6 +114,7 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | `layer.set_parent` can be asked for without a mouse | yes | yes | pass |
 | `layer.set_time_remap` can be asked for without a mouse | yes | yes | pass |
 | `layer.set_time_stretch` can be asked for without a mouse | yes | yes | pass |
+| `layer.shapes_from_text` can be asked for without a mouse | yes | yes | pass |
 | `layer.shift` can be asked for without a mouse | yes | yes | pass |
 | `layer.split` can be asked for without a mouse | yes | yes | pass |
 | `layer.toggle_frame_blend` can be asked for without a mouse | yes | yes | pass |
@@ -230,4 +232,4 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | dragging a property's pick whip onto another property is not the only way to link one to the other | true | true | pass |
 | dragging a layer's pick whip onto another layer is not the only way to make that layer its parent | true | true | pass |
 
-**200 of 200 checks pass.**
+**202 of 202 checks pass.**

@@ -436,6 +436,8 @@ struct Pen<'a> {
     /// handles are kept, a quadratic raised to the cubic it is, and each contour is cut into
     /// pieces by `mask::flatten`, as a mask's or a shape's path is.
     path: Option<Vec<crate::mask::MaskPoint>>,
+    /// D-1086: each contour's nodes as they are, beside its flattened copy in `into`.
+    kept: &'a mut Vec<Vec<crate::mask::MaskPoint>>,
 }
 
 impl Pen<'_> {
@@ -474,6 +476,7 @@ impl Pen<'_> {
             let nodes = std::mem::take(nodes);
             if nodes.len() >= 2 {
                 self.into.push(crate::mask::flatten(&nodes, true));
+                self.kept.push(nodes);
             }
             return;
         }
@@ -716,6 +719,150 @@ pub fn outlines(text: &Text, animators: &[crate::effects::Effect]) -> Option<Vec
             .flat_map(|c| laid.contours[c.1.clone()].iter().cloned())
             .collect(),
     )
+}
+
+/// D-1086: one character's outline, as Create Shapes from Text and Create Masks from Text take it.
+#[derive(Clone, Debug)]
+pub struct CharOutline {
+    pub index: usize,
+    pub ch: char,
+    /// Its colour on the frame, the animators' fill included.
+    pub color: [f64; 3],
+    /// Each contour's nodes, in the font's order, and whether it is a hole.
+    pub contours: Vec<(bool, Vec<crate::mask::MaskPoint>)>,
+}
+
+/// D-1086: every character that has an outline, in reading order, its contours as Bezier
+/// nodes in the layer's pixels with the animators as they are (document 21). `None` when the
+/// font is not on this machine.
+pub fn char_outlines(text: &Text, animators: &[crate::effects::Effect]) -> Option<Vec<CharOutline>> {
+    let mut laid = lay_out(text, animators, true)?;
+    laid.chars.sort_by_key(|c| c.0.index);
+    Some(
+        laid.chars
+            .iter()
+            .filter(|(_, r)| !r.is_empty())
+            .map(|(p, r)| {
+                let nodes = &laid.kept[r.clone()];
+                let areas: Vec<f64> = nodes.iter().map(|n| bezier_area(n)).collect();
+                let big = areas.iter().copied().fold(0.0, |b: f64, a| if a.abs() > b.abs() { a } else { b });
+                CharOutline {
+                    index: p.index,
+                    ch: p.ch,
+                    color: p.color,
+                    contours: areas
+                        .iter()
+                        .zip(nodes)
+                        .map(|(a, n)| ((*a > 0.0) != (big > 0.0), n.clone()))
+                        .collect(),
+                }
+            })
+            .collect(),
+    )
+}
+
+/// D-1086: a closed Bezier contour's signed area, each piece sampled at 32 steps.
+fn bezier_area(nodes: &[crate::mask::MaskPoint]) -> f64 {
+    let mut pts = Vec::with_capacity(nodes.len() * 32);
+    for (i, a) in nodes.iter().enumerate() {
+        let b = &nodes[(i + 1) % nodes.len()];
+        let p = [
+            a.point,
+            (a.point.0 + a.out_handle.0, a.point.1 + a.out_handle.1),
+            (b.point.0 + b.in_handle.0, b.point.1 + b.in_handle.1),
+            b.point,
+        ];
+        for k in 0..32 {
+            let t = k as f64 / 32.0;
+            let v = 1.0 - t;
+            let w = [v * v * v, 3.0 * v * v * t, 3.0 * v * t * t, t * t * t];
+            pts.push((
+                (0..4).map(|j| w[j] * p[j].0).sum::<f64>(),
+                (0..4).map(|j| w[j] * p[j].1).sum::<f64>(),
+            ));
+        }
+    }
+    (0..pts.len())
+        .map(|i| {
+            let (a, b) = (pts[i], pts[(i + 1) % pts.len()]);
+            a.0 * b.1 - b.0 * a.1
+        })
+        .sum::<f64>()
+        / 2.0
+}
+
+/// D-1086: Create Shapes from Text (`masks` false) or Create Masks from Text (`masks` true) on
+/// `layer` at composition frame `frame`: the new layer "<name> Outlines", with `id`, the text
+/// layer's transform, parent and times, to go just above it. A layer that is not text, or whose
+/// words give no outline, is refused with a sentence.
+pub fn outlines_layer(
+    comp: &crate::model::Composition,
+    layer: &crate::model::Layer,
+    frame: i32,
+    id: crate::model::Id,
+    masks: bool,
+) -> Result<crate::model::Layer, String> {
+    let Some(words) = &layer.text else {
+        return Err(format!("{} is not a text layer, so it has no outlines to make {} from.", layer.name, if masks { "masks" } else { "shapes" }));
+    };
+    let at = crate::compose::posterized(comp, layer, frame);
+    let animators = crate::compose::text_animators(comp, layer, at);
+    let chars = char_outlines(words, &animators).ok_or_else(|| {
+        format!("{}'s font \"{}\" is not on this computer, so its outlines cannot be read.", layer.name, words.font)
+    })?;
+    if chars.is_empty() {
+        return Err(format!("{}'s words have no outline (only spaces), so nothing was made.", layer.name));
+    }
+    let name = format!("{} Outlines", layer.name);
+    let (w, h) = (comp.width, comp.height);
+    let mut out = if masks {
+        let mut out = crate::model::Layer::solid(
+            id,
+            name,
+            crate::model::Solid { color: words.color, width: w, height: h },
+            w,
+            h,
+            layer.in_frame,
+            layer.out_frame,
+        );
+        for c in &chars {
+            for hole in [false, true] {
+                for (_, points) in c.contours.iter().filter(|k| k.0 == hole) {
+                    out.masks.push(crate::mask::Mask {
+                        name: c.ch.to_string(),
+                        mode: if hole { crate::mask::MaskMode::Subtract } else { crate::mask::MaskMode::Add },
+                        points: points.clone(),
+                        ..Default::default()
+                    });
+                }
+            }
+        }
+        out
+    } else {
+        let mut out = crate::model::Layer::shape(id, name, Vec::new(), w, h, layer.in_frame, layer.out_frame);
+        for (g, c) in chars.iter().enumerate() {
+            let mut group = crate::shape::Group::new(c.ch.to_string(), None);
+            let mut merge = crate::shape::Operation::new("merge").expect("Merge Paths is an operation");
+            merge.choice = Some("merge".to_string());
+            group.operations.push(merge);
+            out.shape_groups.push(group);
+            for (n, (_, points)) in c.contours.iter().enumerate() {
+                out.shapes.push(crate::shape::Shape {
+                    name: format!("Path {}", n + 1),
+                    points: points.clone(),
+                    fill: Some(crate::shape::Fill { color: c.color, opacity: 1.0, gradient: None }),
+                    stroke: words.stroke.as_ref().map(|s| crate::shape::Stroke::new(s.color, 2.0 * s.width)),
+                    group: Some(g),
+                    ..Default::default()
+                });
+            }
+        }
+        out
+    };
+    out.transform = layer.transform.clone();
+    out.parent = layer.parent.clone();
+    out.depth = layer.depth.clone();
+    Ok(out)
 }
 
 /// D-350: how much one animator's range selector picks each of `chars`, the layer's characters
@@ -1198,6 +1345,8 @@ struct Laid {
     contours: Vec<Vec<(f64, f64)>>,
     bounds: [f64; 4],
     chars: Vec<(Placed, std::ops::Range<usize>)>,
+    /// D-1086: laid out as paths, each contour's nodes, in step with `contours`.
+    kept: Vec<Vec<crate::mask::MaskPoint>>,
 }
 
 fn lay_out(text: &Text, animators: &[crate::effects::Effect], path: bool) -> Option<Laid> {
@@ -1225,6 +1374,7 @@ fn lay_out(text: &Text, animators: &[crate::effects::Effect], path: bool) -> Opt
     };
     let slant = if text.faux_italic { 0.2126 } else { 0.0 };
     let mut contours = Vec::new();
+    let mut kept = Vec::new();
     let mut across = [f64::INFINITY, f64::NEG_INFINITY];
     let mut n = 0;
     // D-350: each animator's pick of every character, line breaks left out.
@@ -1457,6 +1607,7 @@ fn lay_out(text: &Text, animators: &[crate::effects::Effect], path: bool) -> Opt
                         now: Vec::new(),
                         into: &mut contours,
                         path: path.then(Vec::new),
+                        kept: &mut kept,
                     };
                     face.outline_glyph(g.id, &mut pen);
                     pen.end();
@@ -1508,6 +1659,7 @@ fn lay_out(text: &Text, animators: &[crate::effects::Effect], path: bool) -> Opt
         contours,
         bounds,
         chars: placed,
+        kept,
     })
 }
 

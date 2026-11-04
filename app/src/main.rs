@@ -11144,6 +11144,7 @@ const ANSWERS: &[&str] = &[
     "layer.delete",
     "layer.duplicate",
     "layer.freeze_frame",
+    "layer.masks_from_text",
     "layer.move",
     "layer.move_down",
     "layer.move_up",
@@ -11162,6 +11163,7 @@ const ANSWERS: &[&str] = &[
     "layer.set_parent",
     "layer.set_time_remap",
     "layer.set_time_stretch",
+    "layer.shapes_from_text",
     "layer.shift",
     "layer.split",
     "layer.toggle_frame_blend",
@@ -13059,6 +13061,8 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
     // D-57: whether the parent just chosen could keep the layer exactly where it was. Read
     // before the change, because it is a question about the chain the layer is in now.
     let mut inexact = false;
+    // D-1086: what of a text layer its outlines leave behind, said once they have landed.
+    let mut left_out: Vec<&str> = Vec::new();
     // D-57: a layer being deleted lets its children go where they stand. Filled in by the
     // delete arm, which can see the composition, and applied with the deletion as one entry.
     let mut unparent: Vec<Command> = Vec::new();
@@ -14598,6 +14602,44 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                         to_index,
                     }
                 }
+                // D-1086: After Effects' Create Shapes from Text and Create Masks from Text. The
+                // outlines on the playhead's frame go in front of the text layer, which is
+                // switched off, as one entry to undo.
+                "layer.shapes_from_text" | "layer.masks_from_text" => {
+                    let frame = frame_parameter(query, "frame").unwrap_or(0);
+                    let masks = id == "layer.masks_from_text";
+                    let made = match anime_compositor::text::outlines_layer(
+                        comp,
+                        layer,
+                        frame,
+                        unused_layer_id(project),
+                        masks,
+                    ) {
+                        Ok(made) => made,
+                        Err(said) => return Some(said),
+                    };
+                    if let Some(t) = &layer.text {
+                        for (has, what) in [
+                            (t.background.is_some(), "background box"),
+                            (t.shadow.is_some(), "shadow"),
+                            (t.faux_bold, "faux bold"),
+                        ] {
+                            if has {
+                                left_out.push(what);
+                            }
+                        }
+                    }
+                    unparent = vec![Command::AddLayer {
+                        composition: composition.clone(),
+                        layer: Box::new(made),
+                        index: at + 1,
+                    }];
+                    Command::SetLayerEnabled {
+                        composition,
+                        layer_id,
+                        value: false,
+                    }
+                }
                 // W-22: After Effects' Ctrl+D. The copy goes in front of the layer it copies.
                 "layer.duplicate" => Command::AddLayer {
                     composition,
@@ -15588,6 +15630,14 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
     // turned, the exact answer is a skew a layer cannot hold. The anchor lands where it was and
     // the rest of the layer may shift. That is a thing to meet at the moment it happens rather
     // than to find later by looking at the picture, so the answer says it.
+    if !left_out.is_empty() && landed {
+        return Some(format!(
+            "{said} The words' {} {} not part of the outlines; the text layer, now off, still has {}.",
+            left_out.join(" and "),
+            if left_out.len() == 1 { "is" } else { "are" },
+            if left_out.len() == 1 { "it" } else { "them" }
+        ));
+    }
     if inexact && landed {
         return Some(format!(
             "{said} It could not keep its shape exactly: the parent is stretched more one way \

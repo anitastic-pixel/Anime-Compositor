@@ -1986,6 +1986,9 @@
     <button data-run="Layer style: Inner Shadow"></button>
     <button data-run="Layer style: Gradient Overlay"></button>
     <button data-run="Global Light angle"></button>
+    <hr>
+    <button data-run="Create shapes from text"></button>
+    <button data-run="Create masks from text"></button>
   </div></span>
   <span class="mi"><button class="mt" aria-haspopup="menu" aria-expanded="false">Effect</button><div class="drop" role="menu" aria-label="Effect" hidden>
     <button data-run="Find an effect or preset"></button>
@@ -5898,6 +5901,9 @@ function paletteLines() {
     ['Layer style: Inner Shadow', '', () => applyToLayers('core.style_inner_shadow', selection.filter((id) => takesEffects(layerById(id))))],
     ['Layer style: Gradient Overlay', '', () => applyToLayers('core.style_gradient_overlay', selection.filter((id) => takesEffects(layerById(id))))],
     ['Global Light angle', '', globalLightDialog],
+    // D-1086: After Effects' Layer > Create > Create Shapes from Text and Create Masks from Text.
+    ['Create shapes from text', '', () => outlinesFromText(false)],
+    ['Create masks from text', '', () => outlinesFromText(true)],
     ['Key speed and influence', '', velocityDialog],
     ['Show effect controls', 'E', { key: 'e' }],
     ['Find an effect or preset', 'Ctrl+Space', fxConsole],
@@ -6281,6 +6287,8 @@ function layerMenu(x, y, first = []) {
     ['Freeze frame', '', freezeFrame, selected() && (['raster', 'composition'].includes(selected().kind)
       || !!selected().time_remap)],
     ['Enable time remapping', 'Ctrl+Alt+T', timeRemap, selected() && ['raster', 'composition'].includes(selected().kind)],
+    ['Create shapes from text', '', () => outlinesFromText(false), selected() && selected().kind === 'text'],
+    ['Create masks from text', '', () => outlinesFromText(true), selected() && selected().kind === 'text'],
     // B-24c: a mask over the whole layer, which is what After Effects' double-clicked shape tool
     // makes and what anyone without a mouse needs: the pen and the shape tools are drawn with a
     // hand, and `mask.add` must be reachable without one.
@@ -6331,6 +6339,13 @@ function reverseKeys() {
 function freezeFrame() {
   const layer = selected();
   if (layer) command('/layer.freeze_frame?layer=' + encodeURIComponent(layer.id) + '&frame=' + frame);
+}
+
+// D-1086: After Effects' Create Shapes from Text and Create Masks from Text: the text layer’s
+// outlines on the playhead, as a shape layer or a solid with masks, in front of it; it goes off.
+function outlinesFromText(masks) {
+  const layer = selected();
+  if (layer) command((masks ? '/layer.masks_from_text' : '/layer.shapes_from_text') + '?layer=' + encodeURIComponent(layer.id) + '&frame=' + frame);
 }
 
 // D-323: After Effects' Enable Time Remapping (Ctrl+Alt+T): on, two keys that keep every frame as
