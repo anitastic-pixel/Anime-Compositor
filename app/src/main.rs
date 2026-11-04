@@ -3014,6 +3014,7 @@ const AUTOSAVE_TICK: Duration = Duration::from_secs(10);
 /// Document 26: "Autosave does not clear user-facing dirty state and does not replace the
 /// canonical manual-save path." Nothing here calls `mark_saved` and nothing here can — the core's
 /// `autosave` takes the document by shared reference for exactly that reason.
+#[cfg(test)]
 fn autosave_tick(viewer: &mut Viewer, now: Instant) -> Option<String> {
     autosave_tick_in(viewer, now, unsaved_folder().as_deref())
 }
@@ -3036,7 +3037,28 @@ fn unsaved_copy(folder: &Path) -> PathBuf {
 }
 
 /// [`autosave_tick`] with the folder for a never-saved project's copies handed in.
+#[cfg(test)]
 fn autosave_tick_in(viewer: &mut Viewer, now: Instant, unsaved: Option<&Path>) -> Option<String> {
+    let due = autosave_due(viewer, now, unsaved)?;
+    let (said, recovery) = autosave_write(due);
+    if let Some(recovery) = recovery {
+        viewer.recovery = recovery;
+    }
+    Some(said)
+}
+
+/// D-1120: what one autosave writes, copied out of the window so it can be written without
+/// holding the viewer lock. A copy of the project, not of the document: the undo steps are
+/// not written.
+struct DueCopy {
+    path: PathBuf,
+    project: Project,
+    preserved: Arc<Preserved>,
+}
+
+/// The timer's look at the clock, under the lock: the copy to write, if one is due. Sets the
+/// dirty clock exactly as the timer always has.
+fn autosave_due(viewer: &mut Viewer, now: Instant, unsaved: Option<&Path>) -> Option<DueCopy> {
     // D-256: a project with no file of its own puts its copies in the app's own folder, its
     // drawings' paths rewritten for there as Save As would. With no such folder there is nowhere
     // to put one.
@@ -3059,32 +3081,36 @@ fn autosave_tick_in(viewer: &mut Viewer, now: Instant, unsaved: Option<&Path>) -
     // Measured from this snapshot, not from when the work began, so a document left dirty writes
     // one snapshot every two minutes rather than one on every tick after the first two.
     viewer.dirty_since = Some(now);
-    let rebased = unsaved.filter(|_| viewer.path.is_none()).map(|folder| {
-        let _ = std::fs::create_dir_all(folder);
-        Document::new(persist::rebased(
-            viewer.document.project(),
-            &viewer.root,
-            folder,
-        ))
-    });
-    Some(
-        match persist::autosave(
-            &path,
-            rebased.as_ref().unwrap_or(&viewer.document),
-            &viewer.preserved,
-        ) {
-            Ok(written) => {
-                viewer.recovery = persist::recovery_candidates(&path)
+    let project = match unsaved.filter(|_| viewer.path.is_none()) {
+        Some(folder) => {
+            let _ = std::fs::create_dir_all(folder);
+            persist::rebased(viewer.document.project(), &viewer.root, folder)
+        }
+        None => viewer.document.project().clone(),
+    };
+    Some(DueCopy {
+        path,
+        project,
+        preserved: Arc::clone(&viewer.preserved),
+    })
+}
+
+/// The write itself, outside the lock: what to say, and the recovery list to show after.
+fn autosave_write(due: DueCopy) -> (String, Option<Vec<PathBuf>>) {
+    match persist::autosave(&due.path, &Document::new(due.project), &due.preserved) {
+        Ok(written) => (
+            format!("Recovery snapshot written to {}", written.display()),
+            Some(
+                persist::recovery_candidates(&due.path)
                     .into_iter()
                     .map(|c| c.path)
-                    .collect();
-                format!("Recovery snapshot written to {}", written.display())
-            }
-            // A failed autosave is said out loud rather than swallowed. It is the one moment the
-            // person can still do something about it — the work is in memory and nowhere else.
-            Err(diagnostic) => diagnostic.sentence(),
-        },
-    )
+                    .collect(),
+            ),
+        ),
+        // A failed autosave is said out loud rather than swallowed. It is the one moment the
+        // person can still do something about it — the work is in memory and nowhere else.
+        Err(diagnostic) => (diagnostic.sentence(), None),
+    }
 }
 
 /// Open a recovery snapshot as the project it belongs to.
@@ -19961,11 +19987,24 @@ fn main() {
             std::thread::spawn(move || loop {
                 std::thread::sleep(AUTOSAVE_TICK);
                 let _ = contained(&handle, "autosaving", || {
+                    // D-1120: the copy is taken under the lock and written after it is let go,
+                    // so an edit during the write waits for nothing.
                     let state = handle.state::<Mutex<Viewer>>();
-                    let mut viewer = state.lock().expect("the viewer lock was poisoned");
-                    if let Some(said) = autosave_tick(&mut viewer, Instant::now()) {
-                        viewer.autosaved = said;
+                    let lock = || state.lock().expect("the viewer lock was poisoned");
+                    let folder = unsaved_folder();
+                    let Some(due) = autosave_due(&mut lock(), Instant::now(), folder.as_deref())
+                    else {
+                        return;
+                    };
+                    let path = due.path.clone();
+                    let (said, recovery) = autosave_write(due);
+                    let mut viewer = lock();
+                    // Saved As elsewhere during the write: that file's list is not this one.
+                    let target = viewer.path.clone().or_else(|| folder.as_deref().map(unsaved_copy));
+                    if let Some(recovery) = recovery.filter(|_| target.as_ref() == Some(&path)) {
+                        viewer.recovery = recovery;
                     }
+                    viewer.autosaved = said;
                 });
             });
             open_window(app.handle())?;

@@ -98,3 +98,41 @@ fn d1115_state_is_the_same_json_as_before() {
         }
     }
 }
+
+/// D-1120: the copy autosave writes outside the lock is the file it wrote under the lock, byte
+/// for byte, on the 200-layer copy; and the window can take an edit between the two halves.
+#[test]
+fn d1120_autosave_writes_the_same_file_outside_the_lock() {
+    let folder = repo("target/p27_d1120");
+    let _ = std::fs::remove_dir_all(&folder);
+    std::fs::create_dir_all(&folder).unwrap();
+    let viewer = viewer(200);
+    viewer.lock().unwrap().path = Some(folder.join("copies.json"));
+    let first = {
+        let held = viewer.lock().unwrap();
+        let comp = held.document.project().composition(&held.composition).unwrap();
+        let id = comp.layers_in_order().next().unwrap().id.clone();
+        id
+    };
+    let rename = |name: &str| {
+        edit_command(&viewer, "layer.rename", Some(&format!("layer={}&name={name}", first.as_str())))
+            .unwrap();
+    };
+    rename("before");
+    let start = Instant::now();
+    assert!(autosave_due(&mut viewer.lock().unwrap(), start, None).is_none(), "not yet due");
+    let due = autosave_due(&mut viewer.lock().unwrap(), start + AUTOSAVE_AFTER, None).expect("due");
+    // What the old code wrote: the project as it stood at the look at the clock.
+    let expected = {
+        let held = viewer.lock().unwrap();
+        persist::to_json(held.document.project(), &held.preserved)
+    };
+    // An edit while the copy is being written: the lock is free, and the copy is unchanged by it.
+    rename("during");
+    let (said, recovery) = autosave_write(due);
+    let written = recovery.expect("written").into_iter().next().expect("one copy");
+    assert!(said.starts_with("Recovery snapshot written to"), "{said}");
+    assert_eq!(std::fs::read_to_string(&written).unwrap(), expected);
+    assert!(expected.contains("\"before\"") && !expected.contains("\"during\""));
+    let _ = std::fs::remove_dir_all(&folder);
+}
