@@ -7669,6 +7669,9 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             wiggly_spatial_phase,
             wiggly_seed,
             wiggly_time: _,
+            expression_selector,
+            expression_amount,
+            expression_values: _,
         } => {
             let list = |v: &[f64]| J::Array(v.iter().map(|x| num(*x)).collect());
             params.insert("position".into(), list(position));
@@ -7709,6 +7712,15 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
                 params.insert("wiggly_temporal_phase".into(), num(*wiggly_temporal_phase));
                 params.insert("wiggly_spatial_phase".into(), num(*wiggly_spatial_phase));
                 params.insert("wiggly_seed".into(), num(*wiggly_seed));
+            }
+            // D-1069: the Expression Selector saved only when on, keyed, carrying an expression
+            // or already in the file; its answers are compose's and never saved.
+            if expression_selector == "on"
+                || instance.tracks.contains_key("expression_amount")
+                || params.contains_key("expression_selector")
+            {
+                params.insert("expression_selector".into(), J::from(expression_selector.as_str()));
+                params.insert("expression_amount".into(), num(*expression_amount));
             }
         }
         // D-1085: the mask's pieces are never saved; they are read again from the mask.
@@ -13171,6 +13183,9 @@ fn parse_effect(
             wiggly_spatial_phase: effect_number_or(params, "wiggly_spatial_phase", at, 0.0)?,
             wiggly_seed: effect_number_or(params, "wiggly_seed", at, 0.0)?,
             wiggly_time: 0.0,
+            expression_selector: effect_word_or(params, "expression_selector", at, "off")?,
+            expression_amount: effect_number_or(params, "expression_amount", at, 100.0)?,
+            expression_values: Vec::new(),
         }),
         // D-1085: the words kept as written, so one outside the contract is refused by name.
         crate::effects::TEXT_PATH => Some(crate::effects::Effect::TextPath {

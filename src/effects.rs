@@ -4721,6 +4721,10 @@ pub enum Effect {
     /// `wiggly_correlation`, 0 to 100 per cent; `wiggly_temporal_phase` and
     /// `wiggly_spatial_phase`, degrees; `wiggly_seed`, 0 to 1,000,000. `wiggly_time` is not a
     /// setting and is never saved: compose puts the composition's time, in seconds, in it.
+    /// D-1069: the Expression Selector, `expression_selector` "off" or "on"; `expression_amount`,
+    /// -100 to 100 per cent, the setting its expression sits on. `expression_values` is not a
+    /// setting and is never saved: compose puts the expression's answer for each unit in it, in
+    /// per cent, or leaves it empty for every unit to take `expression_amount`.
     TextAnimator {
         position: [f64; 2],
         scale: [f64; 2],
@@ -4749,6 +4753,9 @@ pub enum Effect {
         wiggly_spatial_phase: f64,
         wiggly_seed: f64,
         wiggly_time: f64,
+        expression_selector: String,
+        expression_amount: f64,
+        expression_values: Vec<f64>,
     },
     /// D-1085: Path Options, after After Effects' Path Options on a text layer: its letters set
     /// along one of its masks (`text::lay_out`, document 21). `path`, the mask's number from 1, 0
@@ -10395,6 +10402,7 @@ impl Effect {
                 wiggly_temporal_phase,
                 wiggly_spatial_phase,
                 wiggly_seed,
+                expression_amount,
                 ..
             } => vec![
                 ("position", position.iter_mut().collect(), -1e5, 1e5),
@@ -10419,6 +10427,7 @@ impl Effect {
                 ("wiggly_temporal_phase", vec![wiggly_temporal_phase], -1e6, 1e6),
                 ("wiggly_spatial_phase", vec![wiggly_spatial_phase], -1e6, 1e6),
                 ("wiggly_seed", vec![wiggly_seed], 0.0, 1e6),
+                ("expression_amount", vec![expression_amount], -100.0, 100.0),
             ],
             Effect::LineBlur {
                 length, strength, ..
@@ -14792,6 +14801,9 @@ impl Effect {
             )),
             Effect::TextAnimator { wiggly_mode, .. } if !WIGGLY_MODES.contains(&wiggly_mode.as_str()) => Some(format!(
                 "Text Animator's Wiggly mode is \"add\", \"subtract\", \"intersect\", \"min\", \"max\" or \"difference\", and this is \"{wiggly_mode}\"."
+            )),
+            Effect::TextAnimator { expression_selector: v, .. } if !["off", "on"].contains(&v.as_str()) => Some(format!(
+                "Text Animator's Expression Selector is \"off\" or \"on\", and this is \"{v}\"."
             )),
             Effect::ShadowHighlight { auto_amounts: v, .. } | Effect::ShadowHighlight { scene_detect: v, .. } if !["off", "on"].contains(&v.as_str()) => Some(format!(
                 "Shadow/Highlight's auto amounts and scene detect are \"off\" or \"on\", and this is \"{v}\"."

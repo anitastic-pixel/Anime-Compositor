@@ -45,6 +45,11 @@ const ROOTS: &[&str] = &[
     "seedRandom",
     "posterizeTime",
     "effect",
+    // D-1069: the layer's first frame, and an Expression Selector's unit.
+    "inPoint",
+    "textIndex",
+    "textTotal",
+    "selectorValue",
 ];
 const DECLARATIONS: &[&str] = &["var", "let", "const"];
 /// D-766: words of the language that are not values to start from.
@@ -52,7 +57,7 @@ const KEYWORDS: &[&str] = &["if", "else", "true", "false"];
 /// D-766: the two-character operators, `===` and `!==` read as `==` and `!=`.
 const OPS2: &[&str] = &["==", "!=", "<=", ">=", "&&", "||"];
 const MATH: &[&str] = &[
-    "sin", "cos", "tan", "abs", "floor", "ceil", "round", "sqrt", "pow", "min", "max",
+    "sin", "cos", "tan", "abs", "floor", "ceil", "round", "sqrt", "pow", "min", "max", "exp",
 ];
 
 /// Whose property an expression sits on or reads.
@@ -1394,6 +1399,16 @@ pub fn effect_in(
         let Some(text) = live_text(instance, &name) else {
             continue;
         };
+        // D-1069: an Expression Selector's expression runs once a unit, in compose; here it is
+        // only checked, for one unit of one, so that a failing one is reported.
+        if name == "expression_amount"
+            && matches!(instance.effect, crate::effects::Effect::TextAnimator { .. })
+        {
+            if let Err(e) = selector(comp, layer, instance, frame, &[100.0]) {
+                failed.push((name, e));
+            }
+            continue;
+        }
         let mut run = Run {
             comp,
             steps: 0,
@@ -1410,6 +1425,76 @@ pub fn effect_in(
         }
     }
     (out, failed)
+}
+
+/// D-1069: a Text Animator's Expression Selector: the expression on its `expression_amount`
+/// run at `frame` once for each unit, `values` being the Range Selector's pick of each in per cent,
+/// with `textIndex` (from 1), `textTotal` and `selectorValue` (the unit's pick as three numbers).
+/// Each answer is a number, or a list's first, in per cent. An error on any unit is the answer.
+pub fn selector(
+    comp: &Composition,
+    layer: &Id,
+    instance: &crate::effects::EffectInstance,
+    frame: i32,
+    values: &[f64],
+) -> R<Vec<f64>> {
+    let name = "expression_amount";
+    let Some(text) = live_text(instance, name) else {
+        return Err(missing("The Expression Selector's Amount has no expression"));
+    };
+    let stmts = read(&text)?;
+    let total = values.len() as f64;
+    let mut out = Vec::with_capacity(values.len());
+    for (k, v) in values.iter().enumerate() {
+        let mut run = Run {
+            comp,
+            steps: 0,
+            stack: Vec::new(),
+            fx_stack: Vec::new(),
+            drawing: None,
+        };
+        let mut scope = Scope {
+            run: &mut run,
+            target: Target::Layer(layer.clone()),
+            // Not read while `setting` is there, as in `run_text`.
+            prop: Prop::Rotation,
+            frame,
+            posterize: None,
+            user_seed: 0,
+            timeless: false,
+            wiggles: 0,
+            randoms: 0,
+            locals: HashMap::from([
+                ("textIndex".to_string(), V::Num(k as f64 + 1.0)),
+                ("textTotal".to_string(), V::Num(total)),
+                ("selectorValue".to_string(), V::List(vec![*v; 3])),
+            ]),
+            setting: Some(Setting {
+                keys: instance.tracks.get(name).map_or(&[][..], |t| &t[..]),
+                constant: instance.get(name).unwrap_or_default(),
+                word: None,
+                kind: Kind::Numbers(1),
+                name: format!("{}/{name}", instance.instance_id.as_str()),
+            }),
+            words: None,
+        };
+        let answer = scope.statements(&stmts)?;
+        let n = match scope.plain(answer)? {
+            V::Num(n) => n,
+            V::List(l) if !l.is_empty() => l[0],
+            V::Nothing => return Err(type_error("The expression ends without a value")),
+            _ => {
+                return Err(type_error(
+                    "The expression ends on something that is not a number",
+                ))
+            }
+        };
+        if !n.is_finite() {
+            return Err(type_error("The expression gives a number that is not finite"));
+        }
+        out.push(n);
+    }
+    Ok(out)
 }
 
 impl Scope<'_, '_> {
@@ -1553,6 +1638,15 @@ impl Scope<'_, '_> {
         }
     }
 
+    /// D-1069: `inPoint`, the layer's first frame in seconds.
+    fn in_point(&self, id: &Id) -> R<V> {
+        let layer = self.run.comp.layer(id).ok_or_else(|| {
+            missing(format!("There is no layer with the id \"{}\"", id.as_str()))
+        })?;
+        let (num, den) = self.rate();
+        Ok(V::Num(layer.in_frame as f64 * den / num))
+    }
+
     fn frame_of(&self, seconds: f64) -> i32 {
         let (num, den) = self.rate();
         let x = seconds * num / den;
@@ -1670,6 +1764,18 @@ impl Scope<'_, '_> {
                     },
                     "thisComp" => V::ThisComp,
                     "Math" => V::Math,
+                    "inPoint" => match &self.target {
+                        Target::Camera => {
+                            return Err(syntax("The camera is not a layer, so it has no inPoint"))
+                        }
+                        Target::Layer(id) => self.in_point(id)?,
+                    },
+                    // D-1069: given as locals on an Expression Selector, and nowhere else.
+                    "textIndex" | "textTotal" | "selectorValue" => {
+                        return Err(type_error(format!(
+                            "{name} has a value only on a Text Animator's Expression Selector"
+                        )))
+                    }
                     other => match ROOTS.iter().find(|r| **r == other) {
                         Some(r) => V::Func(r),
                         // D-766: a name given its value in a branch that was not taken.
@@ -1839,6 +1945,10 @@ impl Scope<'_, '_> {
             }
             (V::Layer(Target::Layer(_)), "transform") => return Ok(obj),
             (V::Layer(Target::Layer(id)), "effect") => return Ok(V::Effects(id.clone())),
+            (V::Layer(Target::Layer(id)), "inPoint") => {
+                let id = id.clone();
+                return self.in_point(&id);
+            }
             (V::Setting(l, i, n), "value") => {
                 let (l, i, n) = (l.clone(), *i, n.clone());
                 return self.run.setting(&l, i, &n, self.frame);
@@ -2163,6 +2273,8 @@ impl Scope<'_, '_> {
             "max" => nums[1..].iter().fold(x, |m, &y| if y > m { y } else { m }),
             "sin" => x.sin(),
             "cos" => x.cos(),
+            // D-1069.
+            "exp" => x.exp(),
             _ => x.tan(),
         }))
     }

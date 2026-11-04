@@ -4153,9 +4153,9 @@ pub(crate) fn text_animators(
         .effects
         .iter()
         .filter(|i| i.enabled && matches!(i.effect, Effect::TextAnimator { .. } | Effect::TextPath { .. }))
-        .map(|i| crate::expr::effect_at(comp, &layer.id, i, at, layer.key_time(at as f64)).0)
-        .filter(|i| i.is_valid())
-        .filter_map(|i| match i.effect {
+        .map(|i| (i, crate::expr::effect_at(comp, &layer.id, i, at, layer.key_time(at as f64)).0))
+        .filter(|(_, now)| now.is_valid())
+        .filter_map(|(i, now)| match now.effect {
             Effect::TextPath { path, .. } if path < 1.0 => None,
             Effect::TextPath {
                 path,
@@ -4178,6 +4178,18 @@ pub(crate) fn text_animators(
                 })
             }
             mut e => {
+                // D-1069: an Expression Selector's expression, once a unit. Without one, or when it
+                // fails (effect_at has said why), every unit takes the setting's own value.
+                let on = matches!(&e, Effect::TextAnimator { expression_selector, .. }
+                    if expression_selector == "on");
+                if let (true, Some(words)) = (on, &layer.text) {
+                    let values = crate::text::selector_values(words, &e);
+                    if let Ok(a) = crate::expr::selector(comp, &layer.id, i, at, &values) {
+                        if let Effect::TextAnimator { expression_values, .. } = &mut e {
+                            *expression_values = a;
+                        }
+                    }
+                }
                 // D-1068: a Wiggly Selector reads the composition's time; only then, so an animator
                 // without one stays the same from frame to frame.
                 if let Effect::TextAnimator { wiggly, wiggly_time, .. } = &mut e {

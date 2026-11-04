@@ -7502,6 +7502,9 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             wiggly_spatial_phase: 0.0,
             wiggly_seed: 0.0,
             wiggly_time: 0.0,
+            expression_selector: "off".to_string(),
+            expression_amount: 100.0,
+            expression_values: Vec::new(),
         }),
         // D-1085: After Effects' Path Options as a new text layer has them, on the layer's first
         // mask; Perpendicular To Path on.
@@ -11050,6 +11053,9 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             wiggly_spatial_phase: number_or("wiggly_spatial_phase", 0.0)?,
             wiggly_seed: number_or("wiggly_seed", 0.0)?,
             wiggly_time: 0.0,
+            expression_selector: word("expression_selector").unwrap_or_else(|_| "off".to_string()),
+            expression_amount: number_or("expression_amount", 100.0)?,
+            expression_values: Vec::new(),
         }),
         TEXT_PATH => Ok(Effect::TextPath {
             path: number("path")?,

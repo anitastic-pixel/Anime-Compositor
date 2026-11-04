@@ -893,41 +893,15 @@ fn picks(chars: &[char], lines: &[usize], animator: &crate::effects::Effect) -> 
         wiggly_spatial_phase,
         wiggly_seed,
         wiggly_time,
+        expression_selector,
+        expression_amount,
+        expression_values,
         ..
     } = animator
     else {
         return vec![0.0; chars.len()];
     };
-    // Each character's unit, if it is one, and how many units there are.
-    let (mut unit, mut n, mut inside) = (Vec::with_capacity(chars.len()), 0usize, false);
-    for (i, c) in chars.iter().enumerate() {
-        let space = c.is_whitespace();
-        match based_on.as_str() {
-            "lines" => {
-                unit.push(Some(lines[i]));
-                n = lines[i] + 1;
-            }
-            "characters" => {
-                unit.push(Some(n));
-                n += 1;
-            }
-            "characters_excluding_spaces" => {
-                unit.push((!space).then_some(n));
-                n += usize::from(!space);
-            }
-            _ => {
-                // D-1067: a line break ends a word too.
-                if inside && i > 0 && lines[i] != lines[i - 1] {
-                    n += 1;
-                    inside = false;
-                }
-                unit.push((!space).then_some(n));
-                n += usize::from(space && inside);
-                inside = !space;
-            }
-        }
-    }
-    n += usize::from(inside);
+    let (unit, n) = units(chars, lines, based_on);
     let count = n as f64;
     let (mut s, mut e) = (
         (start + offset) / 100.0 * count,
@@ -979,6 +953,13 @@ fn picks(chars: &[char], lines: &[usize], animator: &crate::effects::Effect) -> 
         } else {
             v
         };
+        // D-1069: the Expression Selector's answer for the unit, per cent, replaces the pick.
+        let v = if expression_selector == "on" {
+            let r = expression_values.get(k as usize).unwrap_or(expression_amount);
+            (r / 100.0).clamp(-1.0, 1.0)
+        } else {
+            v
+        };
         // D-1068: the Wiggly Selector, joined to the range's pick by its mode.
         let v = if wiggly == "on" {
             let seed = *wiggly_seed as u64;
@@ -1005,6 +986,86 @@ fn picks(chars: &[char], lines: &[usize], animator: &crate::effects::Effect) -> 
     unit.into_iter()
         .map(|u| u.filter(|_| n > 0).map_or(0.0, pick))
         .collect()
+}
+
+/// D-1069: the Range Selector's pick of each unit of `animator` on `text`, after its ease and
+/// before Amount, in per cent: what an Expression Selector reads as `selectorValue`.
+pub fn selector_values(text: &Text, animator: &crate::effects::Effect) -> Vec<f64> {
+    let crate::effects::Effect::TextAnimator { based_on, .. } = animator else {
+        return Vec::new();
+    };
+    let (flat, lines) = flat_lines(&shown(text));
+    let (unit, n) = units(&flat, &lines, based_on);
+    let mut range = animator.clone();
+    if let crate::effects::Effect::TextAnimator {
+        amount,
+        wiggly,
+        expression_selector,
+        ..
+    } = &mut range
+    {
+        *amount = 100.0;
+        *wiggly = "off".into();
+        *expression_selector = "off".into();
+    }
+    let mut out = vec![0.0; n];
+    for (u, v) in unit.iter().zip(picks(&flat, &lines, &range)) {
+        if let Some(u) = u {
+            out[*u] = v * 100.0;
+        }
+    }
+    out
+}
+
+/// D-350: the text as drawn, in capitals with All Caps.
+fn shown(text: &Text) -> String {
+    if text.all_caps {
+        text.text.to_uppercase()
+    } else {
+        text.text.clone()
+    }
+}
+
+/// D-350: the characters with line breaks left out; D-1067: with the line of each.
+fn flat_lines(words: &str) -> (Vec<char>, Vec<usize>) {
+    words
+        .split('\n')
+        .enumerate()
+        .flat_map(|(l, p)| p.trim_end_matches('\r').chars().map(move |c| (c, l)))
+        .unzip()
+}
+
+/// D-350: each character's unit under `based_on`, if it is one, and how many units there are.
+fn units(chars: &[char], lines: &[usize], based_on: &str) -> (Vec<Option<usize>>, usize) {
+    let (mut unit, mut n, mut inside) = (Vec::with_capacity(chars.len()), 0usize, false);
+    for (i, c) in chars.iter().enumerate() {
+        let space = c.is_whitespace();
+        match based_on {
+            "lines" => {
+                unit.push(Some(lines[i]));
+                n = lines[i] + 1;
+            }
+            "characters" => {
+                unit.push(Some(n));
+                n += 1;
+            }
+            "characters_excluding_spaces" => {
+                unit.push((!space).then_some(n));
+                n += usize::from(!space);
+            }
+            _ => {
+                // D-1067: a line break ends a word too.
+                if inside && i > 0 && lines[i] != lines[i - 1] {
+                    n += 1;
+                    inside = false;
+                }
+                unit.push((!space).then_some(n));
+                n += usize::from(space && inside);
+                inside = !space;
+            }
+        }
+    }
+    (unit, n + usize::from(inside))
 }
 
 /// D-1068: the Wiggly Selector's smooth noise, -1 to 1: a level at each whole step of time `t`
@@ -1429,11 +1490,7 @@ fn lay_out(text: &Text, animators: &[crate::effects::Effect], path: bool) -> Opt
         text.at[1]
     };
     let track = text.tracking / 1000.0 * text.size;
-    let words = if text.all_caps {
-        text.text.to_uppercase()
-    } else {
-        text.text.clone()
-    };
+    let words = shown(text);
     let slant = if text.faux_italic { 0.2126 } else { 0.0 };
     let mut contours = Vec::new();
     let mut kept = Vec::new();
@@ -1441,11 +1498,7 @@ fn lay_out(text: &Text, animators: &[crate::effects::Effect], path: bool) -> Opt
     let mut n = 0;
     // D-350: each animator's pick of every character, line breaks left out; D-1067: with the
     // line of each.
-    let (flat, lines): (Vec<char>, Vec<usize>) = words
-        .split('\n')
-        .enumerate()
-        .flat_map(|(l, p)| p.trim_end_matches('\r').chars().map(move |c| (c, l)))
-        .unzip();
+    let (flat, lines) = flat_lines(&words);
     let picked: Vec<Vec<f64>> = animators.iter().map(|a| picks(&flat, &lines, a)).collect();
     let mut placed = Vec::new();
     let mut k = 0;

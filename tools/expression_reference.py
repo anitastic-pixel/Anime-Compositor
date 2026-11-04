@@ -863,7 +863,7 @@ class Scope:
             if name == "PI":
                 return math.pi
             if name in ("sin", "cos", "tan", "abs", "floor", "ceil", "round", "sqrt", "pow",
-                        "min", "max"):
+                        "min", "max", "exp"):
                 return Func("Math." + name)
         if isinstance(obj, LayerRef):
             if name == "transform" and obj.target != "camera":
@@ -945,6 +945,12 @@ class Scope:
                     return math.nan
             if op in ("min", "max"):
                 return (min if op == "min" else max)(nums)
+            if op == "exp":
+                # D-1069: too large to hold is infinite, as a 64-bit float's exp gives.
+                try:
+                    return math.exp(nums[0])
+                except OverflowError:
+                    return math.inf
             return getattr(math, op)(nums[0])
         if name == "posterizeTime":
             if len(args) != 1:

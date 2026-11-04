@@ -5369,6 +5369,9 @@ const EFFECT_KINDS: &[(&str, &[(&str, &str)])] = &[
             ("wiggly_temporal_phase", "30"),
             ("wiggly_spatial_phase", "45"),
             ("wiggly_seed", "7"),
+            // D-1069.
+            ("expression_selector", "on"),
+            ("expression_amount", "60"),
         ],
     ),
     // D-1085: the mask, every word and both margins.
