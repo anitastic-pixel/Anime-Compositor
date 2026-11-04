@@ -14849,7 +14849,10 @@ const EFFECT_WORDS = {
       ['saturation_saturation', 'Saturation vs Saturation points', '0 100, 100 60', null,
         'Points, a saturation 0 to 100 then its new saturation 0 to 200, a comma between, rising; up to 16, none for no change']],
     choices: [['key_invert', 'Invert Key', [['off', 'Off'], ['on', 'On']]], ['key_view', 'Show Key', [['off', 'Off'], ['mask', 'White/Black'], ['color_gray', 'Color/Gray'], ['color_black', 'Color/Black']]],
-      ['secondary_wheels', 'Secondary Wheels', [['one', 'One'], ['three', 'Three']]]],
+      ['secondary_wheels', 'Secondary Wheels', [['one', 'One'], ['three', 'Three']]],
+      // D-1009: a switch per section, off drawing it as if its settings were at their start.
+      ...[['basic_on', 'Basic Correction'], ['creative_on', 'Creative'], ['curves_on', 'Curves'], ['wheels_on', 'Color Wheels'],
+        ['secondary_on', 'HSL Secondary'], ['vignette_on', 'Vignette']].map(([n, t]) => [n, t, [['on', 'On'], ['off', 'Off']]])],
   },
   // D-183.
   'core.line_blur': { choices: [['lines_only', 'Lines Only', [['off', 'Off'], ['on', 'On']]]] },
@@ -15077,6 +15080,14 @@ const hexOf = (rgb) => '#' + rgb.map((c) => {
   const s = l <= 0.0031308 ? 12.92 * l : 1.055 * l ** (1 / 2.4) - 0.055;
   return Math.round(s * 255).toString(16).padStart(2, '0');
 }).join('');
+// D-1009: the WB Selector. The temperature and tint that make the picked colour grey under
+// D-397's gains, added to what is set; null when a channel is 0.
+function wbPick(t, tint, hex) {
+  const [r, g, b] = linearOf(hex);
+  if (Math.min(r, g, b) <= 0) return null;
+  const held = (x) => Math.max(-100, Math.min(100, Math.floor(x + 0.5)));
+  return { temperature: held(t + 100 * Math.log2(b / r)), tint: held(tint + 200 * Math.log2(g / Math.sqrt(r * b))) };
+}
 const linearOf = (hex) => [1, 3, 5].map((at) => {
   const s = parseInt(hex.slice(at, at + 2), 16) / 255;
   return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
@@ -16386,6 +16397,26 @@ function effectRow(layer, fx, at, of) {
     const dd = Object.assign(document.createElement('dd'), { className: 'wide' });
     dd.append(fxWheels(k, label));
     fields.shadow_wheel_hue[0].closest('dd').previousElementSibling.before(dd);
+  }
+  if (fx.type_id === 'core.color_grade' && fields.temperature && fields.tint) {   // D-1009
+    const p = Object.assign(document.createElement('input'), { type: 'color', hidden: true });
+    p.setAttribute('aria-label', label + ' white balance');
+    p.onchange = () => {
+      const to = wbPick(Number(fields.temperature[0].value) || 0, Number(fields.tint[0].value) || 0, p.value);
+      if (!to) { $('status').textContent = 'WB Selector: ' + p.value + ' has a channel at 0, so no white balance makes it grey. Pick something nearer white.'; return; }
+      fields.temperature[0].value = to.temperature;
+      fields.tint[0].value = to.tint;
+      k.send();
+      $('status').textContent = 'WB Selector from ' + p.value + ': temperature ' + to.temperature + ', tint ' + to.tint + ', so that colour turns grey.';
+    };
+    const b = dropperFor(p);
+    b.append(' WB Selector');
+    b.title = 'Then click something in the picture that should be white or grey: the temperature and tint change to make it so. Escape stops';
+    const box = Object.assign(document.createElement('div'), { className: 'keytools' });
+    box.append(p, b);
+    const dd = Object.assign(document.createElement('dd'), { className: 'wide' });
+    dd.append(box);
+    fields.temperature[0].closest('dd').previousElementSibling.before(dd);
   }
   if (fx.type_id === 'core.color_grade' && fields.key_softness) {   // D-1007
     const dd = Object.assign(document.createElement('dd'), { className: 'wide' });

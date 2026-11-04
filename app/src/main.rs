@@ -57,7 +57,7 @@ use anime_compositor::effects::{
     CC_SPOTLIGHT, CC_VIGNETTE, CC_WIDE_TIME, CDK_NAMES, CELL_PATTERN, CHANGE_COLOR,
     CHANGE_TO_COLOR, CHANNEL_BLUR, CHANNEL_MIXER, CHANNEL_THRESHOLD, CHANNEL_WIPE, CHECKERBOARD,
     CHROMATIC_ABERRATION, CIRCLE, COLORAMA, COLOR_BALANCE, COLOR_BALANCE_HLS, COLOR_DIFFERENCE_KEY,
-    COLOR_GRADE, COLOR_GRADE_SETTINGS, COLOR_KEY, COLOR_LINK, COLOR_LOOKUP, COLOR_NEUTRALIZER,
+    COLOR_GRADE, COLOR_GRADE_SECTIONS, COLOR_GRADE_SETTINGS, COLOR_KEY, COLOR_LINK, COLOR_LOOKUP, COLOR_NEUTRALIZER,
     COLOR_OFFSET, COLOR_RANGE, COLOR_STABILIZER, COMPOUND_BLUR, COMPRESSOR, CONTOUR_PAINT,
     CORNER_PIN, CRANGE_NAMES, CROSS_BLUR, CROSS_GLARE, CRYPTOMATTE, CURL_NOISE, CURVES, DEBAND,
     DEPTH_KEY, DEPTH_OF_FIELD, DETAIL_UPSCALE, DIFFERENCE_MATTE, DIFFUSION, DIRECTIONAL_BLUR,
@@ -5818,6 +5818,7 @@ fn new_effect(type_id: &str) -> Option<Effect> {
         // D-397: every setting at its start and no look, which changes nothing.
         COLOR_GRADE => Some(Effect::ColorGrade {
             values: COLOR_GRADE_SETTINGS.map(|s| s.3),
+            sections: std::array::from_fn(|_| "on".to_string()),
             look: String::new(),
             curves: std::array::from_fn(|_| vec![vec![0.0, 0.0], vec![255.0, 255.0]]),
             hue_saturation: Vec::new(),
@@ -9247,8 +9248,14 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             let hues = parameter(query, "hue_saturation").unwrap_or_default();
             let word_or = |name: &str| if parameter(query, name).is_some() { word(name) } else { Ok("off".to_string()) };
             let list = |name: &str| if parameter(query, name).unwrap_or_default().trim().is_empty() { Ok(Vec::new()) } else { points(name) };
+            // D-1009: a switch the command does not name is on.
+            let mut sections: [String; 6] = Default::default();
+            for (s, name) in sections.iter_mut().zip(COLOR_GRADE_SECTIONS) {
+                *s = if parameter(query, name).is_some() { word(name)? } else { "on".to_string() };
+            }
             Ok(Effect::ColorGrade {
                 values,
+                sections,
                 look: parameter(query, "look").unwrap_or_default().trim().to_string(),
                 curves: [curve("curve_master")?, curve("curve_red")?, curve("curve_green")?, curve("curve_blue")?],
                 hue_saturation: if hues.trim().is_empty() { Vec::new() } else { points("hue_saturation")? },
@@ -18747,6 +18754,7 @@ fn choose_lut(viewer: &Mutex<Viewer>, layer_id: Id, instance_id: Id, file: &Path
         ),
         Some(Effect::ColorGrade {
             values,
+            sections,
             curves,
             hue_saturation,
             more_curves,
@@ -18757,6 +18765,7 @@ fn choose_lut(viewer: &Mutex<Viewer>, layer_id: Id, instance_id: Id, file: &Path
         }) => (
             Effect::ColorGrade {
                 values,
+                sections,
                 look: lut.as_str().to_string(),
                 curves,
                 hue_saturation,

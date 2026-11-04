@@ -5300,6 +5300,7 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             secondary_wheels,
             key_invert,
             key_view,
+            sections,
             ..
         } => {
             params.insert("look".into(), J::from(look.as_str()));
@@ -5353,6 +5354,10 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
                 key_invert == "off",
             ));
             new.push(("key_view", J::from(key_view.as_str()), key_view == "off"));
+            // D-1009: each switch likewise, so a D-1008 file saves as before.
+            for (name, word) in crate::effects::COLOR_GRADE_SECTIONS.iter().zip(sections) {
+                new.push((name, J::from(word.as_str()), word == "on"));
+            }
             for (key, value, start) in new {
                 if !start || instance.tracks.contains_key(key) || params.contains_key(key) {
                     params.insert(key.into(), value);
@@ -11857,8 +11862,14 @@ fn parse_effect(
                     None => Ok(start),
                 };
             let straight = || vec![vec![0.0, 0.0], vec![255.0, 255.0]];
+            // D-1009: a switch the file does not have is on.
+            let mut sections: [String; 6] = Default::default();
+            for (word, name) in sections.iter_mut().zip(crate::effects::COLOR_GRADE_SECTIONS) {
+                *word = effect_word_or(params, name, at, "on")?;
+            }
             Some(crate::effects::Effect::ColorGrade {
                 values,
+                sections,
                 look: effect_word(params, "look", at)?,
                 curves: [
                     points_or("curve_master", straight())?,

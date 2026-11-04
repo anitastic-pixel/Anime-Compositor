@@ -2291,8 +2291,10 @@ pub enum Effect {
     /// "on"; `key_view`, "off", "mask", or D-1007's "color_gray" or "color_black". Kept as written, so a file's wrong one is reported.
     /// D-571: `more_curves`, the curves of `COLOR_GRADE_MORE_CURVES` in that order, 0 to 16
     /// points each; `secondary_wheels`, "one" or "three". D-637: `sharpen`, the 55th setting.
+    /// D-1009: `sections`, the switches of `COLOR_GRADE_SECTIONS` in that order, "on" or "off".
     ColorGrade {
         values: [f64; 55],
+        sections: [String; 6],
         look: String,
         curves: [Vec<Vec<f64>>; 4],
         hue_saturation: Vec<Vec<f64>>,
@@ -5217,6 +5219,10 @@ pub const COLOR_GRADE_SETTINGS: [(&str, f64, f64, f64); 55] = [
     ("key_blur", 0.0, 100.0, 0.0),
     ("sharpen", -100.0, 100.0, 0.0),
 ];
+/// D-1009: Color Grade's section switches, in the order `sections` holds them; each "on" or
+/// "off", "on" when the effect is added and when a file has none.
+pub const COLOR_GRADE_SECTIONS: [&str; 6] =
+    ["basic_on", "creative_on", "curves_on", "wheels_on", "secondary_on", "vignette_on"];
 /// D-398: Color Grade's curves' names, in the order `curves` holds them.
 pub const COLOR_GRADE_CURVES: [&str; 4] =
     ["curve_master", "curve_red", "curve_green", "curve_blue"];
@@ -13619,10 +13625,15 @@ impl Effect {
                 .or_else(|| hex_fault(name, "midtones", midtones))
                 .or_else(|| hex_fault(name, "darktones", darktones))
                 .or_else(|| hex_fault(name, "shadows", shadows)),
-            Effect::ColorGrade { curves, hue_saturation, more_curves, key_invert, key_view, secondary_wheels, .. } => ["master", "red", "green", "blue"]
+            Effect::ColorGrade { curves, hue_saturation, more_curves, key_invert, key_view, secondary_wheels, sections, .. } => COLOR_GRADE_SECTIONS
+                .iter()
+                .zip(sections)
+                .find(|(_, w)| !["on", "off"].contains(&w.as_str()))
+                .map(|(s, w)| format!("{name}'s {} switch is \"on\" or \"off\", and this is \"{w}\".", s.trim_end_matches("_on")))
+                .or_else(|| ["master", "red", "green", "blue"]
                 .iter()
                 .zip(curves)
-                .find_map(|(curve, points)| curve_fault(curve, points).map(|f| f.replacen("Curves'", &format!("{name}'s"), 1)))
+                .find_map(|(curve, points)| curve_fault(curve, points).map(|f| f.replacen("Curves'", &format!("{name}'s"), 1))))
                 .or_else(|| points_fault(name, "hue versus saturation", ("hue", "saturation"), 360.0, (0.0, 200.0), hue_saturation))
                 .or_else(|| {
                     COLOR_GRADE_MORE_CURVES
@@ -21945,7 +21956,8 @@ pub(crate) enum GradeStep<'a> {
 /// D-398: the curves, hue versus saturation, wheels and HSL Secondary before the vignette,
 /// which the mask view leaves out. D-571: the other four curves after hue versus saturation, and
 /// the HSL Secondary's three wheels and its key's denoise and blur. D-637: Sharpen after the
-/// faded film, before the vibrance, as Lumetri's Creative section.
+/// faded film, before the vibrance, as Lumetri's Creative section. D-1009: a section switched
+/// off is drawn as if each of its settings were at its start.
 pub(crate) fn color_grade_steps(
     effect: &Effect,
     (w, h): (usize, usize),
@@ -21960,14 +21972,31 @@ pub(crate) fn color_grade_steps(
         key_view,
         secondary_wheels,
         table,
+        sections,
         ..
     } = effect
     else {
         return Vec::new();
     };
-    let v: [f64; 55] = std::array::from_fn(|i| {
+    let [basic, creative_on, curves_on, wheels, secondary, vignette_on] =
+        std::array::from_fn(|i| sections[i] != "off");
+    let mut v: [f64; 55] = std::array::from_fn(|i| {
         values[i].clamp(COLOR_GRADE_SETTINGS[i].1, COLOR_GRADE_SETTINGS[i].2)
     });
+    for (on, range) in [
+        (basic, 0..9),
+        (creative_on, 9..18),
+        (creative_on, 54..55),
+        (wheels, 22..31),
+        (secondary, 31..54),
+        (vignette_on, 18..22),
+    ] {
+        if !on {
+            for i in range {
+                v[i] = COLOR_GRADE_SETTINGS[i].3;
+            }
+        }
+    }
     let [temperature, tint, exposure, contrast, highlights, shadows, whites, blacks, saturation, intensity, faded, vibrance, creative, shadow_hue, shadow_amount, highlight_hue, highlight_amount, balance, vignette, midpoint, roundness, feather] =
         std::array::from_fn(|i| v[i]);
     let gains = |temperature: f64, tint: f64, exposure: f64| {
@@ -21992,7 +22021,7 @@ pub(crate) fn color_grade_steps(
     if saturation != 100.0 {
         out.push(GradeStep::Vibrance(0.0, saturation - 100.0));
     }
-    if let (Some(t), true) = (table, intensity != 0.0) {
+    if let (Some(t), true) = (table, creative_on && intensity != 0.0) {
         out.push(GradeStep::Look(&t.0, intensity / 100.0));
     }
     if faded != 0.0 {
@@ -22014,14 +22043,14 @@ pub(crate) fn color_grade_steps(
             push(highlight_hue, highlight_amount * (1.0 + balance / 100.0)),
         ));
     }
-    if !curves.iter().all(|c| crate::grade::is_straight(c)) {
+    if curves_on && !curves.iter().all(|c| crate::grade::is_straight(c)) {
         out.push(GradeStep::Curves(curves));
     }
-    if hue_saturation.iter().any(|p| p[1] != 100.0) {
+    if curves_on && hue_saturation.iter().any(|p| p[1] != 100.0) {
         out.push(GradeStep::HueSaturation(hue_saturation));
     }
     for (i, ((.., flat), points)) in COLOR_GRADE_MORE_CURVES.iter().zip(more_curves).enumerate() {
-        if points.iter().any(|p| p[1] != *flat) {
+        if curves_on && points.iter().any(|p| p[1] != *flat) {
             out.push(GradeStep::More(i, points));
         }
     }
@@ -22032,9 +22061,9 @@ pub(crate) fn color_grade_steps(
     }
     let [s_temperature, s_tint, s_contrast, s_saturation, s_hue, s_amount, s_lightness] =
         std::array::from_fn(|i| v[39 + i]);
-    let mask = key_view != "off";
+    let mask = secondary && key_view != "off";
     // D-571: with three wheels the shadows' and highlights' too; with one they are not used.
-    let three = secondary_wheels == "three";
+    let three = secondary && secondary_wheels == "three";
     let [shadow, highlight] = [46, 49].map(|i| (v[i], v[i + 1], v[i + 2]));
     let turned = three && [shadow, highlight].iter().any(|w| w.1 != 0.0 || w.2 != 0.0);
     if mask
@@ -22049,7 +22078,7 @@ pub(crate) fn color_grade_steps(
         };
         out.push(GradeStep::Secondary(crate::grade::Secondary {
             key: std::array::from_fn(|i| v[31 + i]),
-            invert: key_invert == "on",
+            invert: secondary && key_invert == "on",
             mask,
             // D-1007: Color/Gray and Color/Black show the colour where keyed over 0.5 or 0.
             backdrop: match key_view.as_str() {
