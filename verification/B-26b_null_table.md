@@ -25,10 +25,10 @@ D-82, accepted by the owner on 2026-09-23. Every expected pixel is `Fixtures/nul
 | FX-NULL-022: A null with a source offset. | ProjectSchemaInvalid: At /compositions/0/layers/1/source_offset_frames: expected no source_offset_frames on a null layer, which is never drawn (D-82). | yes |
 | FX-NULL-023: A null carrying a solid record. | ProjectSchemaInvalid: At /compositions/0/layers/1/solid: expected no solid record on a layer whose kind is not solid (D-74). | yes |
 | FX-NULL-024: A null carrying shapes. | ProjectSchemaInvalid: At /compositions/0/layers/1/shapes: expected no shapes on a layer whose kind is not shape (D-78). | yes |
-| FX-NULL-025: A null with a mask. | ProjectSchemaInvalid: At /compositions/0/layers/1/masks: expected no mask, effect or matte on a null layer, and blend mode normal, because it is never drawn (D-82). | yes |
-| FX-NULL-026: A null with an effect. | ProjectSchemaInvalid: At /compositions/0/layers/1/effects: expected no mask, effect or matte on a null layer, and blend mode normal, because it is never drawn (D-82). | yes |
-| FX-NULL-027: A null with a matte of its own. | ProjectSchemaInvalid: At /compositions/0/layers/1/matte: expected no mask, effect or matte on a null layer, and blend mode normal, because it is never drawn (D-82). | yes |
-| FX-NULL-028: A null with a blend mode other than normal. | ProjectSchemaInvalid: At /compositions/0/layers/1/blend_mode: expected no mask, effect or matte on a null layer, and blend mode normal, because it is never drawn (D-82). | yes |
+| FX-NULL-025: A null with a mask. | ProjectSchemaInvalid: At /compositions/0/layers/1/masks: expected no mask, matte or effect but an Expression Control on a null layer, and blend mode normal, because it is never drawn (D-82, D-1089). | yes |
+| FX-NULL-026: A null with an effect. | ProjectSchemaInvalid: At /compositions/0/layers/1/effects: expected no mask, matte or effect but an Expression Control on a null layer, and blend mode normal, because it is never drawn (D-82, D-1089). | yes |
+| FX-NULL-027: A null with a matte of its own. | ProjectSchemaInvalid: At /compositions/0/layers/1/matte: expected no mask, matte or effect but an Expression Control on a null layer, and blend mode normal, because it is never drawn (D-82, D-1089). | yes |
+| FX-NULL-028: A null with a blend mode other than normal. | ProjectSchemaInvalid: At /compositions/0/layers/1/blend_mode: expected no mask, matte or effect but an Expression Control on a null layer, and blend mode normal, because it is never drawn (D-82, D-1089). | yes |
 | FX-NULL-029: A drawing whose matte is a null. | ProjectSchemaInvalid: At /compositions/comp-main/layers: expected layer bg not to have the null layer null as its matte (D-82). | yes |
 
 ## The file (document 19)

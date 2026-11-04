@@ -833,6 +833,92 @@ pub fn has_sound(project: &crate::model::Project, comp: &crate::model::Compositi
     inside(project, comp, &mut Vec::new())
 }
 
+/// D-1089 (document 21): the composition's loudness on each frame of its work area, Left
+/// Channel, Right Channel and Both Channels: 100 times the mean absolute sample of that frame's
+/// mix, per channel, and the two channels' mean. Returns the first frame, one triple per frame
+/// and the sounds left out of the mix; `Err` with a sentence when there is nothing to hear.
+pub fn amplitude(
+    project: &crate::model::Project,
+    root: &std::path::Path,
+    comp: &crate::model::Composition,
+) -> Result<(i32, Vec<[f64; 3]>, Vec<(String, Diagnostic)>), String> {
+    if !has_sound(project, comp) {
+        return Err(format!(
+            "{} has no audio layer that is on, so there is nothing to turn into keys.",
+            comp.name
+        ));
+    }
+    let (a, b) = comp
+        .work_area
+        .unwrap_or((comp.start_frame, comp.start_frame + comp.duration_frames as i32));
+    let (sound, left_out) = mix(project, root, comp, a, (b - a).max(0) as u32);
+    let (num, den) = (
+        comp.frame_rate.numerator() as i128,
+        comp.frame_rate.denominator() as i128,
+    );
+    let at = |f: i32| (f as i128 * WORKING_RATE as i128 * den).div_euclid(num);
+    let first = |f: i32| (at(f) - at(a)) as usize;
+    let keys = (a..b)
+        .map(|f| {
+            let (s, e) = (first(f), first(f + 1).min(sound[0].len()));
+            let mean = |c: &Vec<f64>| {
+                100.0 * c[s..e].iter().map(|v| v.abs()).sum::<f64>() / (e - s).max(1) as f64
+            };
+            let (l, r) = (mean(&sound[0]), mean(&sound[1]));
+            [l, r, (l + r) / 2.0]
+        })
+        .collect();
+    Ok((a, keys, left_out))
+}
+
+/// D-1089: After Effects' Convert Audio to Keyframes, a null "Audio Amplitude" over the whole
+/// composition with three Slider Controls, "Left Channel", "Right Channel" and "Both Channels",
+/// each keyed linearly on every frame of [`amplitude`]. `fx` are the three effects' IDs.
+pub fn amplitude_layer(
+    project: &crate::model::Project,
+    root: &std::path::Path,
+    comp: &crate::model::Composition,
+    id: crate::model::Id,
+    fx: [crate::model::Id; 3],
+) -> Result<(crate::model::Layer, Vec<(String, Diagnostic)>), String> {
+    use crate::model::{Interp, Keyframe, Kind, Property, Value};
+    let (a, keys, left_out) = amplitude(project, root, comp)?;
+    let mut layer = crate::model::Layer::null(
+        id,
+        "Audio Amplitude",
+        comp.width,
+        comp.height,
+        comp.start_frame,
+        comp.start_frame + comp.duration_frames as i32,
+    );
+    for (k, (name, fx)) in ["Left Channel", "Right Channel", "Both Channels"]
+        .into_iter()
+        .zip(fx)
+        .enumerate()
+    {
+        let first = keys.first().map_or(0.0, |v| v[k]);
+        let mut track = Property::constant(Value::Scalar(first));
+        for (n, v) in keys.iter().enumerate() {
+            track.set_keyframe(Keyframe {
+                frame: a + n as i32,
+                value: Value::Scalar(v[k]),
+                interp: Interp::Linear,
+                spatial: None,
+                kind: Kind::Bezier,
+                roving: false,
+            });
+        }
+        let mut instance = crate::effects::EffectInstance::new(
+            fx,
+            crate::effects::Effect::SliderControl { slider: first },
+        );
+        instance.name = Some(name.to_string());
+        instance.tracks.insert("slider".into(), vec![track]);
+        layer.effects.push(instance);
+    }
+    Ok((layer, left_out))
+}
+
 /// D-645: a layer's level in dB and pan at composition frame `f`, each held to its range.
 fn level_at(layer: &crate::model::Layer, f: i64) -> (f64, f64) {
     let read = |p: &Option<crate::model::Property>, plain: f64| {

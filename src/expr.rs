@@ -2040,7 +2040,8 @@ impl Scope<'_, '_> {
         })?;
         let mut seen: HashMap<&str, usize> = HashMap::new();
         for (i, fx) in l.effects.iter().enumerate() {
-            let shown = fx.effect.name();
+            // D-1089: a renamed effect is found by its own name.
+            let shown = fx.name.as_deref().unwrap_or(fx.effect.name());
             let n = seen.entry(shown).or_insert(0);
             *n += 1;
             let hit = match &v {

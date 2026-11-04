@@ -91,6 +91,7 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | `layer.add_shape` can be asked for without a mouse | yes | yes | pass |
 | `layer.add_solid` can be asked for without a mouse | yes | yes | pass |
 | `layer.add_text` can be asked for without a mouse | yes | yes | pass |
+| `layer.audio_to_keyframes` can be asked for without a mouse | yes | yes | pass |
 | `layer.copy` can be asked for without a mouse | yes | yes | pass |
 | `layer.create` can be asked for without a mouse | yes | yes | pass |
 | `layer.delete` can be asked for without a mouse | yes | yes | pass |
@@ -232,4 +233,4 @@ And the file dialogs. Import, Open, Save As and Export hand over to Windows, whi
 | dragging a property's pick whip onto another property is not the only way to link one to the other | true | true | pass |
 | dragging a layer's pick whip onto another layer is not the only way to make that layer its parent | true | true | pass |
 
-**202 of 202 checks pass.**
+**203 of 203 checks pass.**

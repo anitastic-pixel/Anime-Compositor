@@ -11147,6 +11147,7 @@ const ANSWERS: &[&str] = &[
     "layer.add_shape",
     "layer.add_solid",
     "layer.add_text",
+    "layer.audio_to_keyframes",
     "layer.copy",
     "layer.create",
     "layer.delete",
@@ -13071,6 +13072,8 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
     let mut inexact = false;
     // D-1086: what of a text layer its outlines leave behind, said once they have landed.
     let mut left_out: Vec<&str> = Vec::new();
+    // D-1089: the audio layers Convert Audio to Keyframes could not hear.
+    let mut sound_left: Vec<String> = Vec::new();
     // D-57: a layer being deleted lets its children go where they stand. Filled in by the
     // delete arm, which can see the composition, and applied with the deletion as one entry.
     let mut unparent: Vec<Command> = Vec::new();
@@ -13487,6 +13490,31 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                 index: parameter(query, "to")
                     .and_then(|to| to.parse::<usize>().ok())
                     .unwrap_or(comp.len()),
+            }
+        } else if id == "layer.audio_to_keyframes" {
+            // D-1089: After Effects' Convert Audio to Keyframes, a null "Audio Amplitude" at the
+            // front whose three sliders follow the composition's sound on every frame.
+            let n = unused_effect_id(project)
+                .as_str()
+                .strip_prefix("fx-")
+                .and_then(|n| n.parse::<u64>().ok())
+                .unwrap_or(1);
+            let fx = [0, 1, 2].map(|k| Id::new(format!("fx-{}", n + k)));
+            let (layer, heard) = match anime_compositor::audio::amplitude_layer(
+                project,
+                &held.root,
+                comp,
+                unused_layer_id(project),
+                fx,
+            ) {
+                Ok(made) => made,
+                Err(said) => return Some(said),
+            };
+            sound_left = heard.into_iter().map(|(name, _)| name).collect();
+            Command::AddLayer {
+                composition,
+                layer: Box::new(layer),
+                index: comp.len(),
             }
         } else if id == "layer.add_shape" {
             // B-25c: D-78's shape layer, empty, over the frame exactly and named with the
@@ -15638,6 +15666,12 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
     // turned, the exact answer is a skew a layer cannot hold. The anchor lands where it was and
     // the rest of the layer may shift. That is a thing to meet at the moment it happens rather
     // than to find later by looking at the picture, so the answer says it.
+    if !sound_left.is_empty() && landed {
+        return Some(format!(
+            "{said} Left out of the keys, as an export leaves them out: {}.",
+            sound_left.join(", ")
+        ));
+    }
     if !left_out.is_empty() && landed {
         return Some(format!(
             "{said} The words' {} {} not part of the outlines; the text layer, now off, still has {}.",

@@ -131,6 +131,7 @@ const SENT: &[&str] = &[
     "layer.add_shape",
     "layer.add_solid",
     "layer.add_text",
+    "layer.audio_to_keyframes",
     "layer.copy",
     "layer.create",
     "layer.delete",
@@ -701,6 +702,8 @@ const REACHED: &[(&str, &str)] = &[
     // D-1086: Create Shapes from Text and Create Masks from Text.
     ("layer.shapes_from_text", "a command the window answers"),
     ("layer.masks_from_text", "a command the window answers"),
+    // D-1089: Convert Audio to Keyframes.
+    ("layer.audio_to_keyframes", "a command the window answers"),
     ("layer.set_drawing_dissolve", "a command the window answers"),
     // D-74, accepted on 2026-09-19 and built in the core by B-23b; B-23c put both in the
     // window.
@@ -1818,6 +1821,39 @@ fn every_field_the_panels_read_is_in_the_answer_the_window_gives() {
     // D-645: a pan is written only when set, and only a file sets one, so it is read off one.
     let panned = comp_of("Fixtures/sound_layer/fx_slay_006.json")["layers"][0].clone();
     let ae32 = comp_of("Fixtures/ae_32bpc/fx_ae32_001.json");
+    // D-1089: an effect's name is written only when Convert Audio to Keyframes gives one.
+    let named = persist::load(&repo("Fixtures/audio_keyframes/fx_akf_001.json"))
+        .ok()
+        .and_then(|mut l| {
+            let p = l.document.project().clone();
+            let comp = &p.compositions[0];
+            let fx = ["fx-1", "fx-2", "fx-3"].map(anime_compositor::model::Id::new);
+            let root = repo("Fixtures/audio_keyframes");
+            let (layer, _) = anime_compositor::audio::amplitude_layer(
+                &p, &root, comp, anime_compositor::model::Id::new("amp"), fx,
+            )
+            .ok()?;
+            l.document
+                .apply(anime_compositor::command::Command::AddLayer {
+                    composition: comp.id.clone(),
+                    layer: Box::new(layer),
+                    index: 0,
+                })
+                .ok()?;
+            serde_json::from_str::<serde_json::Value>(&persist::to_json(
+                l.document.project(),
+                &l.preserved,
+            ))
+            .ok()
+        })
+        .and_then(|p| {
+            p["compositions"][0]["layers"]
+                .as_array()?
+                .iter()
+                .find(|l| l["id"] == "amp")
+                .map(|l| l["effects"][0].clone())
+        })
+        .unwrap_or(serde_json::Value::Null);
 
     let node = |var: &str| -> serde_json::Value {
         match var {
@@ -1870,6 +1906,7 @@ fn every_field_the_panels_read_is_in_the_answer_the_window_gives() {
                     "source_text" => words.get(&field),
                     "timesheet" => from_sheet.get(&field),
                     "mix" => mixed.get(&field),
+                    "name" if *var == "fx" => named.get(&field),
                     "eight_bpc" => eight.get(&field),
                     "ae_32bpc" => ae32.get(&field),
                     _ => None,

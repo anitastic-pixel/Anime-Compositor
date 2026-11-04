@@ -15438,3 +15438,32 @@ fn d1086_outlines_from_text_say_what_they_leave_behind() {
     assert!(said.contains("faux bold is not part of the outlines"), "{said}");
     assert_eq!(names(&viewer), "Title, Title Outlines");
 }
+
+/// D-1089: Convert Audio to Keyframes in the window: one new null at the front, three named
+/// sliders keyed on every frame, one entry to undo, and a sentence when there is nothing to hear.
+#[test]
+fn d1089_audio_to_keyframes_adds_audio_amplitude() {
+    let viewer = Mutex::new(open(&repo("Fixtures/audio_keyframes/fx_akf_001.json")).expect("fx_akf_001 opens"));
+    let said = run(&viewer, "layer.audio_to_keyframes");
+    assert!(!said.contains("Left out"), "{said}");
+    assert_eq!(names(&viewer), "sound 0, Audio Amplitude");
+    {
+        let held = held(&viewer);
+        let comp = held.document.project().composition(&held.composition).expect("comp");
+        let amp = comp.layers_in_order().last().expect("the new layer");
+        assert_eq!(amp.kind, anime_compositor::model::LayerKind::Null);
+        let shown: Vec<_> = amp.effects.iter().map(|e| e.name.clone().unwrap_or_default()).collect();
+        assert_eq!(shown, ["Left Channel", "Right Channel", "Both Channels"]);
+        let both = &amp.effects[2].tracks["slider"][0];
+        assert_eq!(both.keyframes().len(), 48);
+        let v = both.value_at(0).as_scalar().unwrap();
+        assert!((v - 34.520062820590105).abs() < 0.002, "Both Channels at 0: {v}");
+    }
+    run(&viewer, "edit.undo");
+    assert_eq!(names(&viewer), "sound 0", "one entry to undo");
+
+    let viewer = Mutex::new(open(&repo("Fixtures/audio_keyframes/fx_akf_006.json")).expect("fx_akf_006 opens"));
+    let said = run(&viewer, "layer.audio_to_keyframes");
+    assert_eq!(said, "Main has no audio layer that is on, so there is nothing to turn into keys.");
+    assert_eq!(names(&viewer), "sound 0");
+}

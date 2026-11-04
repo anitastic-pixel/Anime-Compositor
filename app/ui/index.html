@@ -2005,6 +2005,7 @@
     <button data-run="Hold keys"></button>
     <button data-run="Key speed and influence"></button>
     <button data-run="Wiggle position"></button>
+    <button data-run="Convert audio to keyframes"></button>
     <hr>
     <button data-run="Copy keys"></button>
     <button data-run="Paste keys"></button>
@@ -5856,6 +5857,7 @@ function paletteLines() {
     ['Hold keys', 'Ctrl+Alt+G', { key: 'g', code: 'KeyG', ctrlKey: true, altKey: true }],
     ['Time-reverse keys', '', () => reverseKeys()],
     ['Freeze frame', '', () => freezeFrame()],
+    ['Convert audio to keyframes', '', () => audioToKeys()],
     ['Wiggle position', '', () => wigglePosition()],
     ['Enable or remove time remapping', 'Ctrl+Alt+T', { key: 't', code: 'KeyT', ctrlKey: true, altKey: true }],
     ['Show position', 'P', { key: 'p' }],
@@ -6289,6 +6291,7 @@ function layerMenu(x, y, first = []) {
     ['Enable time remapping', 'Ctrl+Alt+T', timeRemap, selected() && ['raster', 'composition'].includes(selected().kind)],
     ['Create shapes from text', '', () => outlinesFromText(false), selected() && selected().kind === 'text'],
     ['Create masks from text', '', () => outlinesFromText(true), selected() && selected().kind === 'text'],
+    ['Convert audio to keyframes', '', audioToKeys, selected() && selected().kind === 'audio'],
     // B-24c: a mask over the whole layer, which is what After Effects' double-clicked shape tool
     // makes and what anyone without a mouse needs: the pen and the shape tools are drawn with a
     // hand, and `mask.add` must be reachable without one.
@@ -6346,6 +6349,12 @@ function freezeFrame() {
 function outlinesFromText(masks) {
   const layer = selected();
   if (layer) command((masks ? '/layer.masks_from_text' : '/layer.shapes_from_text') + '?layer=' + encodeURIComponent(layer.id) + '&frame=' + frame);
+}
+
+// D-1089: After Effects' Convert Audio to Keyframes: a null "Audio Amplitude" at the front whose
+// Left Channel, Right Channel and Both Channels sliders follow the composition's sound.
+function audioToKeys() {
+  command('/layer.audio_to_keyframes');
 }
 
 // D-323: After Effects' Enable Time Remapping (Ctrl+Alt+T): on, two keys that keep every frame as
@@ -16317,7 +16326,7 @@ function effectRow(layer, fx, at, of) {
   box.className = 'effect';
   box.dataset.effect = fx.instance_id;
   const known = EFFECT_PARAMS[fxKey(fx)];
-  const label = EFFECT_NAMES[fxKey(fx)] || fx.type_id;
+  const label = fx.name || EFFECT_NAMES[fxKey(fx)] || fx.type_id;
   const where = '?layer=' + encodeURIComponent(layer.id)
     + '&effect=' + encodeURIComponent(fx.instance_id);
   const head = document.createElement('div');

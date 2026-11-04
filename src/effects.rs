@@ -51,6 +51,9 @@ pub struct EffectInstance {
     /// D-202: how much of the effect's result is kept, 0 to 100 per cent, laid over what it was
     /// given. Its keys, when it has any, are `tracks["mix"]`.
     pub mix: f64,
+    /// D-1089: the name After Effects shows for a renamed effect ("Left Channel"), which
+    /// `effect("...")` finds it by. `None` shows the type's name.
+    pub name: Option<String>,
     /// ADR-008: the record this instance was read from, which saving writes over. All an
     /// effect this build does not have is written from.
     pub record: crate::model::FileRecord,
@@ -64,6 +67,7 @@ impl EffectInstance {
             effect,
             tracks: BTreeMap::new(),
             mix: 100.0,
+            name: None,
             record: Default::default(),
         }
     }
@@ -475,6 +479,7 @@ impl EffectInstance {
             effect,
             tracks: BTreeMap::new(),
             mix,
+            name: self.name.clone(),
             record: Default::default(),
         }
     }
@@ -12358,6 +12363,20 @@ impl Effect {
             }
             _ => {}
         }
+    }
+
+    /// D-766's Expression Controls, which draw nothing: the only effects a null may carry
+    /// (D-1089, narrowing D-82).
+    pub fn is_control(&self) -> bool {
+        matches!(
+            self,
+            Effect::SliderControl { .. }
+                | Effect::CheckboxControl { .. }
+                | Effect::AngleControl { .. }
+                | Effect::PointControl { .. }
+                | Effect::ColorControl { .. }
+                | Effect::LayerControl { .. }
+        )
     }
 
     /// The name a person reads, the Effects panel's own: undo's list uses it.

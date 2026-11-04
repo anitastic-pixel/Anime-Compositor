@@ -92,10 +92,11 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | `span.drawing_number` is in the answer | present | present | pass |
 | `span.end_frame_exclusive` is in the answer | present | present | pass |
 | `span.start_frame` is in the answer | present | present | pass |
-| the panels read 5 fields out of one effect in a layer's stack | true | true | pass |
+| the panels read 6 fields out of one effect in a layer's stack | true | true | pass |
 | `fx.enabled` is in the answer | present | present | pass |
 | `fx.instance_id` is in the answer | present | present | pass |
 | `fx.mix` is in the answer | present | present | pass |
+| `fx.name` is in the answer | present | present | pass |
 | `fx.parameters` is in the answer | present | present | pass |
 | `fx.type_id` is in the answer | present | present | pass |
 | `layer.transform.anchor.base` is in the answer | present | present | pass |
@@ -684,3 +685,5 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 **658 of 658 checks pass.**
 
 **654 of 654 checks pass.**
+
+**655 of 655 checks pass.**

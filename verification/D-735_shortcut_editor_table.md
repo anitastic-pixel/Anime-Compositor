@@ -32,6 +32,8 @@ The window is page code only, so the rows pin the page text each promise rests o
 | command finder lines the window lists | 145 lines, 98 with keys of their own | 145 lines, 98 with keys of their own | pass |
 
 | command finder lines the window lists | 146 lines, 98 with keys of their own | 146 lines, 98 with keys of their own | pass |
+
+| command finder lines the window lists | 147 lines, 98 with keys of their own | 147 lines, 98 with keys of their own | pass |
 | default keys two lines share (the one that acts is chosen by what is selected) | Ctrl+C: Copy keys, Copy layers; Ctrl+V: Paste keys, Paste layers, Paste effects | Ctrl+C: Copy keys, Copy layers; Ctrl+V: Paste keys, Paste layers, Paste effects | pass |
 | Keyboard shortcuts itself has no default key; it is a button, a menu line and a finder line | no key | no key | pass |
 

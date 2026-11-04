@@ -2467,8 +2467,9 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
                 Command::SetSolid { .. }
                 | Command::SetText { .. }
                 | Command::SetExposureSpans { .. }
-                | Command::SetShapes { .. }
-                | Command::AddEffect { .. } => true,
+                | Command::SetShapes { .. } => true,
+                // D-1089: an Expression Control draws nothing, so a null may carry one.
+                Command::AddEffect { effect, .. } => !effect.effect.is_control(),
                 _ => false,
             };
             if layer.kind == crate::model::LayerKind::Null && on_a_picture {
@@ -2542,10 +2543,11 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
                     "D-74: a solid layer's drawing is its solid record.",
                 ));
             }
-            // D-82: a null arrives with nothing that works on a picture, as a file must.
+            // D-82: a null arrives with nothing that works on a picture, as a file must; D-1089:
+            // its effects may only be Expression Controls, which draw nothing.
             if layer.kind == crate::model::LayerKind::Null
                 && (!layer.masks.is_empty()
-                    || !layer.effects.is_empty()
+                    || !layer.effects.iter().all(|e| e.effect.is_control())
                     || layer.matte.is_some()
                     || layer.blend_mode != BlendMode::Normal
                     || !layer.exposure_spans.is_empty()

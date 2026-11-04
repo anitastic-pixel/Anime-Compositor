@@ -236,7 +236,7 @@ const KEY_ORDER: &[&str] = &[
 /// `type_id`, while a layer spells it near the top, so the two cannot share a ranking. Effect
 /// records are recognised by `instance_id`, which nothing else in the schema has.
 /// D-202: `mix` after `enabled`.
-const EFFECT_KEY_ORDER: &[&str] = &["instance_id", "type_id", "enabled", "mix", "parameters"];
+const EFFECT_KEY_ORDER: &[&str] = &["instance_id", "type_id", "name", "enabled", "mix", "parameters"];
 
 /// D-59's expression record is the other: `text`, then `enabled`. Recognised by `text`, which
 /// nothing else in the schema has.
@@ -1496,6 +1496,10 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
         ("type_id", J::from(instance.type_id())),
         ("enabled", J::from(instance.enabled)),
     ];
+    // D-1089: a renamed effect's name; one without writes what it did.
+    if let Some(name) = &instance.name {
+        owned.push(("name", J::from(name.as_str())));
+    }
     // D-202: the Mix only when it is not 100 or has keys; an unknown effect's stays as written.
     let unknown = matches!(instance.effect, Effect::Unsupported { .. });
     let plain_mix = !unknown && instance.mix == 100.0 && !instance.tracks.contains_key("mix");
@@ -9111,6 +9115,12 @@ fn parse_effect(
         None | Some(J::Null) => true,
         Some(b) => as_bool(b, &format!("{at}/enabled"))?,
     };
+    // D-1089: the name a renamed effect shows, a text that is not empty.
+    let effect_name = match effect.get("name") {
+        None => None,
+        Some(J::String(s)) if !s.is_empty() => Some(s.clone()),
+        Some(_) => return Err(invalid(&format!("{at}/name"), "an effect's name is a text that is not empty (D-1089)")),
+    };
     // D-202: the Mix, a plain number or a setting's property record; absent, 100.
     let (mix, mix_track) = match effect.get("mix") {
         None => (100.0, None),
@@ -13228,6 +13238,7 @@ fn parse_effect(
                 effect: e.clone(),
                 tracks: tracks.clone(),
                 mix,
+                name: None,
                 record: Default::default(),
             };
             if let Some(why) = whole.fault() {
@@ -13279,6 +13290,7 @@ fn parse_effect(
         effect: effect_value,
         tracks,
         mix,
+        name: effect_name,
         record: crate::model::FileRecord::new(effect),
     })
 }
@@ -13881,15 +13893,16 @@ fn parse_layer(v: &J, pointer: &str, warnings: &mut Vec<Diagnostic>) -> Result<L
     if kind == LayerKind::Null {
         let carried = [
             ("masks", !masks.is_empty()),
-            ("effects", !effects.is_empty()),
+            // D-1089: Expression Controls draw nothing, so a null may carry them.
+            ("effects", !effects.iter().all(|e| e.effect.is_control())),
             ("matte", matte.is_some()),
             ("blend_mode", blend_mode != BlendMode::Normal),
         ];
         if let Some((key, _)) = carried.iter().find(|(_, has)| *has) {
             return Err(invalid(
                 &format!("{pointer}/{key}"),
-                "no mask, effect or matte on a null layer, and blend mode normal, because it \
-                 is never drawn (D-82)",
+                "no mask, matte or effect but an Expression Control on a null layer, and blend \
+                 mode normal, because it is never drawn (D-82, D-1089)",
             ));
         }
     }
