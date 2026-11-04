@@ -12034,11 +12034,13 @@ pub(crate) fn corner_camera(
 /// space (three), its intensity, its linear colour (three), ambient, diffuse, specular, the
 /// highlight's sharpness, 1 where a back picture was read, the card scale (0 where the Corner
 /// Pins camera draws nothing, D-634), the half thickness
-/// of the slab every card lies in, then for each card, rows then columns, its axis (0 x, 1 y)
-/// and the sine and cosine of its turn.
+/// of the slab every card lies in, each card's count of numbers (3, or 15 with D-1105's jitter),
+/// how far a card reaches across and down, then for each card, rows then columns, its axis
+/// (0 x, 1 y) and the sine and cosine of its turn, and with jitter its turn Q by rows and its
+/// move J.
 pub(crate) fn card_wipe_numbers(e: &crate::effects::Effect, w0: f64, h0: f64) -> Vec<f64> {
     #[rustfmt::skip]
-    let crate::effects::Effect::CardWipe { transition_completion, transition_width, back_map, rows_columns, rows, columns, card_scale, flip_axis, flip_direction, flip_order, gradient_map, timing_randomness, random_seed, x_rotation, y_rotation, z_rotation, xy_position, z_position, focal_length, light_type, light_intensity, light_color, light_position, light_depth, ambient_light, diffuse_reflection, specular_reflection, highlight_sharpness, camera_system, upper_left_corner, upper_right_corner, lower_left_corner, lower_right_corner, auto_focal_length, .. } = e
+    let crate::effects::Effect::CardWipe { transition_completion, transition_width, back_map, rows_columns, rows, columns, card_scale, flip_axis, flip_direction, flip_order, gradient_map, timing_randomness, random_seed, x_rotation, y_rotation, z_rotation, xy_position, z_position, focal_length, light_type, light_intensity, light_color, light_position, light_depth, ambient_light, diffuse_reflection, specular_reflection, highlight_sharpness, camera_system, upper_left_corner, upper_right_corner, lower_left_corner, lower_right_corner, auto_focal_length, jitter, time, .. } = e
     else {
         unreachable!("Card Wipe's numbers of another effect")
     };
@@ -12120,10 +12122,22 @@ pub(crate) fn card_wipe_numbers(e: &crate::effects::Effect, w0: f64, h0: f64) ->
         *specular_reflection,
         *highlight_sharpness,
     ]);
+    // D-1105: with any jitter, a card reaches its half diagonal (any turn) plus its jitter; the
+    // card's own numbers then carry its turn Q (nine, by rows) and its move J (three) too.
+    let jittered = jitter.iter().step_by(2).any(|a| *a != 0.0);
+    let rd = (hx * hx + hy * hy).sqrt();
+    let (reach_x, reach_y, zmax) = if jittered {
+        (rd + jitter[0] * cw, rd + jitter[2] * ch, rd + jitter[4] * cw)
+    } else {
+        (hx, hy, hx.max(hy))
+    };
     k.extend([
         if back_map.is_some() { 1.0 } else { 0.0 },
         if drawn { *card_scale } else { 0.0 },
-        hx.max(hy),
+        zmax,
+        if jittered { 15.0 } else { 3.0 },
+        reach_x,
+        reach_y,
     ]);
     let seed = crate::grade::mix(random_seed.floor() as u64);
     let g = |a: usize, b: usize, ch: u64| crate::grade::unit(seed, a as i64, b as i64, 0, ch);
@@ -12190,6 +12204,27 @@ pub(crate) fn card_wipe_numbers(e: &crate::effects::Effect, w0: f64, h0: f64) ->
             };
             let (s, cs) = (sign * p * std::f64::consts::PI).sin_cos();
             k.extend([axis, s, cs]);
+            if jittered {
+                // Each of the six a smooth random number, new every 1/speed seconds.
+                let n: [f64; 6] = std::array::from_fn(|j| {
+                    let st = time * jitter[2 * j + 1];
+                    let i = st.floor();
+                    let f = st - i;
+                    let e = f * f * f * (f * (6.0 * f - 15.0) + 10.0);
+                    let at = |i: f64| {
+                        crate::grade::unit(seed, a as i64, b as i64, i as i64, 3 + j as u64)
+                    };
+                    jitter[2 * j] * ((1.0 - e) * at(i) + e * at(i + 1.0))
+                });
+                let (sx, cx) = n[3].to_radians().sin_cos();
+                let (sy, cy) = n[4].to_radians().sin_cos();
+                let (sz, cz) = n[5].to_radians().sin_cos();
+                let rx = [[1.0, 0.0, 0.0], [0.0, cx, -sx], [0.0, sx, cx]];
+                let ry = [[cy, 0.0, sy], [0.0, 1.0, 0.0], [-sy, 0.0, cy]];
+                let rz = [[cz, -sz, 0.0], [sz, cz, 0.0], [0.0, 0.0, 1.0]];
+                k.extend(mul(rz, mul(ry, rx)).iter().flatten());
+                k.extend([n[0] * cw, n[1] * ch, n[2] * cw]);
+            }
         }
     }
     k
@@ -12229,7 +12264,9 @@ pub(crate) fn card_wipe(
     let (cols, rows, cw, ch, hx, hy, w0, h0) = (k[0], k[1], k[2], k[3], k[4], k[5], k[6], k[7]);
     let o = [k[9], k[10], k[11]];
     let (sc, zmax) = (k[34], k[35]);
-    let dot = |p: [f64; 3], q: [f64; 3]| p[0] * q[0] + p[1] * q[1] + p[2] * q[2];
+    // D-1105: each card's numbers, 15 with jitter, and how far a card reaches across.
+    let (stride, reach_x, reach_y) = (k[36] as usize, k[37], k[38]);
+    let dot =|p: [f64; 3], q: [f64; 3]| p[0] * q[0] + p[1] * q[1] + p[2] * q[2];
     let unit = |p: [f64; 3]| {
         let n = dot(p, p).sqrt();
         if n == 0.0 {
@@ -12263,8 +12300,8 @@ pub(crate) fn card_wipe(
                 let (xa, xb) = (o[0] + t0 * v[0], o[0] + t1 * v[0]);
                 let (ya, yb) = (o[1] + t0 * v[1], o[1] + t1 * v[1]);
                 (
-                    card_span(xa.min(xb), xa.max(xb), cw, w0 / 2.0, hx, cols),
-                    card_span(ya.min(yb), ya.max(yb), ch, h0 / 2.0, hy, rows),
+                    card_span(xa.min(xb), xa.max(xb), cw, w0 / 2.0, reach_x, cols),
+                    card_span(ya.min(yb), ya.max(yb), ch, h0 / 2.0, reach_y, rows),
                 )
             } else if o[2].abs() > zm {
                 return;
@@ -12275,10 +12312,19 @@ pub(crate) fn card_wipe(
             let mut best: Option<(f64, usize, [f64; 2], bool, [f64; 2])> = None;
             for b in b0..b1 {
                 for a in a0..a1 {
-                    let at = 36 + 3 * (b * cols as usize + a);
+                    let at = 39 + stride * (b * cols as usize + a);
                     let (axis, s, c) = (k[at], k[at + 1], k[at + 2]);
                     let (cx, cy) = ((a as f64 + 0.5) * cw, (b as f64 + 0.5) * ch);
-                    let q = [o[0] - (cx - w0 / 2.0), o[1] - (cy - h0 / 2.0), o[2]];
+                    let mut q = [o[0] - (cx - w0 / 2.0), o[1] - (cy - h0 / 2.0), o[2]];
+                    let mut d = v;
+                    if stride == 15 {
+                        // Its move J taken off, then its turn Q undone: Q^T (o - q - J), Q^T v.
+                        let qt = |p: [f64; 3]| -> [f64; 3] {
+                            std::array::from_fn(|r| (0..3).map(|i| k[at + 3 + 3 * i + r] * p[i]).sum())
+                        };
+                        q = qt(std::array::from_fn(|n| q[n] - k[at + 12 + n]));
+                        d = qt(d);
+                    }
                     let inv = |p: [f64; 3]| {
                         if axis == 0.0 {
                             [p[0], c * p[1] + s * p[2], -s * p[1] + c * p[2]]
@@ -12286,7 +12332,7 @@ pub(crate) fn card_wipe(
                             [c * p[0] - s * p[2], p[1], s * p[0] + c * p[2]]
                         }
                     };
-                    let (o2, d2) = (inv(q), inv(v));
+                    let (o2, d2) = (inv(q), inv(d));
                     if d2[2] == 0.0 {
                         continue;
                     }
@@ -12325,6 +12371,12 @@ pub(crate) fn card_wipe(
                 [0.0, s, -c]
             } else {
                 [-s, 0.0, -c]
+            };
+            // D-1105: the jittered card's normal turned by its Q.
+            let n: [f64; 3] = if stride == 15 {
+                std::array::from_fn(|r| (0..3).map(|i| k[at + 3 + 3 * r + i] * n[i]).sum())
+            } else {
+                n
             };
             let n = if front { n } else { n.map(|q| -q) };
             let vv = unit(v.map(|q| -q));

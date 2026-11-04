@@ -6711,6 +6711,9 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             lower_left_corner: [0.0, 100.0],
             lower_right_corner: [100.0, 100.0],
             auto_focal_length: "off".to_string(),
+            // D-1105: no jitter, each speed 1.
+            jitter: [0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0],
+            time: 0.0,
         }),
         // D-532: as added (CycoreFX gives no values we found): a sphere half the drawing's half
         // width in radius, in the middle, unturned, both sides drawn, lit as CC Cylinder is.
@@ -10112,6 +10115,17 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             lower_left_corner: if parameter(query, "lower_left_corner").is_some() { pair("lower_left_corner")? } else { [0.0, 100.0] },
             lower_right_corner: if parameter(query, "lower_right_corner").is_some() { pair("lower_right_corner")? } else { [100.0, 100.0] },
             auto_focal_length: if parameter(query, "auto_focal_length").is_some() { word("auto_focal_length")? } else { "off".to_string() },
+            // D-1105: each as added when the command does not say.
+            jitter: {
+                let mut j = [0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0];
+                for (i, key) in anime_compositor::effects::CARD_JITTER.into_iter().enumerate() {
+                    if parameter(query, key).is_some() {
+                        j[i] = number(key)?;
+                    }
+                }
+                j
+            },
+            time: 0.0,
         }),
         CC_SPHERE => Ok(Effect::CcSphere {
             radius: number("radius")?,

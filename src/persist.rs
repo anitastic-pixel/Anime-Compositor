@@ -4704,6 +4704,7 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             lower_left_corner,
             lower_right_corner,
             auto_focal_length,
+            jitter,
             ..
         } => {
             params.insert("back_layer".into(), back_layer.clone());
@@ -4760,6 +4761,13 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
                 ],
                 auto_focal_length,
             );
+            // D-1105: each written, as D-304, only if moved, keyed or already in the file.
+            for (i, (key, value)) in crate::effects::CARD_JITTER.into_iter().zip(jitter).enumerate() {
+                let start = if i % 2 == 1 { 1.0 } else { 0.0 };
+                if *value != start || instance.tracks.contains_key(key) || params.contains_key(key) {
+                    params.insert(key.into(), num(*value));
+                }
+            }
         }
         Effect::CcSphere {
             radius,
@@ -11355,6 +11363,15 @@ fn parse_effect(
             lower_left_corner: effect_pair_or(params, "lower_left_corner", at, [0.0, 100.0])?,
             lower_right_corner: effect_pair_or(params, "lower_right_corner", at, [100.0, 100.0])?,
             auto_focal_length: effect_word_or(params, "auto_focal_length", at, "off")?,
+            // D-1105: a file from before them has no jitter.
+            jitter: {
+                let mut j = [0.0; 12];
+                for (i, key) in crate::effects::CARD_JITTER.into_iter().enumerate() {
+                    j[i] = effect_number_or(params, key, at, if i % 2 == 1 { 1.0 } else { 0.0 })?;
+                }
+                j
+            },
+            time: 0.0,
         }),
         crate::effects::CC_SPHERE => Some(crate::effects::Effect::CcSphere {
             radius: effect_number(params, "radius", at)?,

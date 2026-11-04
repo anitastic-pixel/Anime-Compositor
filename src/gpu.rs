@@ -11534,6 +11534,24 @@ fn card_span(lo: f64, hi: f64, size: f64, half_page: f64, reach: f64, n: f64) ->
     return vec2<i32>(i32(clamp(first, 0.0lf, n)), i32(clamp(last + 1.0lf, 0.0lf, n)));
 }
 
+// D-1105: a jittered card's turn Q, its nine numbers by rows after its axis, sine and cosine:
+// Q p, and Q^T p.
+fn card_q(ci: u32, p: vec3<f64>) -> vec3<f64> {
+    return vec3<f64>(
+        k[ci + 3] * p.x + k[ci + 4] * p.y + k[ci + 5] * p.z,
+        k[ci + 6] * p.x + k[ci + 7] * p.y + k[ci + 8] * p.z,
+        k[ci + 9] * p.x + k[ci + 10] * p.y + k[ci + 11] * p.z,
+    );
+}
+
+fn card_qt(ci: u32, p: vec3<f64>) -> vec3<f64> {
+    return vec3<f64>(
+        k[ci + 3] * p.x + k[ci + 6] * p.y + k[ci + 9] * p.z,
+        k[ci + 4] * p.x + k[ci + 7] * p.y + k[ci + 10] * p.z,
+        k[ci + 5] * p.x + k[ci + 8] * p.y + k[ci + 11] * p.z,
+    );
+}
+
 fn card_unit(p: vec3<f64>) -> vec3<f64> {
     let n = sqrt(dot(p, p));
     if n == 0.0lf {
@@ -11557,6 +11575,8 @@ fn cardwipe(@builtin(global_invocation_id) id: vec3<u32>) {
     let w0 = k[6];
     let h0 = k[7];
     let sc = k[34];
+    // D-1105: each card's count of numbers, 15 with jitter, and how far a card reaches across.
+    let stride = i32(k[36]);
     var got = vec4<f64>(0.0lf, 0.0lf, 0.0lf, 0.0lf);
     let d = vec3<f64>(f64(i32(id.x) - F.ox) + 0.5lf - w0 / 2.0lf, f64(i32(id.y) - F.oy) + 0.5lf - h0 / 2.0lf, k[8]);
     let v = vec3<f64>(
@@ -11579,8 +11599,8 @@ fn cardwipe(@builtin(global_invocation_id) id: vec3<u32>) {
                 let xb = o.x + t1 * v.x;
                 let ya = o.y + t0 * v.y;
                 let yb = o.y + t1 * v.y;
-                sa = card_span(min(xa, xb), max(xa, xb), cw, w0 / 2.0lf, hx, cols);
-                sb = card_span(min(ya, yb), max(ya, yb), ch, h0 / 2.0lf, hy, rows);
+                sa = card_span(min(xa, xb), max(xa, xb), cw, w0 / 2.0lf, k[37], cols);
+                sb = card_span(min(ya, yb), max(ya, yb), ch, h0 / 2.0lf, k[38], rows);
             }
         } else if abs(o.z) <= zm {
             sa = vec2<i32>(0, i32(cols));
@@ -11596,18 +11616,24 @@ fn cardwipe(@builtin(global_invocation_id) id: vec3<u32>) {
     var bc = vec2<f64>(0.0lf, 0.0lf);
     for (var b = sb.x; b < sb.y; b++) {
         for (var a = sa.x; a < sa.y; a++) {
-            let ci = u32(36 + 3 * (b * i32(cols) + a));
+            let ci = u32(39 + stride * (b * i32(cols) + a));
             let axis = k[ci];
             let s = k[ci + 1];
             let c = k[ci + 2];
             let cx = (f64(a) + 0.5lf) * cw;
             let cy = (f64(b) + 0.5lf) * ch;
-            let q = vec3<f64>(o.x - (cx - w0 / 2.0lf), o.y - (cy - h0 / 2.0lf), o.z);
+            var q = vec3<f64>(o.x - (cx - w0 / 2.0lf), o.y - (cy - h0 / 2.0lf), o.z);
+            var vd = v;
+            if stride == 15 {
+                // Its move J taken off, then its turn Q undone: Q^T (o - q - J), Q^T v.
+                q = card_qt(ci, q - vec3<f64>(k[ci + 12], k[ci + 13], k[ci + 14]));
+                vd = card_qt(ci, v);
+            }
             var o2 = vec3<f64>(c * q.x - s * q.z, q.y, s * q.x + c * q.z);
-            var d2 = vec3<f64>(c * v.x - s * v.z, v.y, s * v.x + c * v.z);
+            var d2 = vec3<f64>(c * vd.x - s * vd.z, vd.y, s * vd.x + c * vd.z);
             if axis == 0.0lf {
                 o2 = vec3<f64>(q.x, c * q.y + s * q.z, -s * q.y + c * q.z);
-                d2 = vec3<f64>(v.x, c * v.y + s * v.z, -s * v.y + c * v.z);
+                d2 = vec3<f64>(vd.x, c * vd.y + s * vd.z, -s * vd.y + c * vd.z);
             }
             if d2.z == 0.0lf {
                 continue;
@@ -11654,6 +11680,9 @@ fn cardwipe(@builtin(global_invocation_id) id: vec3<u32>) {
         var n = vec3<f64>(-s, 0.0lf, -c);
         if axis == 0.0lf {
             n = vec3<f64>(0.0lf, s, -c);
+        }
+        if stride == 15 {
+            n = card_q(bat, n);
         }
         if !bfront {
             n = -n;

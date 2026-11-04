@@ -3976,6 +3976,9 @@ pub enum Effect {
     /// `lower_left_corner` and `lower_right_corner`, x then y, -1000 to 1000 per cent;
     /// `auto_focal_length`, "off" or "on"; a file from before them reads them as added and
     /// draws as it did. `back_map` and `gradient_map` are not settings and are never saved.
+    /// D-1105: `jitter`, the twelve numbers of [`CARD_JITTER`] in that order, each amount 0 and
+    /// each speed 1 when added; `time` is not a setting and is never saved: the layer's time from
+    /// its in point, in seconds, which compose sets.
     CardWipe {
         transition_completion: f64,
         transition_width: f64,
@@ -4013,6 +4016,8 @@ pub enum Effect {
         lower_left_corner: [f64; 2],
         lower_right_corner: [f64; 2],
         auto_focal_length: String,
+        jitter: [f64; 12],
+        time: f64,
     },
     /// D-530: after CycoreFX's CC Cylinder, its rule and its settings when added ours
     /// (`layer_fx::cc_cylinder`, document 21), its own fake 3D (no composition camera). `radius`,
@@ -6762,6 +6767,23 @@ pub const ENERGY_ALPHA_MODES: [&str; 4] = ["off", "masks", "core", "glow"];
 pub const CC_CYLINDER: &str = "core.cc_cylinder";
 pub const CC_SPHERE: &str = "core.cc_sphere";
 pub const CARD_WIPE: &str = "core.card_wipe";
+/// D-1105: Card Wipe's Position Jitter and Rotation Jitter, an amount then a speed for x, y and
+/// z place (0 to 100 card sizes), then x, y and z turn (0 to 360 degrees); speeds 0 to 10 a
+/// second.
+pub const CARD_JITTER: [&str; 12] = [
+    "x_jitter_amount",
+    "x_jitter_speed",
+    "y_jitter_amount",
+    "y_jitter_speed",
+    "z_jitter_amount",
+    "z_jitter_speed",
+    "x_rot_jitter_amount",
+    "x_rot_jitter_speed",
+    "y_rot_jitter_amount",
+    "y_rot_jitter_speed",
+    "z_rot_jitter_amount",
+    "z_rot_jitter_speed",
+];
 /// D-580: Card Wipe's Rows & Columns: each its own, or the columns as many as the rows.
 pub const CARD_ROWS_COLUMNS: [&str; 2] = ["independent", "columns_follow_rows"];
 /// D-580: Card Wipe's flip axes and directions, each with "random" last.
@@ -7705,6 +7727,7 @@ impl Effect {
                 diffuse_reflection,
                 specular_reflection,
                 highlight_sharpness,
+                jitter,
                 ..
             } => vec![
                 (
@@ -7766,7 +7789,13 @@ impl Effect {
                 ("diffuse_reflection", vec![diffuse_reflection], 0.0, 2.0),
                 ("specular_reflection", vec![specular_reflection], 0.0, 2.0),
                 ("highlight_sharpness", vec![highlight_sharpness], 1.0, 100.0),
-            ],
+            ]
+            .into_iter()
+            .chain(jitter.iter_mut().zip(CARD_JITTER).enumerate().map(|(i, (v, n))| {
+                let top = [100.0, 10.0, 100.0, 10.0, 100.0, 10.0, 360.0, 10.0, 360.0, 10.0, 360.0, 10.0];
+                (n, vec![v], 0.0, top[i])
+            }))
+            .collect(),
             Effect::CcEnvironment {
                 horizontal_pan,
                 tilt,

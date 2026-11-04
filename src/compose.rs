@@ -3639,6 +3639,14 @@ fn effect_now(
             let fps = comp.frame_rate.numerator() as f64 / comp.frame_rate.denominator() as f64;
             *time = (u - layer.in_frame as f64) / fps;
         }
+        // D-1105: Card Wipe jitters by the same time; with no jitter it is left at 0, so a still
+        // wipe stays one picture from frame to frame.
+        if let crate::effects::Effect::CardWipe { jitter, time, .. } = &mut now.effect {
+            if jitter.iter().step_by(2).any(|a| *a != 0.0) {
+                let fps = comp.frame_rate.numerator() as f64 / comp.frame_rate.denominator() as f64;
+                *time = (u - layer.in_frame as f64) / fps;
+            }
+        }
         // D-466: Strobe Light strobes by the same time, and draws by the frame count from it.
         if let crate::effects::Effect::StrobeLight { time, count, .. } = &mut now.effect {
             let fps = comp.frame_rate.numerator() as f64 / comp.frame_rate.denominator() as f64;
