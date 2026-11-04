@@ -3046,6 +3046,22 @@ FX-SOUND-MIX-013: the 44,100 mono file: its working sound, in both channels.
 
 FX-SOUND-MIX-014: frames 10 to 14 of FX-SOUND-MIX-003 alone, from sample 20,000: the same samples as the whole mix there.
 
+### Convert Audio to Keyframes (D-1089)
+
+Wave 12, lane w12y, gap G6 (B-969): After Effects' Convert Audio to Keyframes adds a null "Audio Amplitude" with three Slider Controls named Left Channel, Right Channel and Both Channels, keyed on every frame of the work area (document 21). `tools/audio_keyframes_reference.py` writes `Fixtures/audio_keyframes`: two test sounds in `media/` as 32-bit floating-point WAV by hand (beat.wav, 2 s at 48,000: the left a 100 Hz sine at 0.8 on frames 0-5, 12-17, 24-29 and 36-41 at 24 a second and silent between, the right a steady 50 Hz sine at 0.3; hum_44k.wav, 1 s mono at 44,100, a 200 Hz sine at 0.5), one project per case, and `expected_audio_keyframes.json`: the first frame, the number of frames and every frame's three values, or `refused`. The mix is `tools/sound_mix_reference.py`'s (FX-SOUND-MIX). Tolerance 0.002.
+
+FX-AKF-001: the beat: Left Channel about 50 on the beats and 0 between, Right Channel between 18.6 and 19.5 throughout, Both Channels their mean; 48 frames.
+
+FX-AKF-002: the beat at -6 dB starting at frame 6: every value 0 before frame 6, then the beat half as loud.
+
+FX-AKF-003: the beat and the 44,100 mono hum together: the hum (resampled, D-639) adds to both channels; 24 frames.
+
+FX-AKF-004: a work area of frames 12 to 36: keys on those 24 frames only.
+
+FX-AKF-005: 30000 / 1001 frames a second: each frame's own 1601 or 1602 samples; 30 frames.
+
+FX-AKF-006: the only audio layer switched off: nothing to hear, so the command is refused and nothing is added.
+
 ### Exporting sound (D-641)
 
 S-3 of D-638 (B-520): a composition's sound in its export (document 21). `tools/sound_export_reference.py` writes the test sounds in `Fixtures/sound_export/media` as 32-bit floating-point WAV by hand (a click, one sample of 0.9 left and -0.5 right then silence, 0.5 s; a 1 kHz sine at -6 dB, 1 s; the ramp of FX-SOUND-MIX, 1 s) and an Opus file by ffmpeg, one project per case (a 64 x 64 composition), and `expected_sound_export.json`. An MP4 is checked by the click method only (ADR-018): decoded by ffmpeg 8.1 and by Windows' own decoder, the loudest sample within 1,000 of each click must be exactly that frame's first sample counted from the first frame exported; the stream must be AAC, 48,000 a second, two channels. A WAV is 24-bit, compared at named places (tolerance 2e-5 of full level), with its length and its count of values past full level. AAC files are never compared byte for byte.
