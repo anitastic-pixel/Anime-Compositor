@@ -1216,6 +1216,13 @@ fn layer_fields_json(base: Option<&J>, layer: &Layer) -> J {
                 )
             }),
         );
+        // D-1088: written only when there is one.
+        put(
+            "expression",
+            t.expression
+                .as_ref()
+                .map(|e| serde_json::json!({"text": e.text, "enabled": e.enabled})),
+        );
         owned.push(("source_text", J::Object(map)));
     }
     owned.push(("effects", J::Array(effects)));
@@ -14640,6 +14647,11 @@ fn parse_text(v: &J, pointer: &str) -> Result<crate::text::Text, Diagnostic> {
         stroke,
         background,
         shadow,
+        // D-1088: Source Text's expression, a property's record.
+        expression: v
+            .get("expression")
+            .map(|e| parse_expression(e, &format!("{pointer}/expression")))
+            .transpose()?,
     };
     match text.problem() {
         Some(p) => Err(invalid(pointer, &p)),

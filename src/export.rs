@@ -527,6 +527,33 @@ pub fn export_sequence_watched(
         }
         // D-291: and so does one on an effect's setting.
         for layer in comp.layers_in_order() {
+            // D-1088: and one on a text layer's Source Text.
+            let failing: Vec<(i32, crate::expr::ExprError)> = frames
+                .iter()
+                .filter_map(|&f| match crate::expr::source_text(comp, &layer.id, f) {
+                    Some(Err(e)) => Some((f, e)),
+                    _ => None,
+                })
+                .collect();
+            if let Some((first, e)) = failing.first() {
+                refused = true;
+                let at: Vec<i32> = failing.iter().map(|(f, _)| *f).collect();
+                report.diagnostics.push(
+                    Diagnostic::new(
+                        e.id,
+                        Severity::Error,
+                        format!(
+                            "The expression on {}'s Source Text does not work at frame {first}, so \
+                             nothing was exported.",
+                            layer.name
+                        ),
+                        format!("{}. It fails on frames {}.", e.message, ranges(&at)),
+                    )
+                    .with_remediation(
+                        "Correct the expression, or switch it off, and export again.",
+                    ),
+                );
+            }
             for i in layer
                 .effects
                 .iter()

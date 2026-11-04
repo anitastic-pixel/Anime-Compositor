@@ -3036,6 +3036,26 @@ fn resolve_held(
         // drawn. One whose settings this build cannot use is left out here and said with the
         // rest of the stack.
         let animators = text_animators(comp, layer, at);
+        // D-1088: words from Source Text's expression; one that fails draws the layer's own.
+        let worked;
+        let words = match crate::expr::source_text(comp, &layer.id, frame) {
+            Some(Ok(said)) => {
+                worked = crate::text::Text {
+                    text: said,
+                    ..words.clone()
+                };
+                &worked
+            }
+            Some(Err(e)) => {
+                log.record(
+                    frame,
+                    format!("{}/Source Text", layer.name),
+                    e.diagnostic(&layer.name, "Source Text", frame),
+                );
+                words
+            }
+            None => words,
+        };
         let picture = crate::text::drawn(words, &animators, w, h).unwrap_or_else(|| {
             log.record(
                 frame,

@@ -950,6 +950,14 @@ fn boxes_of(sight: &Sight, frame: i32, cache: &Mutex<CelCache>) -> serde_json::V
                             w => serde_json::json!(w),
                         },
                     );
+                    // D-1088: and a text layer's words after its Source Text expression.
+                    match expr::source_text(comp, &layer.id, frame) {
+                        Some(Ok(words)) => {
+                            at.insert("source_text".to_string(), serde_json::json!(words));
+                        }
+                        Some(Err(e)) => failed(layer.id.as_str(), "source_text", Some(e)),
+                        None => {}
+                    }
                     // D-323: and the Time Remap, read at the key time as it is drawn.
                     if let Some(remap) = &layer.time_remap {
                         let v = remap.value_at_time(t);
@@ -17143,6 +17151,15 @@ fn text_from(
             words.shadow = Some(s);
         }
         None => {}
+    }
+    // D-1088: Source Text's `expression`, which an empty one takes away, and `expression_on`.
+    if let Some(text) = parameter(query, "expression") {
+        let enabled = words.expression.as_ref().is_none_or(|e| e.enabled);
+        words.expression = (!text.trim().is_empty())
+            .then_some(anime_compositor::model::Expression { text, enabled });
+    }
+    if let Some(e) = words.expression.as_mut() {
+        switch("expression_on", &mut e.enabled)?;
     }
     Ok(words)
 }

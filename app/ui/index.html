@@ -9705,7 +9705,9 @@ function landsAt(layer, n) {
 }
 const keysOf = (layer, prop) => shownKeys(layer, propOf(layer, prop).keyframes || []);
 // D-59's expression on a property, switched on or off, or null.
-const exprOf = (layer, prop) => propOf(layer, prop).expression || null;
+// D-1088: Source Text's expression lives in the layer's words.
+const exprOf = (layer, prop) => (prop === 'source_text'
+  ? (layer.source_text || {}).expression : propOf(layer, prop).expression) || null;
 
 // W-12: which of a layer's properties are open under it on the timeline, by layer id. Page
 // state and not project state: a file says nothing about what is unfolded on screen, so this
@@ -9832,6 +9834,11 @@ function keyButton(layer, prop) {
 // B-14c: document 24's `property.set_expression`. No text removes the expression; a text is
 // stored as typed, even one the language cannot read, and its error is shown beside it.
 function setExpression(layer, prop, text, on) {
+  // D-1088: Source Text's goes with the words; an empty one takes it away.
+  if (prop === 'source_text') {
+    return command('/text.set?layer=' + encodeURIComponent(layer.id) + '&expression='
+      + encodeURIComponent(text === null ? '' : text) + (text === null ? '' : '&expression_on=' + (on ? 'on' : 'off')));
+  }
   return command('/property.set_expression?' + whose(layer) + '&prop=' + prop
     + (text === null ? '' : '&text=' + encodeURIComponent(text) + '&on=' + on));
 }
@@ -9857,7 +9864,7 @@ function exprParts(layer, prop, where) {
   const expression = exprOf(layer, prop);
   if (!expression) return null;
   const on = expression.enabled !== false;
-  const named = isFx(prop) ? propLabel(layer, prop) : prop;
+  const named = isFx(prop) ? propLabel(layer, prop) : prop === 'source_text' ? 'Source Text' : prop;
   const toggle = document.createElement('button');
   toggle.className = 'exprswitch' + (on ? '' : ' off');
   toggle.textContent = on ? '=' : '≠';
@@ -10366,6 +10373,17 @@ function drawInspector() {
     words.setAttribute('aria-label', 'Words of ' + layer.name + '; they change in the picture as they are typed, and Enter starts a new line');
     typeWords(layer, words);
     dl.lastChild.append(words);
+    // D-1088: After Effects' Alt+click on Source Text's stopwatch, here on the Text label, puts an
+    // expression on the words or takes it away; its result is what the picture shows.
+    const label = dl.lastChild.previousSibling;
+    label.id = 'textexprlabel';
+    label.title = 'Alt+click to add or remove an expression that works out the words each frame';
+    label.onclick = (e) => { if (e.altKey) toggleExpression(layer, 'source_text', 'panel'); };
+    const said = exprParts(layer, 'source_text', 'panel');
+    if (said) {
+      said.box.id = 'textexpr';
+      dl.lastChild.append(said.toggle, said.box);
+    }
     ecGroup(dl, 'Character');
     field(dl, 'Font', '');
     const family = document.createElement('select');

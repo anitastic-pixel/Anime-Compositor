@@ -196,6 +196,87 @@ pub fn resolve_at(
     }
 }
 
+/// D-1088: the words text layer `layer` draws at `frame` after its Source Text expression, or
+/// why the expression failed; `None` when it has no expression switched on.
+pub fn source_text(comp: &Composition, layer: &Id, frame: i32) -> Option<R<String>> {
+    let words = comp.layer(layer)?.text.as_ref()?;
+    let expression = words.expression.as_ref().filter(|e| e.enabled)?;
+    let mut run = Run {
+        comp,
+        steps: 0,
+        stack: Vec::new(),
+        fx_stack: Vec::new(),
+        drawing: None,
+    };
+    let mut scope = Scope {
+        run: &mut run,
+        target: Target::Layer(layer.clone()),
+        // Not read while `words` is there.
+        prop: Prop::Rotation,
+        frame,
+        posterize: None,
+        user_seed: 0,
+        timeless: false,
+        wiggles: 0,
+        randoms: 0,
+        locals: HashMap::new(),
+        setting: None,
+        words: Some(words.text.clone()),
+    };
+    Some(scope.outcome(&expression.text).map(|v| match v {
+        V::Text(s) => s,
+        _ => unreachable!("Source Text's outcome is words"),
+    }))
+}
+
+/// D-1088: `v` as JavaScript's `String()` writes it, or `None` for what is neither words nor
+/// numbers.
+fn js_string(v: &V) -> Option<String> {
+    Some(match v {
+        V::Text(s) => s.clone(),
+        V::Num(n) => js_number(*n),
+        V::List(l) => l.iter().map(|n| js_number(*n)).collect::<Vec<_>>().join(","),
+        _ => return None,
+    })
+}
+
+/// D-1088: a number as JavaScript writes it: its shortest digits that read back the same
+/// number, plain from 1e-6 up to 1e21 and with an exponent outside that, -0 as 0.
+fn js_number(x: f64) -> String {
+    if x.is_nan() {
+        return "NaN".into();
+    }
+    if x.is_infinite() {
+        return if x > 0.0 { "Infinity" } else { "-Infinity" }.into();
+    }
+    if x == 0.0 {
+        return "0".into();
+    }
+    if x < 0.0 {
+        return format!("-{}", js_number(-x));
+    }
+    // Rust's `{:e}` is the shortest round-trip digits, as JavaScript's are.
+    let e = format!("{x:e}");
+    let (m, p) = e.split_once('e').expect("{:e} writes an exponent");
+    let s: String = m.chars().filter(|c| *c != '.').collect();
+    let k = s.len() as i32;
+    let n = p.parse::<i32>().expect("{:e} writes a whole exponent") + 1;
+    if k <= n && n <= 21 {
+        s + &"0".repeat((n - k) as usize)
+    } else if 0 < n && n <= 21 {
+        format!("{}.{}", &s[..n as usize], &s[n as usize..])
+    } else if -6 < n && n <= 0 {
+        format!("0.{}{s}", "0".repeat(-n as usize))
+    } else {
+        let m = if k == 1 {
+            s.clone()
+        } else {
+            format!("{}.{}", &s[..1], &s[1..])
+        };
+        format!("{m}e{}{}", if n - 1 < 0 { '-' } else { '+' }, (n - 1).abs())
+    }
+}
+
 /// Every property of `comp` carrying an expression that is switched on, which is what an export
 /// has to check frame by frame.
 pub fn live_properties(comp: &Composition) -> Vec<(Target, Prop)> {
@@ -948,6 +1029,7 @@ impl<'a> Run<'a> {
             randoms: 0,
             locals: HashMap::new(),
             setting: None,
+            words: None,
         };
         let out = scope.outcome(&text);
         self.stack.pop();
@@ -1027,6 +1109,7 @@ impl<'a> Run<'a> {
                 kind,
                 name: setting_name,
             }),
+            words: None,
         };
         let out = scope.outcome(text);
         self.fx_stack.pop();
@@ -1047,6 +1130,8 @@ struct Scope<'r, 'a> {
     locals: HashMap<String, V>,
     /// D-291: the effect setting being run, when it is one rather than `prop`.
     setting: Option<Setting<'a>>,
+    /// D-1088: a text layer's own words, when its Source Text is being run rather than `prop`.
+    words: Option<String>,
 }
 
 /// D-291: one setting of an effect, its keys (one property for each number it stores, none when
@@ -1335,8 +1420,9 @@ impl Scope<'_, '_> {
             match stmt {
                 Stmt::Let(name, node) => {
                     // D-1033: a value may also hold a layer, `var L = thisComp.layer(1)`.
+                    // D-1088: and words.
                     let v = match self.eval(node)? {
-                        v @ V::Layer(_) => v,
+                        v @ (V::Layer(_) | V::Text(_)) => v,
                         v => self.number_or_list(v)?,
                     };
                     self.locals.insert(name.clone(), v);
@@ -1356,6 +1442,16 @@ impl Scope<'_, '_> {
     fn outcome(&mut self, text: &str) -> R<V> {
         let result = self.statements(&read(text)?)?;
         let result = self.plain(result)?;
+        if self.words.is_some() {
+            // D-1088: words, a number or a list, as JavaScript writes them.
+            return match (&result, js_string(&result)) {
+                (V::Nothing, _) => Err(type_error("The expression ends without a value")),
+                (_, Some(s)) => Ok(V::Text(s)),
+                (_, None) => Err(type_error(
+                    "The expression ends on something that is not words or a number",
+                )),
+            };
+        }
         let dims = self.dims();
         // D-1046: After Effects' `[x, y, z]` on a flat layer's two numbers drops the z.
         let result = match result {
@@ -1469,14 +1565,18 @@ impl Scope<'_, '_> {
             Target::Camera => format!("{}/camera", self.run.comp.id.as_str()),
             Target::Layer(id) => id.as_str().to_string(),
         };
-        let name = match &self.setting {
-            Some(s) => s.name.as_str(),
-            None => self.prop.as_str(),
+        let name = match (&self.setting, &self.words) {
+            (Some(s), _) => s.name.as_str(),
+            (None, Some(_)) => "source_text",
+            (None, None) => self.prop.as_str(),
         };
         mix(fnv1a64(&format!("{owner}/{name}")), self.user_seed)
     }
 
     fn pre(&self, frame: i32) -> R<V> {
+        if let Some(w) = &self.words {
+            return Ok(V::Text(w.clone()));
+        }
         if let Some(s) = &self.setting {
             if let Some(w) = &s.word {
                 return Ok(hex_units(w, linear_colours(self.run.comp)));
@@ -1551,6 +1651,9 @@ impl Scope<'_, '_> {
                         return Err(syntax(
                             "On an effect's setting, use value for the setting's own number",
                         ))
+                    }
+                    "thisProperty" if self.words.is_some() => {
+                        return Err(syntax("On Source Text, use value for the layer's own words"))
                     }
                     "thisProperty" => V::Prop(self.target.clone(), self.prop, true),
                     "thisLayer" => match &self.target {
@@ -1667,6 +1770,17 @@ impl Scope<'_, '_> {
     }
 
     fn arith(&mut self, op: char, a: V, b: V) -> R<V> {
+        let a = self.plain(a)?;
+        let b = self.plain(b)?;
+        // D-1088: "+" with words on either side joins the two as JavaScript writes them.
+        if op == '+' && (matches!(a, V::Text(_)) || matches!(b, V::Text(_))) {
+            return match (js_string(&a), js_string(&b)) {
+                (Some(a), Some(b)) => Ok(V::Text(a + &b)),
+                _ => Err(type_error(
+                    "Only a number, a list or words can be joined to words",
+                )),
+            };
+        }
         let a = self.number_or_list(a)?;
         let b = self.number_or_list(b)?;
         Ok(match (a, b) {

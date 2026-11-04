@@ -123,6 +123,9 @@ pub struct Text {
     pub stroke: Option<Stroke>,
     pub background: Option<Background>,
     pub shadow: Option<Shadow>,
+    /// D-1088: Source Text's expression; switched on, its result at a frame is the words drawn
+    /// there (`crate::expr::source_text`), and `text` stays the layer's own words.
+    pub expression: Option<crate::model::Expression>,
 }
 
 impl Default for Text {
@@ -144,6 +147,7 @@ impl Default for Text {
             stroke: None,
             background: None,
             shadow: None,
+            expression: None,
         }
     }
 }
