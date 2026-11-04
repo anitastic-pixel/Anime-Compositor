@@ -6942,6 +6942,8 @@ function whip(layer, prop, matte = false) {
         for (let up = parent; up; up = layers().find((l) => l.id === up.parent)) {
           if (up.parent === layer.id) return [parent.name + ' rides on ' + layer.name + ', so that would be a loop', null];
         }
+        // D-1075: Shift held on letting go: parent and jump, as After Effects' Shift-parent does.
+        if (shift) return ['Parent and jump to: ' + parent.name, () => jumpTo(layer, parent)];
         return ['Parent: ' + parent.name, () => sendMany(layer, (l) => parentRequest(l, parent.id, frame, layers()))];
       }
       const to = li && li.dataset.prop;
@@ -6964,9 +6966,11 @@ function whip(layer, prop, matte = false) {
     document.body.append(svg, label);
     let lit = null;
     let request = null;
+    let shift = e.shiftKey;
     dragging = true;
     b.setPointerCapture(e.pointerId);
     const move = (m) => {
+      shift = m.shiftKey;
       line.setAttribute('x2', m.clientX);
       line.setAttribute('y2', m.clientY);
       label.style.left = (m.clientX + 14) + 'px';
@@ -6994,7 +6998,7 @@ function whip(layer, prop, matte = false) {
     };
     // On the window rather than the spiral: the list may be redrawn under the drag, and the
     // spiral that held the pointer with it, and the hand must still be followed.
-    const up = () => stop(true);
+    const up = (u) => { if (shift !== u.shiftKey) move(u); stop(true); };
     const cancel = () => stop(false);
     const escape = (k) => { if (k.key === 'Escape') { k.preventDefault(); k.stopPropagation(); stop(false); } };
     move(e);
@@ -10135,6 +10139,29 @@ function matteOnly(held, picked, ticked) {
   return !held && picked ? true : ticked;
 }
 // ---- B-826 end
+// ---- B-955 begin
+// D-1075: parent and jump. The child's Position becomes its new parent's Anchor Point, so its
+// own anchor lands on the parent's. A keyed or separated Position is not moved, only parented.
+// ponytail: the parent's Anchor Point is its base value; a keyed anchor is read as its base.
+function jumpRequests(l, parent) {
+  const p = (l.transform || {}).position || {};
+  if (p.x || (p.keyframes || []).length) return [];
+  const a = ((parent.transform || {}).anchor || {}).base || [0, 0];
+  return ['/property.set_base?layer=' + encodeURIComponent(l.id) + '&prop=position&value=' + encodeURIComponent([].concat(a).join(','))];
+}
+// ---- B-955 end
+// Parent, then jump, for every chosen layer, as one entry to undo.
+function jumpTo(layer, parent) {
+  const all = layers();
+  const sends = manyRequests(layer, selection, all, (l) => {
+    const first = parentRequest(l, parent.id, frame, all);
+    return first && [first, ...jumpRequests(l, parent)];
+  }).flat();
+  nudge = nudge.then(async () => {
+    for (const request of sends) await command(request + '&drag=1');
+    await command('/property.drag_end');
+  });
+}
 // One request alone, or several as one entry to undo.
 function sendMany(layer, make) {
   const sends = manyRequests(layer, selection, layers(), make);

@@ -466,3 +466,101 @@ fn b954_expression_text_size() {
         &rows,
     );
 }
+
+/// D-1075 / B-955: Shift on letting go of the parent whip parents and jumps: the child's Position
+/// becomes the parent's Anchor Point, so the child's anchor lands on the parent's.
+#[test]
+fn b955_parent_and_jump() {
+    let mut rows: Rows = Vec::new();
+    let asked = node(
+        "B-955",
+        "jumpRequests",
+        "const parent = { id: 'p', transform: { anchor: { base: [40, 25] } } };\n\
+         out({\n\
+           plain: jumpRequests({ id: 'c', transform: { position: { base: [900, 500] } } }, parent).join(' then '),\n\
+           keyed: jumpRequests({ id: 'c', transform: { position: { base: [0, 0], keyframes: [{ frame: 0, value: [1, 2] }] } } }, parent).length,\n\
+           split: jumpRequests({ id: 'c', transform: { position: { x: { base: 1 }, y: { base: 2 } } } }, parent).length,\n\
+           bare: jumpRequests({ id: 'c' }, { id: 'p' }).join(' then '),\n\
+         });",
+    );
+    let get = |k: &str| asked[k].as_str().map(str::to_string).unwrap_or_else(|| asked[k].to_string());
+    for (what, field, want) in [
+        ("a child at (900, 500), a parent whose anchor is (40, 25): the child's Position becomes (40, 25)", "plain", "/property.set_base?layer=c&prop=position&value=40%2C25"),
+        ("a keyed Position is not moved", "keyed", "0"),
+        ("a separated Position is not moved", "split", "0"),
+        ("no transform written: the anchor is (0, 0)", "bare", "/property.set_base?layer=c&prop=position&value=0%2C0"),
+    ] {
+        rows.push((what.into(), want.into(), get(field)));
+    }
+
+    // The window: the page's steps on the reference shot, then drawn.
+    let viewer = Mutex::new(demo());
+    let (child, parent, depth) = {
+        let held = viewer.lock().expect("lock");
+        let comp = held.document.project().composition(&held.composition).expect("the comp");
+        let order: Vec<&Layer> = comp.layers_in_order().filter(|l| l.parent.is_none()).collect();
+        (order[0].id.as_str().to_string(), order[1].id.as_str().to_string(), held.document.undo_depth())
+    };
+    // Away from the corner, so a jump that did nothing would show.
+    for (id, prop, value) in [(&parent, "position", "700,300"), (&parent, "anchor", "40,25"), (&child, "position", "900,500")] {
+        edit_command(&viewer, "property.set_base", Some(&format!("layer={id}&prop={prop}&value={value}")));
+    }
+    let depth = viewer.lock().expect("lock").document.undo_depth().max(depth);
+    let parent_json = {
+        let s: serde_json::Value = serde_json::from_str(&state(&viewer)).expect("JSON");
+        let id = s["composition"].clone();
+        let comp = s["project"]["compositions"].as_array().unwrap().iter().find(|c| c["id"] == id).unwrap().clone();
+        comp["layers"].as_array().unwrap().iter().find(|l| l["id"] == parent.as_str()).unwrap().clone()
+    };
+    let steps = node(
+        "B-955",
+        "jumpRequests",
+        &format!("out(jumpRequests({{ id: '{child}', transform: {{ position: {{ base: [0, 0] }} }} }}, {parent_json}));"),
+    );
+    edit_command(&viewer, "layer.set_parent", Some(&format!("layer={child}&parent={parent}&frame=0&drag=1")));
+    for request in steps.as_array().expect("steps") {
+        let request = request.as_str().unwrap().trim_start_matches('/');
+        let (what, query) = request.split_once('?').unwrap();
+        edit_command(&viewer, what, Some(&format!("{query}&drag=1")));
+    }
+    edit_command(&viewer, "property.drag_end", None);
+    let (child_anchor, parent_anchor, entries) = {
+        let held = viewer.lock().expect("lock");
+        let comp = held.document.project().composition(&held.composition).expect("the comp");
+        let at = |id: &str| {
+            let l = comp.layers_in_order().find(|l| l.id.as_str() == id).expect("the layer");
+            let world = anime_compositor::compose::world_transform(comp, &l.id, 0);
+            let a = match l.transform.anchor.value_at(0) {
+                Value::Vec2(x, y) => (x, y),
+                Value::Scalar(_) => (0.0, 0.0),
+            };
+            world.apply(a.0, a.1)
+        };
+        (at(&child), at(&parent), held.document.undo_depth() - depth)
+    };
+    let near = (child_anchor.0 - parent_anchor.0).abs() < 1e-6 && (child_anchor.1 - parent_anchor.1).abs() < 1e-6;
+    rows.push((
+        format!("the reference shot: {child} parented and jumped to {parent}: its anchor on the frame is the parent's ({:.2}, {:.2})", parent_anchor.0, parent_anchor.1),
+        "true".into(),
+        format!("{near}"),
+    ));
+    rows.push(("entries to undo".into(), "1".into(), entries.to_string()));
+
+    let page = page();
+    for (what, line) in [
+        ("Shift on letting go picks parent and jump; the label says so", "if (shift) return ['Parent and jump to: ' + parent.name, () => jumpTo(layer, parent)];"),
+        ("Shift is read when letting go, too", "const up = (u) => { if (shift !== u.shiftKey) move(u); stop(true); };"),
+        ("every chosen layer, as one entry to undo", "for (const request of sends) await command(request + '&drag=1');"),
+    ] {
+        rows.push((what.into(), "true".into(), page.contains(line).to_string()));
+    }
+    table(
+        "B-955_parent_and_jump_table.md",
+        "B-955: Shift + parent whip, parent and jump (D-1075)",
+        "b955_parent_and_jump",
+        "After Effects' Shift-drag of the parent pick whip (4GeGLgK2BBk, about 3:20). `jumpRequests` \
+         is the page's own code run under Node; for the window rows its requests go to the window's \
+         own command handler on the reference shot.",
+        &rows,
+    );
+}
