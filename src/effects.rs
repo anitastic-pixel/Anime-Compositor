@@ -1735,7 +1735,9 @@ pub enum Effect {
     /// `perspective`; `preserve_scale` and `detailed_analysis` `off` or `on`; `framing`
     /// `stabilize_only`, `stabilize_crop` or `stabilize_crop_auto_scale`. Numbers: `smoothness` 0
     /// to 1000 per cent; `maximum_scale` 100 to 1000 per cent; `action_safe_margin` 0 to 50 per
-    /// cent; `additional_scale` 1 to 1000 per cent. `picture` is not a setting and is never saved:
+    /// cent; `additional_scale` 1 to 1000 per cent; `crop_less_smooth_more` 0 to 100 per cent
+    /// (D-1012: with `smooth_motion` and a crop framing, how far the steadied map goes from the
+    /// unchanged one; 100 is D-653's picture). `picture` is not a setting and is never saved:
     /// compose makes the steadied picture into it for each frame (`compose::fill_warp_stabilizer`).
     WarpStabilizer {
         result: String,
@@ -1746,6 +1748,7 @@ pub enum Effect {
         maximum_scale: f64,
         action_safe_margin: f64,
         additional_scale: f64,
+        crop_less_smooth_more: f64,
         detailed_analysis: String,
         picture: Option<crate::layer_map::Map>,
     },
@@ -10412,12 +10415,14 @@ impl Effect {
                 maximum_scale,
                 action_safe_margin,
                 additional_scale,
+                crop_less_smooth_more,
                 ..
             } => vec![
                 ("smoothness", vec![smoothness], 0.0, 1000.0),
                 ("maximum_scale", vec![maximum_scale], 100.0, 1000.0),
                 ("action_safe_margin", vec![action_safe_margin], 0.0, 50.0),
                 ("additional_scale", vec![additional_scale], 1.0, 1000.0),
+                ("crop_less_smooth_more", vec![crop_less_smooth_more], 0.0, 100.0),
             ],
             Effect::RollingShutterRepair {
                 rolling_shutter_rate,

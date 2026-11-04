@@ -87,7 +87,7 @@ D-653, under the owner's /loop request (P0-13, D-600: "Blur + retiming only"). E
 | Check | The build's answer | Matches |
 | --- | --- | --- |
 | Warp Stabilizer never grows the drawing's bounds | 0 | yes |
-| a half-size draft preview leaves every setting as it is: the move is found at the size drawn, and every setting is a share of the picture or a count of frames | WarpStabilizer { result: "smooth_motion", smoothness: 50.0, method: "position_scale_rotation", preserve_scale: "off", framing: "stabilize_crop_auto_scale", maximum_scale: 150.0, action_safe_margin: 0.0, additional_scale: 100.0, detailed_analysis: "off", picture: None } | yes |
+| a half-size draft preview leaves every setting as it is: the move is found at the size drawn, and every setting is a share of the picture or a count of frames | WarpStabilizer { result: "smooth_motion", smoothness: 50.0, method: "position_scale_rotation", preserve_scale: "off", framing: "stabilize_crop_auto_scale", maximum_scale: 150.0, action_safe_margin: 0.0, additional_scale: 100.0, crop_less_smooth_more: 100.0, detailed_analysis: "off", picture: None } | yes |
 
 ## The file
 

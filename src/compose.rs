@@ -6773,6 +6773,7 @@ fn fill_warp_stabilizer(
             maximum_scale,
             action_safe_margin,
             additional_scale,
+            crop_less_smooth_more,
             detailed_analysis,
             ..
         } = effects[i].effect.clone()
@@ -6888,6 +6889,15 @@ fn fill_warp_stabilizer(
                     }
                 }
                 s.map(|row| row.map(|v| v / total))
+            };
+            // D-1012: Crop Less <-> Smooth More takes S part way from the unchanged map.
+            let steady = if result == "smooth_motion" && framing != "stabilize_only" {
+                let k = crop_less_smooth_more / 100.0;
+                std::array::from_fn(|i| {
+                    std::array::from_fn(|j| WS_ONE[i][j] + k * (steady[i][j] - WS_ONE[i][j]))
+                })
+            } else {
+                steady
             };
             let back = ws_inverse(&steady);
             // Step 6: the largest middle rectangle the move never uncovers, and the scale.

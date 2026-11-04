@@ -287,7 +287,7 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | the panel's `core.timewarp` is an effect this build has | added | added | pass |
 | and the settings it sends for it - method, adjust_time_by, speed, source_frame, vector_detail, global_smoothness, local_smoothness, smoothing_iterations, build_from_one_image, correct_luminance_changes, filtering, error_threshold, block_size, red_weight, green_weight, blue_weight, enable_motion_blur, shutter_control, shutter_angle, shutter_samples - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.warp_stabilizer` is an effect this build has | added | added | pass |
-| and the settings it sends for it - result, smoothness, method, preserve_scale, framing, maximum_scale, action_safe_margin, additional_scale, detailed_analysis - are the ones the command reads | accepted | accepted | pass |
+| and the settings it sends for it - result, smoothness, method, preserve_scale, framing, maximum_scale, action_safe_margin, additional_scale, crop_less_smooth_more, detailed_analysis - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.rolling_shutter_repair` is an effect this build has | added | added | pass |
 | and the settings it sends for it - rolling_shutter_rate, scan_direction, method, detailed_analysis, pixel_motion_detail - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.cc_rainfall` is an effect this build has | added | added | pass |

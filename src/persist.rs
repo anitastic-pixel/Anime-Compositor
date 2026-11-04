@@ -3234,6 +3234,7 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             maximum_scale,
             action_safe_margin,
             additional_scale,
+            crop_less_smooth_more,
             detailed_analysis,
             ..
         } => {
@@ -3245,6 +3246,15 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("maximum_scale".into(), num(*maximum_scale));
             params.insert("action_safe_margin".into(), num(*action_safe_margin));
             params.insert("additional_scale".into(), num(*additional_scale));
+            // D-1012: 100 is not written, so a file from before it saves the same.
+            if *crop_less_smooth_more != 100.0
+                || instance.tracks.contains_key("crop_less_smooth_more")
+                || params.contains_key("crop_less_smooth_more")
+            {
+                params.insert("crop_less_smooth_more".into(), num(*crop_less_smooth_more));
+            } else {
+                params.remove("crop_less_smooth_more");
+            }
             params.insert(
                 "detailed_analysis".into(),
                 J::from(detailed_analysis.as_str()),
@@ -10298,6 +10308,7 @@ fn parse_effect(
             maximum_scale: effect_number(params, "maximum_scale", at)?,
             action_safe_margin: effect_number(params, "action_safe_margin", at)?,
             additional_scale: effect_number(params, "additional_scale", at)?,
+            crop_less_smooth_more: effect_number_or(params, "crop_less_smooth_more", at, 100.0)?,
             detailed_analysis: effect_word(params, "detailed_analysis", at)?,
             picture: None,
         }),

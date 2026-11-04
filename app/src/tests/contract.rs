@@ -2723,6 +2723,7 @@ const EFFECT_KINDS: &[(&str, &[(&str, &str)])] = &[
             ("maximum_scale", "200"),
             ("action_safe_margin", "10"),
             ("additional_scale", "120"),
+            ("crop_less_smooth_more", "70"),
             ("detailed_analysis", "on"),
         ],
     ),

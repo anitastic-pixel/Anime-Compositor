@@ -37,6 +37,7 @@ fn ws(result: &str, method: &str, framing: &str, smoothness: f64) -> Effect {
         maximum_scale: 150.0,
         action_safe_margin: 0.0,
         additional_scale: 100.0,
+        crop_less_smooth_more: 100.0,
         detailed_analysis: "off".to_string(),
         picture: None,
     }
