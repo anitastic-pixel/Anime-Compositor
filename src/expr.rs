@@ -1357,6 +1357,14 @@ impl Scope<'_, '_> {
         let result = self.statements(&read(text)?)?;
         let result = self.plain(result)?;
         let dims = self.dims();
+        // D-1046: After Effects' `[x, y, z]` on a flat layer's two numbers drops the z.
+        let result = match result {
+            V::List(mut l) if dims == 2 && l.len() == 3 => {
+                l.truncate(2);
+                V::List(l)
+            }
+            r => r,
+        };
         let numbers = match &result {
             V::Nothing => return Err(type_error("The expression ends without a value")),
             V::Text(_) => return Err(type_error("The expression ends on a text, not a number")),
@@ -1598,6 +1606,10 @@ impl Scope<'_, '_> {
                 let V::List(l) = v else {
                     return Err(type_error("Only a list can be indexed"));
                 };
+                // D-1046: item 2 of two numbers is a flat layer's depth in After Effects, 0.
+                if l.len() == 2 && i == 2.0 {
+                    return Ok(V::Num(0.0));
+                }
                 if i.fract() != 0.0 || !(0.0 <= i && i < l.len() as f64) {
                     return Err(type_error(format!("A list of {} has no item {i}", l.len())));
                 }
@@ -1743,6 +1755,12 @@ impl Scope<'_, '_> {
                 return self.value_of(&t, p, own, self.frame);
             }
             (V::Prop(t, p, own), "valueAtTime") => return Ok(V::Method(t.clone(), *p, *own)),
+            // D-1046: a list's length, as After Effects' `value.length`.
+            (V::List(_) | V::Prop(..) | V::Setting(..), "length") => {
+                if let V::List(l) = self.plain(obj.clone())? {
+                    return Ok(V::Num(l.len() as f64));
+                }
+            }
             _ => {}
         }
         Err(syntax(format!(
