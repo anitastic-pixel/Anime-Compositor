@@ -5882,6 +5882,7 @@ function paletteLines() {
     ['Time-reverse keys', '', () => reverseKeys()],
     ['Freeze frame', '', () => freezeFrame()],
     ['Convert audio to keyframes', '', () => audioToKeys()],
+    ['Update markers from source (replaces all)', '', () => markersFromSource()],
     ['Wiggle position', '', () => wigglePosition()],
     ['Enable or remove time remapping', 'Ctrl+Alt+T', { key: 't', code: 'KeyT', ctrlKey: true, altKey: true }],
     ['Show position', 'P', { key: 'p' }],
@@ -6317,6 +6318,7 @@ function layerMenu(x, y, first = []) {
     ['Create shapes from text', '', () => outlinesFromText(false), selected() && selected().kind === 'text'],
     ['Create masks from text', '', () => outlinesFromText(true), selected() && selected().kind === 'text'],
     ['Convert audio to keyframes', '', audioToKeys, selected() && selected().kind === 'audio'],
+    ['Update markers from source (replaces all)', '', markersFromSource, selected() && selected().kind === 'composition'],
     // B-24c: a mask over the whole layer, which is what After Effects' double-clicked shape tool
     // makes and what anyone without a mouse needs: the pen and the shape tools are drawn with a
     // hand, and `mask.add` must be reachable without one.
@@ -6380,6 +6382,13 @@ function outlinesFromText(masks) {
 // Left Channel, Right Channel and Both Channels sliders follow the composition's sound.
 function audioToKeys() {
   command('/layer.audio_to_keyframes');
+}
+
+// D-1079: After Effects' Layer > Markers > Update Markers From Source (Replaces All): the chosen
+// composition layer's markers become its source composition's, placed on its own timing.
+function markersFromSource() {
+  const layer = selected();
+  if (layer) command('/layer.update_markers_from_source?layer=' + encodeURIComponent(layer.id));
 }
 
 // D-323: After Effects' Enable Time Remapping (Ctrl+Alt+T): on, two keys that keep every frame as

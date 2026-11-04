@@ -11251,6 +11251,7 @@ const ANSWERS: &[&str] = &[
     "layer.toggle_solo",
     "layer.toggle_visibility",
     "layer.trim",
+    "layer.update_markers_from_source",
     "mask.add",
     "mask.add_remove_key",
     "mask.delete",
@@ -14674,6 +14675,49 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                     },
                     Err(said) => return Some(said),
                 },
+                // D-1079: After Effects' Update Markers From Source (Replaces All): the source
+                // composition's markers, placed by the layer's in point, start and stretch.
+                "layer.update_markers_from_source" => {
+                    let Some(inner_id) = layer.composition_id.as_ref() else {
+                        return Some(format!(
+                            "{} is not a composition layer. Only a composition layer has a \
+                             source with markers here.",
+                            layer.name
+                        ));
+                    };
+                    let Some(inner) = project.composition(inner_id) else {
+                        return Some(format!(
+                            "{} shows composition {}, which is not in this project.",
+                            layer.name,
+                            inner_id.as_str()
+                        ));
+                    };
+                    if layer.time_remap.is_some() {
+                        return Some(format!(
+                            "{} has Time Remap on, which can show an inner frame twice or not at \
+                             all, so its markers have no one place. Turn Time Remap off first.",
+                            layer.name
+                        ));
+                    }
+                    let k = layer.time_stretch / 100.0;
+                    let mut markers: Vec<Marker> = inner
+                        .markers
+                        .iter()
+                        .map(|m| Marker {
+                            frame: (layer.in_frame as f64
+                                + (m.frame - layer.source_offset_frames) as f64 * k)
+                                .round() as i32,
+                            name: m.name.clone(),
+                            duration_frames: (m.duration_frames as f64 * k.abs()).round() as u32,
+                        })
+                        .collect();
+                    markers.sort_by_key(|m| m.frame);
+                    Command::SetLayerMarkers {
+                        composition,
+                        layer_id,
+                        markers,
+                    }
+                }
                 // W-24: After Effects' label colours, 0 for none and 1 to 16 (D-948).
                 "layer.set_label" => {
                     match parameter(query, "label").and_then(|l| l.parse::<u8>().ok()) {

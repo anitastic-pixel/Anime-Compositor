@@ -695,3 +695,109 @@ fn b958_noise_clip_control() {
         &rows,
     );
 }
+
+/// D-1079 / B-959: Update Markers From Source (Replaces All). Composition layers on the demo's
+/// composition, each showing an inner composition with markers "start" on 0 and "hit" on 12
+/// lasting 6, take those markers onto their own bars by D-1079's worked examples.
+#[test]
+fn b959_markers_from_source() {
+    let mut rows: Rows = Vec::new();
+    let viewer = Mutex::new(demo());
+    let (outer, drawn) = {
+        let held = &mut *viewer.lock().expect("lock");
+        let outer = held.composition.clone();
+        let comp = held.document.project().composition(&outer).expect("the comp").clone();
+        let drawn = comp.layers_in_order().find(|l| l.composition_id.is_none()).expect("a drawn layer").id.clone();
+        let mut inner = Composition::new(Id::new("inner"), "Inner", 320, 180, comp.frame_rate, 0, 48);
+        inner.markers = vec![
+            Marker { frame: 0, name: "start".into(), duration_frames: 0 },
+            Marker { frame: 12, name: "hit".into(), duration_frames: 6 },
+        ];
+        let empty = Composition::new(Id::new("empty"), "Empty", 320, 180, comp.frame_rate, 0, 48);
+        let empty_ref = empty.clone();
+        for c in [inner.clone(), empty] {
+            held.document.apply(Command::AddComposition { composition: Box::new(c) }).expect("added");
+        }
+        let place = |id: &str, from: &Composition, stretch: f64, offset: i32, remap: bool| {
+            let mut l = Layer::composition(Id::new(id), id, from, comp.width, comp.height, 10, 40);
+            l.time_stretch = stretch;
+            l.source_offset_frames = offset;
+            if remap {
+                l.time_remap = Some(Property::constant(Value::Scalar(0.0)));
+            }
+            l.markers = vec![Marker { frame: 30, name: "mine".into(), duration_frames: 0 }];
+            l
+        };
+        for layer in [
+            place("plain", &inner, 100.0, 0, false),
+            place("slow", &inner, 200.0, 0, false),
+            place("late", &inner, 100.0, 4, false),
+            place("remapped", &inner, 100.0, 0, true),
+            place("bare", &empty_ref, 100.0, 0, false),
+        ] {
+            held.document
+                .apply(Command::AddLayer { composition: outer.clone(), layer: Box::new(layer), index: 0 })
+                .expect("the layer goes in");
+        }
+        (outer, drawn)
+    };
+    let markers = |id: &str| {
+        let held = viewer.lock().expect("lock");
+        let comp = held.document.project().composition(&outer).expect("the comp");
+        let list: Vec<String> = comp.layer(&Id::new(id)).expect("the layer").markers.iter()
+            .map(|m| if m.duration_frames > 0 { format!("{} {} ({} long)", m.frame, m.name, m.duration_frames) } else { format!("{} {}", m.frame, m.name) })
+            .collect();
+        list.join(", ")
+    };
+    let depth = || viewer.lock().expect("lock").document.undo_depth();
+    let run = |id: &str| edit_command(&viewer, "layer.update_markers_from_source", Some(&format!("layer={id}"))).unwrap_or_default();
+    for (id, what, want) in [
+        ("plain", "in at 10, starting on inner frame 0, 100%", "10 start, 22 hit (6 long)"),
+        ("slow", "the same at 200% stretch", "10 start, 34 hit (12 long)"),
+        ("late", "in at 10, starting on inner frame 4", "6 start, 18 hit (6 long)"),
+        ("bare", "a source with no markers clears the layer's", ""),
+    ] {
+        let before = depth();
+        run(id);
+        rows.push((format!("{what}: the layer's markers (its own \"30 mine\" replaced)"), want.into(), markers(id)));
+        rows.push((format!("{what}: entries to undo"), "1".into(), (depth() - before).to_string()));
+    }
+    {
+        let held = &mut *viewer.lock().expect("lock");
+        held.document.undo().expect("undo");
+    }
+    rows.push(("undo after the last puts the layer's own marker back".into(), "30 mine".into(), markers("bare")));
+    for (id, what, want) in [
+        ("remapped", "refused, Time Remap on: its markers stay", "30 mine"),
+    ] {
+        let before = depth();
+        let said = run(id);
+        rows.push((what.into(), format!("{want}, answered, 0"), format!("{}, {}, {}", markers(id), if said.contains("Time Remap") { "answered" } else { "silent" }, depth() - before)));
+    }
+    let before = depth();
+    let said = run(drawn.as_str());
+    rows.push((
+        "refused, a layer that is not a composition layer: nothing changes and the window answers".into(),
+        "answered, 0".into(),
+        format!("{}, {}", if said.contains("not a composition layer") { "answered" } else { "silent" }, depth() - before),
+    ));
+    let page = page();
+    for (what, pin) in [
+        ("the right-click menu, on a composition layer", "['Update markers from source (replaces all)', '', markersFromSource, selected() && selected().kind === 'composition'],"),
+        ("the command finder", "['Update markers from source (replaces all)', '', () => markersFromSource()],"),
+        ("what it sends", "command('/layer.update_markers_from_source?layer=' + encodeURIComponent(layer.id));"),
+    ] {
+        rows.push((format!("the page wires it in: {what}"), "true".into(), page.contains(pin).to_string()));
+    }
+    table(
+        "B-959_markers_from_source_table.md",
+        "B-959: Update Markers From Source (D-1079)",
+        "b959_markers_from_source",
+        "After Effects' Layer > Markers > Update Markers From Source (Replaces All), from the workflow \
+         tutorial nTpT2PELCbA at about 2:20. Five composition layers, each in at 10 with one marker \
+         of its own on 30, show an inner composition whose markers are \"start\" on 0 and \"hit\" \
+         on 12 lasting 6 (one shows an inner composition with none). The expected answers are \
+         D-1079's worked examples.",
+        &rows,
+    );
+}

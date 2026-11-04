@@ -167,6 +167,7 @@ const SENT: &[&str] = &[
     "layer.toggle_solo",
     "layer.toggle_visibility",
     "layer.trim",
+    "layer.update_markers_from_source",
     "mask.add",
     "mask.add_remove_key",
     "mask.delete",
@@ -349,6 +350,11 @@ const WIRING: &[(&str, &str, &str)] = &[
         "View > Colour view",
         "project.set_view",
         "sel.onchange = () => command('/project.set_view?view=' + encodeURIComponent(sel.value));",
+    ),
+    (
+        "Update markers from source, in the layer's right-click menu",
+        "layer.update_markers_from_source",
+        "command('/layer.update_markers_from_source?layer=' + encodeURIComponent(layer.id));",
     ),
     (
         "Loop, in the Project panel line for a sequence",
@@ -655,6 +661,8 @@ const REACHED: &[(&str, &str)] = &[
     ("asset.set_interpretation", "a command the window answers"),
     // D-1073: Interpret Footage's Loop, in the Project panel's line for a sequence.
     ("asset.set_loop", "a command the window answers"),
+    // D-1079: Update Markers From Source, in the layer's right-click menu.
+    ("layer.update_markers_from_source", "a command the window answers"),
     // D-915: View > Colour view, with colour management on.
     ("project.set_view", "a command the window answers"),
     // D-916: File > Project Settings, colour management.
