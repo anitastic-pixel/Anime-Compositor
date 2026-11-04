@@ -9123,10 +9123,18 @@ view.onkeydown = (e) => {
     });
     // One press moving three layers belongs in the history as one item, so it goes through the
     // same transaction a drag does. For one layer that is the one record it has always been.
+    // D-1117: the moves are sent without reading the project back after each one; the page
+    // reads it, and redraws, once, after the press is committed.
     for (const [layer, to] of next) {
-      await command('/property.drag_update?layer=' + encodeURIComponent(layer.id)
-        + '&prop=position&value=' + encodeURIComponent(to.map(number).join(','))
-        + '&frame=' + frame);
+      try {
+        const said = await (await fetch(PROJECT + '/property.drag_update?layer=' + encodeURIComponent(layer.id)
+          + '&prop=position&value=' + encodeURIComponent(to.map(number).join(','))
+          + '&frame=' + frame)).text();
+        if (said) $('status').textContent = brief(said);
+      } catch (e) {
+        $('report').textContent = 'the command did not arrive: ' + e;
+        $('report').className = 'dropped';
+      }
     }
     await command('/property.drag_end');
   });

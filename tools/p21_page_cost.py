@@ -12,6 +12,7 @@ web view's debugging port:
                 (command, /state, parse, drawPanels, drawSketch), the frame request after it not waited
   delta_fetch   after a rename sent on its own, fetch(PROJECT + '/state?since=' + the page's
                 copy) until the text has arrived (D-1116); delta_bytes its length
+  nudge_3       an arrow-key nudge of three selected layers, until committed and the page redrawn (D-1117)
   zoom_redraw   the timeline zoom slider moved, its oninput handler run once
 Seven runs each, medians. Never touches the owner's profile, window.txt or recent.txt.
 """
@@ -70,6 +71,17 @@ JS = r"""(async () => {
     doc = (typeof mergeState === 'function' && mergeState(doc, JSON.parse(text))) || JSON.parse(text);
   }
   r.delta_bytes = dbytes; r.delta_fetch = med(df);
+  // D-1117: an arrow-key nudge of the first three layers, pressed until it is committed and drawn.
+  const nu = [];
+  selection = layers().slice(0, 3).map((l) => l.id);
+  for (let i = 0; i < 7; i++) {
+    const t = performance.now();
+    view.onkeydown({ key: i % 2 ? 'ArrowLeft' : 'ArrowRight', shiftKey: false, preventDefault() {}, stopPropagation() {} });
+    await nudge;
+    nu.push(performance.now() - t);
+    while (inFlight || pending) await new Promise((res) => setTimeout(res, 20));
+  }
+  r.nudge_3 = med(nu);
   const z = document.getElementById('timezoom');
   for (let i = 0; i < 7; i++) {
     z.value = String(i % 2 ? z.min || 1 : z.max || 100);
