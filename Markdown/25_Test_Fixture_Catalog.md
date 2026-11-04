@@ -224503,3 +224503,43 @@ FX-GRAD-030 (`fx_grad_030.json`): Ramp Scatter 257, above 256 (on FX-GRAD-001's 
 FX-GRAD-031 (`fx_grad_031.json`): Blend With Original 101, above 100 (on FX-GRAD-001's settings). The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-GRAD-032 (`fx_grad_032.json`): Blend With Original keyed to -1 at frame 4, below 0 (on FX-GRAD-001's settings). The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Particle Space's Tri, Quad and Motion Polygon (D-1031)
+
+Particle Space's three flat particle types (B-910), after the purpose of CC Particle World's Tri, Quad and Motion Polygon, the rules ours. Every case is a project as FX-PTEX's (one composition 16 by 10 at 24 frames a second, the drawing `art` carrying the effect, the switched-off texture layers under it). `tools/particle_shapes_reference.py` works the expected frames, reusing `tools/particle_texture_reference.py`, into `Fixtures/particle_shapes/expected_particle_shapes.json`, tolerance 2e-5. **Checked by what they claim.** The tool checks that Quad is FX-PTEX-001's frame exactly and ignores a texture (001, 002); that the Tri covers sqrt(3)/4 of the Quad within 2 per cent and more below its centre than above (003); that the turned Tris differ from the upright one and cover the same within 5 per cent (004 to 006); that a drifting Motion Polygon draws and a still one draws nothing (007, 008); that the bursts differ by frame and with fog (009, 013); the move (014); and the tiny Tri fainter (015).
+
+FX-PSHAPE-001 (`fx_pshape_001.json`): Quad: a square about 9 pixels across, upright, in the Color Map's colour, unlit: FX-PTEX-001's Textured Square with no texture. Frames 20.
+
+FX-PSHAPE-002 (`fx_pshape_002.json`): Quad with the dot texture named: the texture is not used, FX-PSHAPE-001. Frames 20.
+
+FX-PSHAPE-003 (`fx_pshape_003.json`): Tri: a triangle about 9 pixels a side, its point straight up. Frames 20.
+
+FX-PSHAPE-004 (`fx_pshape_004.json`): Tri, Initial Rotation 360: turned by its own random amount. Frames 20.
+
+FX-PSHAPE-005 (`fx_pshape_005.json`): Tri, Rotation Speed 90 a second: at 10.8 frames old, turned about 40 degrees clockwise. Frames 20.
+
+FX-PSHAPE-006 (`fx_pshape_006.json`): Tri, Rotation Speed keyed -180 at frame 0 to 180 at frame 24: read at its birth, so it turns anticlockwise. Frames 20.
+
+FX-PSHAPE-007 (`fx_pshape_007.json`): Motion Polygon, one drifting particle: a thin triangle, its point where the particle is and its base trailing behind. Frames 20.
+
+FX-PSHAPE-008 (`fx_pshape_008.json`): Motion Polygon, a particle that does not move: nothing drawn. Frames 20.
+
+FX-PSHAPE-009 (`fx_pshape_009.json`): A burst of Motion Polygons at frames 12 and 24: each a streak pointing outwards, as a Line's, but wide at its tail. Frames 12, 24.
+
+FX-PSHAPE-010 (`fx_pshape_010.json`): A burst of turning Quads, Rotation Speed 180 and Initial Rotation 360, at frames 12 and 24. Frames 12, 24.
+
+FX-PSHAPE-011 (`fx_pshape_011.json`): A spread of Tris at many depths, each its own turn. Frames 20.
+
+FX-PSHAPE-012 (`fx_pshape_012.json`): Two Tris, Screen. Frames 20.
+
+FX-PSHAPE-013 (`fx_pshape_013.json`): The Motion Polygon burst with Depth Cue Fog towards blue, distance 3. Frames 12.
+
+FX-PSHAPE-014 (`fx_pshape_014.json`): FX-PSHAPE-003 with the layer moved 3 pixels right. Frames 20.
+
+FX-PSHAPE-015 (`fx_pshape_015.json`): A tiny Tri, size 1: drawn as one 0.7 radius, fainter. Frames 20.
+
+FX-PSHAPE-016 (`fx_pshape_016.json`): Tris over the drawing (Composite With Original on), Max Opacity 70. Frames 20.
+
+FX-PSHAPE-017 (`fx_pshape_017.json`): Particle Type "cube": not built (D-1032, PROPOSED), so not one of the eleven. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-PSHAPE-018 (`fx_pshape_018.json`): Particle Type "triangle": the word is "tri". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
