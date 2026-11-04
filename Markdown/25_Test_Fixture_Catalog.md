@@ -225058,3 +225058,31 @@ FX-LOPAC-008 (`fx_lopac_008.json`): FX-LOPAC-003's line with core opacity keyed 
 FX-LOPAC-009 (`fx_lopac_009.json`): A core opacity of 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0 and 4: the night drawing untouched.
 
 FX-LOPAC-010 (`fx_lopac_010.json`): A glow opacity of -1, below 0. As FX-LOPAC-009.
+
+### Card Wipe's Position and Rotation Jitter (D-1105)
+
+From wave 12's tutorial follow-alongs (lane w12g's report, unit 8; B-985). Each case is a project in `Fixtures/card_wipe/` of the same composition as FX-CW-001 to 069 (D-580's section), the effect on four columns and two rows, with the jitter numbers written only where the case gives them; FX-CW-004's back layer and completion 50 where a case says so. `tools/card_wipe_reference.py` works the expected frames, tolerance 2e-5, every case checked clear of a card's edge, a tie between cards and the highlight's cut; the graphics card within 1 of 255 of the processor.
+
+FX-CW-070 (`fx_cw_070.json`): All six jitter amounts written at 0 with every speed 3: FX-CW-004 exactly, on every frame. Frames 0, 4.
+
+FX-CW-071 (`fx_cw_071.json`): X Jitter Amount 0.3 at speed 6, not begun: each card slid sideways by up to 0.3 of a card, by a different amount on each frame. Frames 0, 2, 4.
+
+FX-CW-072 (`fx_cw_072.json`): Y Jitter Amount 0.25 at speed 6 on FX-CW-004, with Z Jitter Amount 0.05 so no two cards lie in one plane. Frames 0, 4.
+
+FX-CW-073 (`fx_cw_073.json`): Z Jitter Amount 0.5 at speed 6 on FX-CW-004: the cards nearer and farther, so larger and smaller. Frames 0, 4.
+
+FX-CW-074 (`fx_cw_074.json`): X Rot Jitter Amount 20 at speed 6 on FX-CW-004: each card tipped about its x axis. Frames 0, 4.
+
+FX-CW-075 (`fx_cw_075.json`): Y Rot Jitter 20 and Z Rot Jitter 15 at speed 6, specular 1, sharpness 20, the light at [20, 30]: the turned cards lit by their own turn. Frames 0, 4.
+
+FX-CW-076 (`fx_cw_076.json`): All six at once, seed 5: X 0.2, Y 0.2, Z 0.3, the turns 10, 10 and 10, every speed 6. Frames 0, 2, 4.
+
+FX-CW-077 (`fx_cw_077.json`): FX-CW-071 at speed 0: the cards slid but still, frame 4 the same as frame 0. Frames 0, 4.
+
+FX-CW-078 (`fx_cw_078.json`): X Jitter Amount keyed 0 at frame 0 to 0.4 at frame 4, speed 1: frame 0 the picture, frame 4 slid. Frames 0, 4.
+
+FX-CW-079 (`fx_cw_079.json`): X jitter amount -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CW-080 (`fx_cw_080.json`): Z jitter speed 11, above 10. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CW-081 (`fx_cw_081.json`): Y rot jitter amount 361, above 360. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.

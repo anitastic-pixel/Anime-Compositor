@@ -20,7 +20,7 @@ ported.
 It draws its own fake 3D, as CC Cylinder (D-530) and CC Sphere (D-532) do: a camera and a light
 inside the effect. The composition's camera and lights are not used (P0-12, a gap), so Camera
 System's Comp Camera and the First Comp Light are not built (gaps); its Corner Pins is (D-634). Transform
-Order is fixed (gap), and Position Jitter and Rotation Jitter are not built (gaps). The cards are
+Order is fixed (gap); Position Jitter and Rotation Jitter are (D-1105, step 2b). The cards are
 drawn with one ray a pixel, so their edges are not smoothed, and the nearest card a ray meets
 wins even where that card's picture is clear (gaps).
 
@@ -33,7 +33,11 @@ The settings. `transition_completion` 0 to 100, 0 when added; `transition_width`
 "top_to_bottom", "bottom_to_top", "top_left_to_bottom_right", "bottom_left_to_top_right",
 "top_right_to_bottom_left", "bottom_right_to_top_left" or "gradient"; `gradient_layer` D-189's
 word, "", fitted as `stretch`; `timing_randomness` 0 to 1, 0; `random_seed` 0 to 100000, 0,
-taken down to a whole number. The camera: `x_rotation`, `y_rotation`, `z_rotation` -3600 to 3600
+taken down to a whole number. D-1105's jitter: `x_jitter_amount`, `y_jitter_amount` and
+`z_jitter_amount` 0 to 100 card sizes, 0; `x_rot_jitter_amount`, `y_rot_jitter_amount` and
+`z_rot_jitter_amount` 0 to 360 degrees, 0; and the six speeds `x_jitter_speed` ...
+`z_rot_jitter_speed` 0 to 10 a second, 1; read as when added where a file leaves them out, and
+written only when given. The camera: `x_rotation`, `y_rotation`, `z_rotation` -3600 to 3600
 degrees, 0; `xy_position` x then y, -1000 to 1000 per cent of the drawing's width and height,
 [50, 50]; `z_position` 0.01 to 10, 1, the eye's distance in focal lengths; `focal_length` 1 to
 1000 mm on a 36 mm frame, 50. `camera_system` "camera_position" (when added) or "corner_pins"
@@ -64,6 +68,17 @@ The rule, in the drawing's own W by H space, y down, z away from the viewer.
    -1, or for "random" -1 where g2 < 0 and +1 otherwise. It is turned by theta = sign p pi about
    its own axis through its centre: about x, (x, y cos - z sin, y sin + z cos); about y,
    (x cos + z sin, y, -x sin + z cos).
+2b. The jitter (D-1105, after After Effects' Position Jitter and Rotation Jitter groups, which
+   Adobe's help describes only as "the amount and speed of jitter (random movement) along the x,
+   y, and z axes" and "rotation jitter around the x, y, and z axes"; the rule is ours). With
+   tau the layer's time in seconds from its in point, for each of six channels j (x, y and z
+   place, then x, y and z turn) with amount A_j and speed S_j: s = tau S_j, i = floor s,
+   f = s - i, e = f^3 (f (6 f - 15) + 10), n_j = (1 - e) g(i, 3 + j) + e g(i + 1, 3 + j), where
+   g(i, ch) = unit(mix(floor seed), a, b, i, ch), smooth in time and new each 1/S_j seconds.
+   The card moves by J = (A_0 n_0 cw, A_1 n_1 ch, A_2 n_2 cw), its place jitter in card widths
+   and heights (z in card widths), and is turned, after its flip, by Q = Rz Ry Rx of the angles
+   A_3 n_3, A_4 n_4, A_5 n_5 degrees (step 3's turns). Its turn is then R = Q F, F the flip, and
+   its centre q + J. Every amount 0 (as added) is the card as before.
 3. The camera. F = W focal/36. The eye sits at E = (xy_x W/100, xy_y H/100, -z F) and looks
    through the pixel's centre along d = (x + 1/2 - W/2, y + 1/2 - H/2, F), turned with the whole
    scene about the drawing's middle C0 = (W/2, H/2, 0) by M = Rz Ry Rx (x first, each as in step
@@ -75,7 +90,7 @@ The rule, in the drawing's own W by H space, y down, z away from the viewer.
    where that rule draws nothing every pixel is clear. The pins as added give the camera as
    added.
 4. The hits. For card (a, b), with q = (cx - W/2, cy - H/2, 0), the ray in the card's own frame
-   is o'' = R^T (o - q), v'' = R^T v, R the card's turn. Where v''z is not 0, t = -o''z / v''z;
+   is o'' = R^T (o - q - J), v'' = R^T v, R the card's turn (step 2b). Where v''z is not 0, t = -o''z / v''z;
    a hit needs t > 0 and |lx| <= hx, |ly| <= hy for (lx, ly) = o''xy + t v''xy. Card Scale 0
    draws nothing. The nearest hit (least t) wins; where two tie exactly, the first card in rows
    then columns.
@@ -87,7 +102,7 @@ The rule, in the drawing's own W by H space, y down, z away from the viewer.
    is a clear picture.
 6. The light, in the cards' space: P = M^T ((lp_x W/100, lp_y H/100, -depth W) - C0); the hit
    h = o + t v; L = unit(P) for "distant", unit(P - h) for "point" (a zero step stays zero). The
-   front's normal is (0, sin theta, -cos theta) about x, (-sin theta, 0, -cos theta) about y, the
+   front's normal is Q times (0, sin theta, -cos theta) about x, (-sin theta, 0, -cos theta) about y, the
    back's its opposite. V = -v/|v|, Hv = L + V; the highlight sp = max(N.Hv/|Hv|, 0)^sharpness
    where N.L > 0 and |Hv| > 0, else 0. With i the intensity, Lc the light's linear colour, A, D,
    S the ambient, diffuse and specular numbers, on the sampled premultiplied (c, alpha):
@@ -200,8 +215,31 @@ ORDERS = {
 }
 
 
+JITTER = ("x_jitter", "y_jitter", "z_jitter", "x_rot_jitter", "y_rot_jitter", "z_rot_jitter")
+JITTER_DEFAULTS = {n + s: v for n in JITTER for s, v in (("_amount", 0), ("_speed", 1))}
+
+
+def turns(x, y, z):
+    """Rz Ry Rx of three angles in degrees, as the camera's."""
+    return camera_matrix({"x_rotation": x, "y_rotation": y, "z_rotation": z})
+
+
+def jitter(k, seed, a, b, cw, ch):
+    """Step 2b: the card's place jitter J and turn jitter Q."""
+    n = []
+    for j, name in enumerate(JITTER):
+        s = k["time"] * k[name + "_speed"]
+        i = math.floor(s)
+        f = s - i
+        e = f * f * f * (f * (6 * f - 15) + 10)
+        n.append(k[name + "_amount"] * ((1 - e) * unit(seed, a, b, i, 3 + j) +
+                                        e * unit(seed, a, b, i + 1, 3 + j)))
+    return [n[0] * cw, n[1] * ch, n[2] * cw], turns(n[3], n[4], n[5])
+
+
 def cards(k, grad):
-    """Steps 1 and 2: per card (a, b, cx, cy, axis, sin, cos), rows then columns."""
+    """Steps 1, 2 and 2b: per card (a, b, cx, cy, cw, ch, axis, sin, cos, J, Q), rows then
+    columns."""
     rows = rnd(k["rows"])
     cols = rows if k["rows_columns"] == "columns_follow_rows" else rnd(k["columns"])
     cw, ch = W / cols, H / rows
@@ -229,7 +267,8 @@ def cards(k, grad):
             if sign is None:
                 sign = -1 if unit(seed, a, b, 0, 2) < 0 else 1
             th = sign * p * math.pi
-            out.append((a, b, cx, cy, cw, ch, axis, math.sin(th), math.cos(th)))
+            out.append((a, b, cx, cy, cw, ch, axis, math.sin(th), math.cos(th))
+                       + jitter(k, seed, a, b, cw, ch))
     return out
 
 
@@ -246,9 +285,9 @@ def hits(k, deck, o, d, grow=0.0):
     found = []
     if sc == 0:
         return found
-    for i, (a, b, cx, cy, cw, ch, axis, s, c) in enumerate(deck):
-        o1 = [o[0] - (cx - W / 2), o[1] - (cy - H / 2), o[2]]
-        o2, d2 = inv(axis, s, c, o1), inv(axis, s, c, d)
+    for i, (a, b, cx, cy, cw, ch, axis, s, c, J, Q) in enumerate(deck):
+        o1 = [o[0] - (cx - W / 2) - J[0], o[1] - (cy - H / 2) - J[1], o[2] - J[2]]
+        o2, d2 = inv(axis, s, c, turn_t(Q, o1)), inv(axis, s, c, turn_t(Q, d))
         if d2[2] == 0:
             continue
         t = -o2[2] / d2[2]
@@ -271,7 +310,7 @@ def unit_vec(v):
 
 def shade(k, m, o, d, hit, drawing, back):
     """Steps 5 and 6 for the winning hit."""
-    t, _, (a, b, cx, cy, cw, ch, axis, s, c), lx, ly, front, _, _ = hit
+    t, _, (a, b, cx, cy, cw, ch, axis, s, c, J, Q), lx, ly, front, _, _ = hit
     sc = k["card_scale"]
     if front:
         px = L.bilinear(drawing, cx + lx / sc, cy + ly / sc)
@@ -285,7 +324,7 @@ def shade(k, m, o, d, hit, drawing, back):
     pl = turn_t(m, [lp[0] * W / 100 - W / 2, lp[1] * H / 100 - H / 2, -k["light_depth"] * W])
     h = [o[i] + t * d[i] for i in range(3)]
     lv = unit_vec(pl if k["light_type"] == "distant" else [pl[i] - h[i] for i in range(3)])
-    n = [0.0, s, -c] if axis == 0 else [-s, 0.0, -c]
+    n = turn(Q, [0.0, s, -c] if axis == 0 else [-s, 0.0, -c])
     if not front:
         n = [-q for q in n]
     vv = unit_vec([-q for q in d])
@@ -358,9 +397,9 @@ PIN_DEFAULTS = dict(CD.PIN_DEFAULTS, camera_system="camera_position")
 
 
 def case(shift=(0, 0), **kw):
-    c = dict(DEFAULTS, **PIN_DEFAULTS, shift=shift, given=set(kw))
+    c = dict(DEFAULTS, **PIN_DEFAULTS, **JITTER_DEFAULTS, shift=shift, given=set(kw))
     for n, v in kw.items():
-        assert n in DEFAULTS or n in PIN_DEFAULTS, n
+        assert n in DEFAULTS or n in PIN_DEFAULTS or n in JITTER_DEFAULTS, n
         c[n] = v
     return c
 
@@ -374,8 +413,10 @@ HALF = dict(transition_completion=50)
 
 
 def settings(c, frame):
-    k = {n: value_at(c[n], frame) for n in NUMBERS + CD.PINS}
+    k = {n: value_at(c[n], frame) for n in NUMBERS + CD.PINS + tuple(JITTER_DEFAULTS)}
     k.update({w: c[w] for w in WORDS + ("camera_system", "auto_focal_length")})
+    # D-1105: the layer's time from its in point (the holder begins at frame 0), 24 a second.
+    k["time"] = frame / 24
     return k
 
 
@@ -566,12 +607,60 @@ PIN_INVALID = {
     "FX-CW-069": ("Auto focal length \"maybe\".", grid(auto_focal_length="maybe", **PIN)),
 }
 
+# D-1105: Position Jitter and Rotation Jitter. 24 frames a second, so frames 0 to 4 are the
+# first sixth of a second; speed 6 is one new random place a sixth of a second.
+JIT_CASES = {
+    "FX-CW-070": ("All six jitter amounts written at 0 with every speed 3: FX-CW-004 exactly, "
+                  "on every frame.",
+                  grid(x_jitter_amount=0, y_jitter_amount=0, z_jitter_amount=0,
+                       x_rot_jitter_amount=0, y_rot_jitter_amount=0, z_rot_jitter_amount=0,
+                       x_jitter_speed=3, y_jitter_speed=3, z_jitter_speed=3,
+                       x_rot_jitter_speed=3, y_rot_jitter_speed=3, z_rot_jitter_speed=3,
+                       **BACK_HALF), (0, 4)),
+    "FX-CW-071": ("X Jitter Amount 0.3 at speed 6, not begun: each card slid sideways by up "
+                  "to 0.3 of a card, by a different amount on each frame.",
+                  grid(x_jitter_amount=0.3, x_jitter_speed=6), (0, 2, 4)),
+    "FX-CW-072": ("Y Jitter Amount 0.25 at speed 6 on FX-CW-004, with Z Jitter Amount 0.05 so "
+                  "no two cards lie in one plane.",
+                  grid(y_jitter_amount=0.25, y_jitter_speed=6, z_jitter_amount=0.05,
+                       z_jitter_speed=6, **BACK_HALF), (0, 4)),
+    "FX-CW-073": ("Z Jitter Amount 0.5 at speed 6 on FX-CW-004: the cards nearer and farther, "
+                  "so larger and smaller.",
+                  grid(z_jitter_amount=0.5, z_jitter_speed=6, **BACK_HALF), (0, 4)),
+    "FX-CW-074": ("X Rot Jitter Amount 20 at speed 6 on FX-CW-004: each card tipped about "
+                  "its x axis.",
+                  grid(x_rot_jitter_amount=20, x_rot_jitter_speed=6, **BACK_HALF), (0, 4)),
+    "FX-CW-075": ("Y Rot Jitter 20 and Z Rot Jitter 15 at speed 6, specular 1, sharpness 20, "
+                  "the light at [20, 30]: the turned cards lit by their own turn.",
+                  grid(y_rot_jitter_amount=20, y_rot_jitter_speed=6, z_rot_jitter_amount=15,
+                       z_rot_jitter_speed=6, specular_reflection=1, highlight_sharpness=20,
+                       light_position=[20, 30], **BACK_HALF), (0, 4)),
+    "FX-CW-076": ("All six at once, seed 5: X 0.2, Y 0.2, Z 0.3, the turns 10, 10 and 10, "
+                  "every speed 6.",
+                  grid(random_seed=5, x_jitter_amount=0.2, y_jitter_amount=0.2,
+                       z_jitter_amount=0.3, x_rot_jitter_amount=10, y_rot_jitter_amount=10,
+                       z_rot_jitter_amount=10, x_jitter_speed=6, y_jitter_speed=6,
+                       z_jitter_speed=6, x_rot_jitter_speed=6, y_rot_jitter_speed=6,
+                       z_rot_jitter_speed=6, **BACK_HALF), (0, 2, 4)),
+    "FX-CW-077": ("FX-CW-071 at speed 0: the cards slid but still, frame 4 the same as "
+                  "frame 0.", grid(x_jitter_amount=0.3, x_jitter_speed=0), (0, 4)),
+    "FX-CW-078": ("X Jitter Amount keyed 0 at frame 0 to 0.4 at frame 4, speed 1: frame 0 "
+                  "the picture, frame 4 slid.",
+                  grid(x_jitter_amount=keyed((0, 0), (4, 0.4))), (0, 4)),
+}
+JIT_INVALID = {
+    "FX-CW-079": ("X jitter amount -1, below 0.", grid(x_jitter_amount=-1)),
+    "FX-CW-080": ("Z jitter speed 11, above 10.", grid(z_jitter_speed=11)),
+    "FX-CW-081": ("Y rot jitter amount 361, above 360.", grid(y_rot_jitter_amount=361)),
+}
+
 
 def effect(fid, c):
     params = {w: c[w] for w in WORDS}
     params.update({n: setting_json(c[n]) for n in NUMBERS})
     params.update({n: setting_json(c[n]) for n in CD.PINS if n in c["given"]})
     params.update({w: c[w] for w in ("camera_system", "auto_focal_length") if w in c["given"]})
+    params.update({n: setting_json(c[n]) for n in JITTER_DEFAULTS if n in c["given"]})
     return {"instance_id": fid, "type_id": "core.card_wipe", "enabled": True,
             "parameters": params}
 
@@ -635,6 +724,21 @@ def main():
             "frames": {"0": before, "4": before}, "warning": "EFFECT_PARAMETER_INVALID"}
         print(f"{fx}: invalid")
 
+    for fx, (says, c, frames) in JIT_CASES.items():
+        step_clear(fx, c, frames)
+        expected["cases"][fx] = {"says": says, "project": write(
+            f"{fx.lower().replace('-', '_')}.json", project_json(fx, c)),
+            "frames": {str(f): render(c, f) for f in frames}}
+        print(f"{fx}: built")
+    for fx, (says, c) in JIT_INVALID.items():
+        says += (" The file is read, the effect is kept as written and left out of every frame, "
+                 "with a warning.")
+        before = plain(c)
+        expected["cases"][fx] = {"says": says, "project": write(
+            f"{fx.lower().replace('-', '_')}.json", project_json(fx, c)),
+            "frames": {"0": before, "4": before}, "warning": "EFFECT_PARAMETER_INVALID"}
+        print(f"{fx}: invalid")
+
     (OUT / "expected_card_wipe.json").write_text(json.dumps(expected, indent=1) + "\n",
                                                  encoding="utf-8")
     check(expected)
@@ -661,9 +765,8 @@ def step_clear(fx, c, frames):
         for y in range(H):
             for x in range(W):
                 d = ray(x, y)
-                for i, (a, b, cx, cy, cw, ch, axis, s, cc) in enumerate(deck):
-                    o1 = [o[0] - (cx - W / 2), o[1] - (cy - H / 2), o[2]]
-                    assert abs(inv(axis, s, cc, d)[2]) > 1e-9, (fx, f, x, y, i)
+                for i, (a, b, cx, cy, cw, ch, axis, s, cc, J, Q) in enumerate(deck):
+                    assert abs(inv(axis, s, cc, turn_t(Q, d))[2]) > 1e-9, (fx, f, x, y, i)
                 # A card's edge near the pixel must not matter: the colour is the same with
                 # every card a little larger or a little smaller.
                 pick = lambda g: [  # noqa: E731
@@ -685,14 +788,14 @@ def step_clear(fx, c, frames):
                             max(abs(p - q) for p, q in zip(c0, c1)) < 1e-12, (fx, f, x, y)
                 if found and k["specular_reflection"] > 0:
                     t, _, card, lx, ly, front, _, _ = found[0]
-                    axis, s, cc = card[6], card[7], card[8]
+                    axis, s, cc, Q = card[6], card[7], card[8], card[10]
                     lp = k["light_position"]
                     pl = turn_t(m, [lp[0] * W / 100 - W / 2, lp[1] * H / 100 - H / 2,
                                     -k["light_depth"] * W])
                     h = [o[j] + t * d[j] for j in range(3)]
                     lv = unit_vec(pl if k["light_type"] == "distant" else
                                   [pl[j] - h[j] for j in range(3)])
-                    n = [0.0, s, -cc] if axis == 0 else [-s, 0.0, -cc]
+                    n = turn(Q, [0.0, s, -cc] if axis == 0 else [-s, 0.0, -cc])
                     nl = sum(n[j] * lv[j] for j in range(3))
                     assert abs(nl) > 1e-6, (fx, f, x, y)
 
@@ -758,6 +861,17 @@ def check(expected):
     assert not near(c["FX-CW-058"]["0"], c["FX-CW-059"]["0"], 1e-6)
     assert near(c["FX-CW-060"]["0"], c["FX-CW-061"]["0"], 1e-12)
     assert near(c["FX-CW-063"]["0"], c["FX-CW-059"]["0"], 1e-12)
+    # D-1105: jitter at 0 is the cards as before; it moves them, frame by frame at a speed,
+    # and holds them still at speed 0.
+    assert near(c["FX-CW-070"]["0"], b4, 1e-12) and near(c["FX-CW-070"]["4"], b4, 1e-12)
+    j = c["FX-CW-071"]
+    assert not near(j["0"], drawn, 1e-6) and not near(j["0"], j["4"], 1e-6)
+    assert not near(j["2"], j["4"], 1e-6)
+    for fx in ("FX-CW-072", "FX-CW-073", "FX-CW-074", "FX-CW-075", "FX-CW-076"):
+        assert not near(c[fx]["0"], b4, 1e-6) and not near(c[fx]["0"], c[fx]["4"], 1e-6), fx
+    assert near(c["FX-CW-077"]["0"], c["FX-CW-077"]["4"], 1e-12)
+    assert not near(c["FX-CW-077"]["0"], drawn, 1e-6)
+    assert near(c["FX-CW-078"]["0"], drawn) and not near(c["FX-CW-078"]["4"], drawn, 1e-6)
     print("checks passed")
 
 
