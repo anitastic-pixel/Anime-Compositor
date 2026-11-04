@@ -66,8 +66,15 @@ def u(seed, x, y, f, ch):
     return (h >> 11) / 2 ** 53 * 2 - 1
 
 
-def noise(pixels, amount, mode, seed, animate, frame_no, width=W):
+def wrap(v):
+    """D-1078, Clip Result Values off: past white round to black, below black round to white.
+    The grain is at most 0.5 either way, so one turn is enough."""
+    return v - 1 if v > 1 else v + 1 if v < 0 else v
+
+
+def noise(pixels, amount, mode, seed, animate, frame_no, width=W, clip="on"):
     """`pixels` is the drawing, `width` wide, row by row, its top-left pixel at (0, 0)."""
+    hold = (lambda v: min(1.0, max(0.0, v))) if clip == "on" else wrap
     out = [R.working(p) for p in pixels]
     if amount == 0:
         return out  # the build exits early
@@ -78,7 +85,7 @@ def noise(pixels, amount, mode, seed, animate, frame_no, width=W):
             x, y = i % width, i // width
             e = [S.linear_to_srgb(min(1.0, max(0.0, v / a))) for v in w[:3]]
             n = [u(seed, x, y, f, 0 if mode == "mono" else ch) for ch in range(3)]
-            w[:3] = [srgb_to_linear(min(1.0, max(0.0, e[ch] + amount / 100 * 0.5 * n[ch]))) * a
+            w[:3] = [srgb_to_linear(hold(e[ch] + amount / 100 * 0.5 * n[ch])) * a
                      for ch in range(3)]
     return out
 
@@ -118,9 +125,10 @@ DRAWINGS = {"card": [[card(x, y) for x in range(W)] for y in range(H)]}
 
 # --- the cases ------------------------------------------------------------------------------
 
-def case(amount=10, mode="mono", seed=0, animate="on", shift=0):
+def case(amount=10, mode="mono", seed=0, animate="on", shift=0, clip=None):
+    """`clip` None leaves the word out of the file, as one saved before D-1078 is."""
     return {"drawing": "card", "amount": amount, "mode": mode, "seed": seed,
-            "animate": animate, "shift": shift}
+            "animate": animate, "shift": shift, "clip": clip}
 
 
 def held(c, k, frame_no):
@@ -131,7 +139,8 @@ def held(c, k, frame_no):
 def render(c, frame_no):
     pixels = [p for row in DRAWINGS[c["drawing"]] for p in row]
     return R.frame(noise(pixels, held(c, "amount", frame_no), c["mode"],
-                         held(c, "seed", frame_no), c["animate"], frame_no), c["shift"])
+                         held(c, "seed", frame_no), c["animate"], frame_no,
+                         clip=c["clip"] or "on"), c["shift"])
 
 
 def plain(c):
@@ -176,6 +185,17 @@ CASES = {
                      "drawing's own space, so it moves with the drawing, frame by frame; each "
                      "frame is FX-NOISE-001's, moved.",
                      case(shift=3), [0, 2, 4]),
+    "FX-NOISE-019": ("D-1078, Clip Result Values off, amount 100, color: where the grain "
+                     "would lighten the white patch past white the channel wraps round to "
+                     "dark, and where it would darken the black patch past black it wraps "
+                     "round to light; a channel the grain keeps inside 0..1 is FX-NOISE-009's.",
+                     case(amount=100, mode="color", animate="off", clip="off"), [0]),
+    "FX-NOISE-020": ("D-1078, Clip Result Values on, written in the file: FX-NOISE-009, which "
+                     "has no clip word.",
+                     case(amount=100, mode="color", animate="off", clip="on"), [0]),
+    "FX-NOISE-021": ("D-1078, Clip Result Values off at the defaults, amount 10, mono: only a "
+                     "channel within 0.05 of white or black can wrap.",
+                     case(animate="off", clip="off"), [0]),
 }
 
 # Outside the contract in a file. D-46: the file is read, the effect is kept as written and left
@@ -188,6 +208,7 @@ INVALID = {
     "FX-NOISE-017": ("Mode \"Mono\", in capitals, which is kept as written and is not the word.",
                      case(mode="Mono")),
     "FX-NOISE-018": ("Animate \"yes\", which is not a choice.", case(animate="yes")),
+    "FX-NOISE-022": ("D-1078: clip \"wrap\", which is not a choice.", case(clip="wrap")),
 }
 
 
@@ -204,7 +225,8 @@ def project_json(fx, c):
     t["position"] = prop([W / 2 + c["shift"], H / 2])
     comp["layers"][0]["effects"] = [{
         "instance_id": "fx-0-0", "type_id": "core.noise", "enabled": True,
-        "parameters": {k: setting_json(c[k]) for k in ("amount", "mode", "seed", "animate")}}]
+        "parameters": {k: setting_json(c[k]) for k in ("amount", "mode", "seed", "animate", "clip")
+                       if c[k] is not None}}]
     return p
 
 
@@ -312,6 +334,35 @@ def check(expected):
         for y in range(H):
             assert moved[f][at(3, y):at(0, y + 1)] == one[f][at(0, y):at(W - 3, y)]
             assert moved[f][at(0, y):at(3, y)] == [[0.0] * 4] * 3
+    # D-1078: wrapping only where clipping would have held the channel.
+    wrapped = c["FX-NOISE-019"]["0"]
+    assert c["FX-NOISE-020"]["0"] == nine
+    turned = 0
+    for i in shown:
+        for ch in range(3):
+            v = enc(drawn[i])[ch] + 0.5 * u(0, i % W, i // W, 0, ch)
+            if 0 <= v <= 1:
+                assert wrapped[i][ch] == nine[i][ch]
+            else:
+                turned += 1
+                assert wrapped[i][ch] != nine[i][ch]
+                assert near([S.linear_to_srgb(wrapped[i][ch] / drawn[i][3])],
+                            [v - 1 if v > 1 else v + 1], 1e-9)
+    for i in whites + blacks:
+        for ch in range(3):
+            n = u(0, i % W, i // W, 0, ch)
+            if i in whites and n > 0:
+                assert wrapped[i][ch] < 0.5  # past white, round to dark
+            if i in blacks and n < 0:
+                assert wrapped[i][ch] > 0.2  # below black, round to light
+    assert turned >= 12
+    small = c["FX-NOISE-021"]["0"]
+    for i in shown:
+        for ch in range(3):
+            v = enc(drawn[i])[ch] + 0.05 * u(0, i % W, i // W, 0, 0)
+            if 0 <= v <= 1:
+                assert small[i][ch] == two["0"][i][ch]
+    assert small != two["0"]
     for name, frames in c.items():
         for px in frames.values():
             for p in px:
