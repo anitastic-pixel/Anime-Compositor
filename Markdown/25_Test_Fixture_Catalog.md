@@ -225122,3 +225122,19 @@ FX-TXP-012: Two lines: each starts at the path's start, the second a line lower.
 FX-TXP-020 (`fx_txp_020.json`): First Margin keyed 0 at frame 0 to 500 at frame 10, linear. Frames 0, 5 and 10 are First Margin 0, 250 and 500.
 
 FX-TXP-021 (`fx_txp_021.json`): Path is mask 3 on a layer with one mask. Warning `EFFECT_PATH_MISSING` every frame; the words are drawn where they are without a path.
+
+### Create Shapes and Masks from Text (D-1086)
+
+After After Effects' Layer > Create > Create Shapes from Text and Create Masks from Text (B-966; wave 12, lane w12y, gaps G4 and G8). The rule is D-1086's in `tools/text_outlines_reference.py`, which reads the bundled M PLUS Rounded 1c's outlines with fontTools and lays the words out as `tools/text_animator_reference.py` does. For every character of every case, `Fixtures/text_outlines/expected_text_outlines.json` gives its contours as Bezier nodes [x, y, in x, in y, out x, out y] (handles relative to their node), each marked hole or not, within 1e-6 pixel, compared as closed loops from whichever node; and the masks Create Masks from Text makes, by name and mode, in order.
+
+FX-TXO-001: "Text ext": one group per letter and none for the space; T, x and t one contour each, e two (its eye a hole).
+
+FX-TXO-002: "O8B" in orange: each outer contour Add and each inside Subtract.
+
+FX-TXO-003: "AB" over "CD", centred at 640, 200: the second line a line lower, each centred.
+
+FX-TXO-004: "Spin" with a Text Animator (Rotation 30, Position 10, -20, a red fill) on every letter: the outlines are where the letters are drawn, red.
+
+FX-TXO-020 (`fx_txo_020.json`): the text layer "Title", "Hi O" in light blue, position 700, 380, rotation 10, frames 2 to 20. Each command adds "Title Outlines" just above it with that position, rotation and times and switches Title off. Shapes: groups H, i, O with 1, 2 and 2 paths, filled light blue. Masks: H Add, i Add, i Add, O Add, O Subtract.
+
+FX-TXO-021 (`fx_txo_021.json`): words that are only spaces: both commands are refused, saying so, and nothing is added.
