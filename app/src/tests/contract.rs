@@ -3541,6 +3541,7 @@ const EFFECT_KINDS: &[(&str, &[(&str, &str)])] = &[
             ("animation", "vortex"),
             ("influence_map", "out"),
             ("light_type", "point"),
+            ("rule", "d674"),
             ("light_color", "%23ff8000"),
         ],
     ),

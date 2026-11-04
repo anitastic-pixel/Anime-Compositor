@@ -6814,9 +6814,8 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             words: HAIR_WORDS.map(|w| w.2.to_string()),
             hair_color: "#7a4e2d".into(),
         }),
-        // D-674: as added (ours, CycoreFX gives no values we found): twenty drops a second
-        // thrown every way from the middle and falling, swelling in and shrinking out over two
-        // seconds, lit white from the top left.
+        // D-674: as added, lit white from the top left. D-1065: CC Mr. Mercury's numbers as
+        // added (9BTluTNBsGQ at 3:36), under the After Effects rule.
         MERCURY => Some(Effect::Mercury {
             values: MERCURY_SETTINGS.map(|s| s.3),
             words: MERCURY_WORDS.map(|w| w.2.to_string()),
@@ -10273,9 +10272,10 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             for (v, s) in values.iter_mut().zip(MERCURY_SETTINGS) {
                 *v = number(s.0)?;
             }
-            let mut words: [String; 3] = Default::default();
+            // D-1065: a panel of a file written before the rule sends none: D-674's.
+            let mut words: [String; 4] = Default::default();
             for (w, s) in words.iter_mut().zip(MERCURY_WORDS) {
-                *w = word(s.0)?;
+                *w = if s.0 == "rule" { word(s.0).unwrap_or_else(|_| "d674".into()) } else { word(s.0)? };
             }
             Ok(Effect::Mercury { values, words, light_color: word("light_color")?, clock: [0.0; 2], history: None })
         }

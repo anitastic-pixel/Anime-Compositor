@@ -8055,10 +8055,11 @@ fn hair(@builtin(global_invocation_id) id: vec3<u32>) {
 // D-674, simulate::mercury, a pixel a thread: the drops of its 16 by 16 tile in order (k: k[0]
 // where the shared numbers start, k[6] the count, the drops from 7, SPRITE_STRIDE each, [3, x, y, rho, r,
 // x_0, y_0, u_2, ..], then each tile's start and the lists, then simulate::mercury_light's
-// fifteen numbers), each live drop's birthplace read for whether it lives and its colour, the
+// sixteen numbers), each live drop's birthplace read for whether it lives and its colour, the
 // metaball field, its slope and the colour summed, the surface's edge a pixel soft and lit by
 // Drizzle's light. Where no drop covers, clear. The highlight's power is single precision, as
-// Glue Gun's.
+// Glue Gun's. D-1065: under After Effects' rule (the sixteenth 1) every drop lives and the colour
+// is the layer's under the pixel, bent along the surface, with its transparency.
 @compute @workgroup_size(16, 16)
 fn mercury(@builtin(global_invocation_id) id: vec3<u32>) {
     let size = textureDimensions(output);
@@ -8077,6 +8078,7 @@ fn mercury(@builtin(global_invocation_id) id: vec3<u32>) {
     var fy = 0.0lf;
     var wt = 0.0lf;
     var cs = vec3(0.0lf);
+    let ae = k[g + 15u] == 1.0lf;
     for (var j = u32(k[o + t]); j < u32(k[o + t + 1u]); j++) {
         let s = 7u + SPRITE_STRIDE * u32(k[o + nt + 1u + j]);
         let dx = x - k[s + 1u];
@@ -8086,9 +8088,12 @@ fn mercury(@builtin(global_invocation_id) id: vec3<u32>) {
         if q2 >= 1.0lf {
             continue;
         }
-        let c = hair_root(k[s + 5u] + f64(F.ox), k[s + 6u] + f64(F.oy));
-        if !(k[s + 7u] < c.w) {
-            continue;
+        var c = vec4(0.0lf, 0.0lf, 0.0lf, 1.0lf);
+        if !ae {
+            c = hair_root(k[s + 5u] + f64(F.ox), k[s + 6u] + f64(F.oy));
+            if !(k[s + 7u] < c.w) {
+                continue;
+            }
         }
         let one = 1.0lf - q2;
         let ff = one * one;
@@ -8112,13 +8117,22 @@ fn mercury(@builtin(global_invocation_id) id: vec3<u32>) {
         textureStore(output, id.xy, vec4(0.0));
         return;
     }
-    let col = cs / field;
+    var col = cs / field;
     let cc = wt / field;
     let nv = vec3(-cc * fx, -cc * fy, 2.0lf * sqrt(max(field - edge, 0.0lf)));
     let nlen = sqrt(nv.x * nv.x + nv.y * nv.y + nv.z * nv.z);
     var n = vec3(0.0lf, 0.0lf, 1.0lf);
     if nlen > 0.0lf {
         n = nv / nlen;
+    }
+    if ae {
+        let c = hair_root(x + n.x * cc / 4.0lf + f64(F.ox), y + n.y * cc / 4.0lf + f64(F.oy));
+        if c.w <= 0.0lf {
+            textureStore(output, id.xy, vec4(0.0));
+            return;
+        }
+        col = c.xyz / c.w;
+        cov *= c.w;
     }
     var lv = vec3(k[g + 12u], k[g + 13u], k[g + 14u]);
     if k[g + 11u] == 1.0lf {
@@ -25443,14 +25457,20 @@ impl Gpu {
                             // in point's longevity), eleven numbers each and a place in a tile's list
                             // or several, its tiles' starts and the light.
                             crate::effects::Effect::Mercury {
-                                values, history, ..
+                                values, history, words, ..
                             } => {
+                                // D-1065: After Effects' numbers in the d674 rule's units.
+                                let sc = if words[3] == "after_effects" {
+                                    crate::effects::MERCURY_AE_SCALE
+                                } else {
+                                    [1.0; 24]
+                                };
                                 let most = |i: usize| {
                                     history.as_deref().map_or(values[i], |hs| {
                                         hs.iter().fold(values[i], |m, v| m.max(v[i]))
-                                    })
+                                    }) * sc[i]
                                 };
-                                let rate = most(0).clamp(0.0, 1000.0);
+                                let rate = most(0).clamp(0.0, 2000.0);
                                 let life = history
                                     .as_deref()
                                     .and_then(|hs| hs.first())
@@ -25467,7 +25487,7 @@ impl Gpu {
                                     + n * (crate::particles::STRIDE as f64 + reach)
                                     + tiles
                                     + 1.0
-                                    + 15.0)
+                                    + 16.0)
                                     * 8.0) as u64
                             }
                             // D-675: Polygon Shards' shards, a cell or two each, ten and sixteen

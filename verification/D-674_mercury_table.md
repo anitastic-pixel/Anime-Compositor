@@ -152,7 +152,7 @@ B-553, after CycoreFX's CC Mr. Mercury (Simulation): the layer turned into drops
 | fx_mercury_032.json is refused in a sentence naming gravity | Mercury's gravity runs from -1000 to 1000, and this is 1001. | yes |
 | fx_mercury_033.json is refused in a sentence naming blob influence | Mercury's blob influence runs from 0 to 400, and this is 401. | yes |
 | fx_mercury_034.json is refused in a sentence naming death size | Mercury's death size runs from 0 to 1000, and this is 1001. | yes |
-| fx_mercury_035.json is refused in a sentence naming animation | Mercury's animation is explosive, direction, twirl, vortex, fixed, and this is "spin". | yes |
+| fx_mercury_035.json is refused in a sentence naming animation | Mercury's animation is explosive, fractal_explosive, twirl, twirly, vortex, fire, direction, direction_normalized, bi_directional, bi_directional_normalized, jet, jet_sideways, fixed, and this is "spin". | yes |
 | fx_mercury_036.json is refused in a sentence naming influence map | Mercury's influence map is in_out, in, out, constant, and this is "both". | yes |
 | fx_mercury_037.json is refused in a sentence naming light colour | Mercury's light colour is written #rrggbb, and this is "silver". | yes |
 | fx_mercury_038.json is refused in a sentence naming gravity | Mercury's gravity runs from -1000 to 1000, and this is 2000. | yes |

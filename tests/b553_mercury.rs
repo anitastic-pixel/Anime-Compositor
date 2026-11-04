@@ -179,6 +179,20 @@ fn parameters(p: &J) -> J {
         all[name] = J::from(start);
     }
     all["light_color"] = J::from("#ffffff");
+    // D-1065: D-674's rule and its numbers as added then, so this table draws as it did.
+    all["rule"] = J::from("d674");
+    for (name, start) in [
+        ("birth_rate", 20.0),
+        ("radius_x", 10.0),
+        ("radius_y", 10.0),
+        ("velocity", 50.0),
+        ("extra", 50.0),
+        ("gravity", 50.0),
+        ("birth_size", 100.0),
+        ("death_size", 50.0),
+    ] {
+        all[name] = J::from(start);
+    }
     for (k, v) in p.as_object().unwrap() {
         all[k] = v.clone();
     }

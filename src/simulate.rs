@@ -623,8 +623,17 @@ pub(crate) fn hair(source: &mut WorkingBuffer, e: &Effect, (ox, oy): (usize, usi
         });
 }
 
-/// D-674: Mercury's settings held inside their ranges.
-fn mercury_held(v: &[f64; 24]) -> [f64; 24] {
+/// D-674: Mercury's settings held inside their ranges, in the `d674` rule's units. D-1065: under
+/// the `after_effects` rule each is After Effects' number times [`MERCURY_AE_SCALE`], then held
+/// in the same ranges but Birth Rate's, up to 2000 drops a second (After Effects' 100).
+pub(crate) fn mercury_held(v: &[f64; 24], rule: &str) -> [f64; 24] {
+    if rule == "after_effects" {
+        return std::array::from_fn(|k| {
+            let hi = if k == 0 { 2000.0 } else { MERCURY_SETTINGS[k].2 };
+            (v[k].clamp(MERCURY_SETTINGS[k].1, MERCURY_SETTINGS[k].2) * crate::effects::MERCURY_AE_SCALE[k])
+                .clamp(MERCURY_SETTINGS[k].1, hi)
+        });
+    }
     std::array::from_fn(|k| v[k].clamp(MERCURY_SETTINGS[k].1, MERCURY_SETTINGS[k].2))
 }
 
@@ -658,9 +667,12 @@ pub(crate) fn mercury_list(e: &Effect, w: f64, h: f64) -> Vec<f64> {
         unreachable!("Mercury of another effect")
     };
     let history = history.as_deref().map(|h| h.as_slice());
-    let at_frame = |m: usize| mercury_held(history.map_or(values, |h| &h[m.min(h.len() - 1)]));
+    let rule = words[3].as_str();
+    let ae = rule == "after_effects";
+    let at_frame =
+        |m: usize| mercury_held(history.map_or(values, |h| &h[m.min(h.len() - 1)]), rule);
     let life = at_frame(0)[1];
-    let big_a = mercury_held(values)[11] / 100.0;
+    let big_a = mercury_held(values, rule)[11] / 100.0;
     let mut k = vec![0.0; HEAD];
     if *u < 0.0 || *fps <= 0.0 || life == 0.0 {
         return k;
@@ -698,8 +710,49 @@ pub(crate) fn mercury_list(e: &Effect, w: f64, h: f64) -> Vec<f64> {
         };
         let g = v[9] / 100.0 * h * f2;
         let (ox, oy) = (x0 - px, y0 - py);
+        // D-1065: the fractal ways' wobble, a twentieth of the height, nothing at birth.
+        let wob = || {
+            let q = tau * a;
+            (
+                h / 20.0 * ((tau * at(5) + q).sin() - (tau * at(5)).sin()),
+                h / 20.0 * ((tau * at(6) + 1.3 * q).sin() - (tau * at(6)).sin()),
+            )
+        };
+        // D-1065: half the drops the other way, for the two-way ways.
+        let back = if at(5) < 0.5 { 180.0 } else { 0.0 };
         let (x, y) = match words[0].as_str() {
             "fixed" => (x0, y0),
+            "fractal_explosive" => {
+                let (wx, wy) = wob();
+                let (dx, dy) = ((tau * at(4)).cos(), (tau * at(4)).sin());
+                (x0 + sp * dx * f1 + wx, y0 + sp * dy * f1 + g + wy)
+            }
+            // Thrown up within 20 degrees, rising, drawn in toward the producer, wobbling.
+            "fire" => {
+                let (wx, wy) = wob();
+                let (dx, dy) = crate::blurs::along((at(4) - 0.5) * 40.0);
+                (
+                    px + ox * (-2.0 * a).exp() + sp * dx * f1 + wx,
+                    y0 + sp * dy * f1 - g + wy,
+                )
+            }
+            "direction_normalized" | "bi_directional" | "bi_directional_normalized" | "jet"
+            | "jet_sideways" => {
+                let w = words[0].as_str();
+                let turn = match w {
+                    "jet" => (at(4) - 0.5) * 10.0,
+                    "jet_sideways" => 90.0 + back + (at(4) - 0.5) * 10.0,
+                    "direction_normalized" => (at(4) - 0.5) * 90.0 * v[8] / 100.0,
+                    _ => back + (at(4) - 0.5) * 90.0 * v[8] / 100.0,
+                };
+                let speed = if w.ends_with("normalized") {
+                    v[7] / 100.0 * h
+                } else {
+                    sp
+                };
+                let (dx, dy) = crate::blurs::along(v[6] + turn);
+                (x0 + speed * dx * f1, y0 + speed * dy * f1 + g)
+            }
             "vortex" => {
                 let rad = ox.hypot(oy) + sp / 2.0 * f1;
                 let ang = oy.atan2(ox) + tau * sp / h * f1;
@@ -718,6 +771,8 @@ pub(crate) fn mercury_list(e: &Effect, w: f64, h: f64) -> Vec<f64> {
                         }
                     }
                 };
+                // D-1065: Twirly, each drop turning at its own rate.
+                let sp = if anim == "twirly" { sp * 2.0 * at(5) } else { sp };
                 (x0 + sp * dx * f1, y0 + sp * dy * f1 + g)
             }
         };
@@ -726,6 +781,7 @@ pub(crate) fn mercury_list(e: &Effect, w: f64, h: f64) -> Vec<f64> {
         if r <= 0.0 {
             continue;
         }
+        // D-1065: under After Effects' rule a drop lives wherever it is born.
         k.extend([
             3.0,
             x,
@@ -734,7 +790,7 @@ pub(crate) fn mercury_list(e: &Effect, w: f64, h: f64) -> Vec<f64> {
             r,
             x0,
             y0,
-            at(2),
+            if ae { -1.0 } else { at(2) },
             0.0,
             0.0,
             0.0,
@@ -747,8 +803,9 @@ pub(crate) fn mercury_list(e: &Effect, w: f64, h: f64) -> Vec<f64> {
 /// influence as a share and the field's surface, the light's colour in linear light, its
 /// intensity, ambient, diffuse, specular, metal and roughness, 1 for a point light, then the
 /// point light's place in the drawing's own pixels and its height, or the distant light's
-/// direction times 100 and its height. `w` and `h` the drawing's size.
-pub(crate) fn mercury_light(e: &Effect, w: f64, h: f64) -> [f64; 15] {
+/// direction times 100 and its height; then, D-1065, 1 under After Effects' rule, where the drops
+/// show the layer where they are. `w` and `h` the drawing's size.
+pub(crate) fn mercury_light(e: &Effect, w: f64, h: f64) -> [f64; 16] {
     let Effect::Mercury {
         values,
         words,
@@ -758,7 +815,7 @@ pub(crate) fn mercury_light(e: &Effect, w: f64, h: f64) -> [f64; 15] {
     else {
         unreachable!("Mercury of another effect")
     };
-    let v = mercury_held(values);
+    let v = mercury_held(values, &words[3]);
     let lc = crate::effects::encoded(light_color).map(crate::grade::to_linear);
     let (ux, uy) = crate::blurs::along(v[18]);
     let point = words[2] == "point";
@@ -785,6 +842,7 @@ pub(crate) fn mercury_light(e: &Effect, w: f64, h: f64) -> [f64; 15] {
         lx,
         ly,
         v[15],
+        (words[3] == "after_effects") as u8 as f64,
     ]
 }
 
@@ -801,8 +859,9 @@ pub(crate) fn mercury(source: &mut WorkingBuffer, e: &Effect, (ox, oy): (usize, 
         return;
     }
     let k = mercury_list(e, w0 as f64, h0 as f64);
-    let [_, edge, lr, lg, lb, inten, amb, dif, spc, metal, rough, point, lx, ly, lz] =
+    let [_, edge, lr, lg, lb, inten, amb, dif, spc, metal, rough, point, lx, ly, lz, ae] =
         mercury_light(e, w0 as f64, h0 as f64);
+    let ae = ae == 1.0;
     let lc = [lr, lg, lb];
     let unit = |v: [f64; 3]| {
         let l = (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt();
@@ -863,8 +922,10 @@ pub(crate) fn mercury(source: &mut WorkingBuffer, e: &Effect, (ox, oy): (usize, 
                         fx += -4.0 * one * dx / (rho * rho);
                         fy += -4.0 * one * dy / (rho * rho);
                         wt += ff * rho;
-                        for ch in 0..3 {
-                            cs[ch] += ff * col[ch];
+                        if !ae {
+                            for ch in 0..3 {
+                                cs[ch] += ff * col[ch];
+                            }
                         }
                     }
                     let gl = fx.hypot(fy);
@@ -881,13 +942,25 @@ pub(crate) fn mercury(source: &mut WorkingBuffer, e: &Effect, (ox, oy): (usize, 
                         px.fill(0.0);
                         continue;
                     }
-                    let col = cs.map(|c| c / f);
                     let cc = wt / f;
                     let nv = [-cc * fx, -cc * fy, 2.0 * (f - edge).max(0.0).sqrt()];
                     let nn = if nv.iter().any(|&c| c != 0.0) {
                         unit(nv)
                     } else {
                         [0.0, 0.0, 1.0]
+                    };
+                    // D-1065: After Effects' rule shows the layer under the drop, bent by a
+                    // quarter of the drops' reach along the surface's slope, with its own
+                    // transparency.
+                    let (col, cov) = if ae {
+                        let c = read(x + nn[0] * cc / 4.0, y + nn[1] * cc / 4.0);
+                        if c[3] <= 0.0 {
+                            px.fill(0.0);
+                            continue;
+                        }
+                        ([c[0] / c[3], c[1] / c[3], c[2] / c[3]], cov * c[3])
+                    } else {
+                        (cs.map(|c| c / f), cov)
                     };
                     let l = if point == 1.0 {
                         unit([lx - x, ly - y, lz])

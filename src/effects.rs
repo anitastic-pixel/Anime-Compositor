@@ -3820,7 +3820,7 @@ pub enum Effect {
     /// saved, filled by compose as Bubbles' are (document 20).
     Mercury {
         values: [f64; 24],
-        words: [String; 3],
+        words: [String; 4],
         light_color: String,
         clock: [f64; 2],
         history: Option<std::sync::Arc<Vec<[f64; 24]>>>,
@@ -6461,22 +6461,24 @@ pub const MERCURY: &str = "core.mercury";
 /// cent of its height; direction in degrees; velocity in per cent of the height a second; extra,
 /// the randomness, in per cent; gravity in per cent of the height a second a second; resistance
 /// in hundredths a second; blob influence in per cent; the sizes in per cent of a twentieth of
-/// the height; then Drizzle's light and shading.
+/// the height; then Drizzle's light and shading. Those are the `d674` rule's units; D-1065's
+/// `after_effects` rule reads After Effects' numbers, each times [`MERCURY_AE_SCALE`], and its
+/// settings when added are CC Mr. Mercury's as added.
 pub const MERCURY_SETTINGS: [(&str, f64, f64, f64); 24] = [
-    ("birth_rate", 0.0, 1000.0, 20.0),
+    ("birth_rate", 0.0, 1000.0, 1.0),
     ("longevity", 0.0, 100.0, 2.0),
     ("producer_x", -1000.0, 1000.0, 50.0),
     ("producer_y", -1000.0, 1000.0, 50.0),
-    ("radius_x", 0.0, 1000.0, 10.0),
-    ("radius_y", 0.0, 1000.0, 10.0),
+    ("radius_x", 0.0, 1000.0, 5.0),
+    ("radius_y", 0.0, 1000.0, 5.0),
     ("direction", -3600.0, 3600.0, 0.0),
-    ("velocity", 0.0, 1000.0, 50.0),
-    ("extra", 0.0, 100.0, 50.0),
-    ("gravity", -1000.0, 1000.0, 50.0),
+    ("velocity", 0.0, 1000.0, 1.0),
+    ("extra", 0.0, 100.0, 1.0),
+    ("gravity", -1000.0, 1000.0, 1.0),
     ("resistance", 0.0, 1000.0, 0.0),
     ("blob_influence", 0.0, 400.0, 100.0),
-    ("birth_size", 0.0, 1000.0, 100.0),
-    ("death_size", 0.0, 1000.0, 50.0),
+    ("birth_size", 0.0, 1000.0, 0.15),
+    ("death_size", 0.0, 1000.0, 0.75),
     ("light_intensity", 0.0, 400.0, 100.0),
     ("light_height", -1000.0, 1000.0, 100.0),
     ("light_position_x", -1000.0, 1000.0, 30.0),
@@ -6488,11 +6490,58 @@ pub const MERCURY_SETTINGS: [(&str, f64, f64, f64); 24] = [
     ("roughness", 0.001, 1.0, 0.05),
     ("metal", 0.0, 100.0, 100.0),
 ];
-/// D-674: Mercury's words: name, the words, the word when added.
-pub const MERCURY_WORDS: [(&str, &[&str], &str); 3] = [
+/// D-1065: what one of After Effects' numbers is in the `d674` rule's units, setting by setting:
+/// Birth Rate 1 twenty drops a second, the radii pixels at 1080 high, Velocity 1 a quarter of the
+/// height a second, Extra 1 our 50, Gravity 1 a tenth of the height a second a second,
+/// Resistance 1 one a second, the sizes 1 a radius of a twentieth of the height. Ours, matched
+/// by eye to 9BTluTNBsGQ; CycoreFX publishes none.
+pub const MERCURY_AE_SCALE: [f64; 24] = [
+    20.0,
+    1.0,
+    1.0,
+    1.0,
+    100.0 / 1080.0,
+    100.0 / 1080.0,
+    1.0,
+    25.0,
+    50.0,
+    10.0,
+    100.0,
+    1.0,
+    100.0,
+    100.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+    1.0,
+];
+/// D-674: Mercury's words: name, the words, the word when added. D-1065 added CC Mr. Mercury's
+/// other seven ways to move and the `rule`, `after_effects` when added and `d674` for a file
+/// written before it.
+pub const MERCURY_WORDS: [(&str, &[&str], &str); 4] = [
     (
         "animation",
-        &["explosive", "direction", "twirl", "vortex", "fixed"],
+        &[
+            "explosive",
+            "fractal_explosive",
+            "twirl",
+            "twirly",
+            "vortex",
+            "fire",
+            "direction",
+            "direction_normalized",
+            "bi_directional",
+            "bi_directional_normalized",
+            "jet",
+            "jet_sideways",
+            "fixed",
+        ],
         "explosive",
     ),
     (
@@ -6501,6 +6550,7 @@ pub const MERCURY_WORDS: [(&str, &[&str], &str); 3] = [
         "in_out",
     ),
     ("light_type", &["distant", "point"], "distant"),
+    ("rule", &["after_effects", "d674"], "after_effects"),
 ];
 pub const POLYGON_SHARDS: &str = "core.polygon_shards";
 /// D-675: Polygon Shards' keyable settings, in the order `values` holds them: name, lowest,

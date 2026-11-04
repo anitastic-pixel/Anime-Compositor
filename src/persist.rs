@@ -5114,8 +5114,12 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             for ((name, ..), v) in crate::effects::MERCURY_SETTINGS.iter().zip(values) {
                 params.insert((*name).into(), num(*v));
             }
+            // D-1065: the rule saved only when it is After Effects', so an older file saves as
+            // it was written.
             for ((name, ..), w) in crate::effects::MERCURY_WORDS.iter().zip(words) {
-                params.insert((*name).into(), J::from(w.as_str()));
+                if *name != "rule" || w != "d674" {
+                    params.insert((*name).into(), J::from(w.as_str()));
+                }
             }
             params.insert("light_color".into(), J::from(light_color.as_str()));
         }
@@ -11786,9 +11790,14 @@ fn parse_effect(
             {
                 *v = effect_number(params, name, at)?;
             }
-            let mut words: [String; 3] = Default::default();
+            // D-1065: a file without a rule was written under D-674's.
+            let mut words: [String; 4] = Default::default();
             for ((name, ..), w) in crate::effects::MERCURY_WORDS.iter().zip(words.iter_mut()) {
-                *w = effect_word(params, name, at)?;
+                *w = if *name == "rule" {
+                    effect_word_or(params, name, at, "d674")?
+                } else {
+                    effect_word(params, name, at)?
+                };
             }
             let light_color = effect_word(params, "light_color", at)?.to_ascii_lowercase();
             Some(crate::effects::Effect::Mercury {
