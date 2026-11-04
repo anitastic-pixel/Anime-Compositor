@@ -224918,3 +224918,24 @@ FX-IRIS-043 (`fx_iris_043.json`): Inner Radius 100001, above 100000. The file is
 FX-IRIS-044 (`fx_iris_044.json`): Use Inner Radius "yes", not "off" or "on". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-IRIS-045 (`fx_iris_045.json`): Rotation 100001, past the most. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Three-part position expressions on flat layers (D-1046)
+
+Printed by `python tools/expression_reference.py --three-part`, which ends "checked". Each row puts one expression on a property of `Fixtures/projects/expression_project.json` (Shake's position, held at (960, 540), its own expression replaced; or Spin's rotation, 0) and gives the value in the file's units at frames 0, 12 and 24, then the diagnostic. A refused expression shows the keyed value it is drawn with. `\n` is a line break. The first row is the position expression of the tutorial nlgsV151IVU at 2:10. Numbers agree to 1e-9.
+
+FX-EXPR-021
+
+| property | expression | frame 0 | frame 12 | frame 24 | diagnostic |
+| --- | --- | --- | --- | --- | --- |
+| layer-shake position | `x = wiggle(1, 500)[0];\ny = wiggle(1, 100)[1];\nz = wiggle(2, 0)[2];\n[x, y, z]` | (614.2992549964522, 539.1380807617045) | (652.430892851517, 512.1586545771496) | (690.5625307065816, 485.1792283925946) | none |
+| layer-shake position | `[value[0], value[1], 300]` | (960, 540) | (960, 540) | (960, 540) | none |
+| layer-shake position | `wiggle(2, 30) * (1 + [5, 6][2])` | (939.2579552997871, 548.2812330411965) | (943.8337518423949, 540.3562670359387) | (970.1889608668827, 530.5965336721797) | none |
+| layer-shake position | `[value[0] + value.length * 100, value[1]]` | (1160, 540) | (1160, 540) | (1160, 540) | none |
+| layer-spin rotation | `[1, 2, 3].length` | 3 | 3 | 3 | none |
+| layer-shake position | `[value[0], value[2]]` | (960, 0) | (960, 0) | (960, 0) | none |
+| layer-spin rotation | `value + wiggle(1, 0)[0]` | 0 | 0 | 0 | EXPRESSION_TYPE |
+| layer-shake position | `value[3]` | (960, 540) | (960, 540) | (960, 540) | EXPRESSION_TYPE |
+| layer-shake position | `[1, 2, 3, 4]` | (960, 540) | (960, 540) | (960, 540) | EXPRESSION_TYPE |
+| layer-spin rotation | `[1, 2, 3]` | 0 | 0 | 0 | EXPRESSION_TYPE |
+| layer-spin rotation | `value.length` | 0 | 0 | 0 | EXPRESSION_SYNTAX |
+| layer-shake position | `[1, 2, 3][3]` | (960, 540) | (960, 540) | (960, 540) | EXPRESSION_TYPE |

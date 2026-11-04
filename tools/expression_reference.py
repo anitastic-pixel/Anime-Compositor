@@ -636,6 +636,10 @@ class Scope:
             raise type_error("the expression ends on a text, not a number")
         if not isinstance(result, (float, int, list)):
             raise type_error("the expression ends on something that is not a number")
+        # D-1046: After Effects' three-part position on a flat layer: the third number is
+        # dropped, as After Effects drops it.
+        if self.dims == 2 and isinstance(result, list) and len(result) == 3:
+            result = result[:2]
         if self.dims == 1 and isinstance(result, list):
             raise type_error(f"{self.prop} is one number and the expression gives {len(result)}")
         if self.dims > 1 and not (isinstance(result, list) and len(result) == self.dims):
@@ -749,6 +753,10 @@ class Scope:
             i = self.number(self.eval(node[2]), "a position in a list")
             if not isinstance(v, list):
                 raise type_error("only a list can be indexed")
+            # D-1046: item 2 of a two-number value is a flat layer's depth in After Effects,
+            # which is 0.
+            if len(v) == 2 and i == 2:
+                return 0.0
             if i != math.floor(i) or not 0 <= i < len(v):
                 raise type_error(f"a list of {len(v)} has no item {i:g}")
             return v[int(i)]
@@ -814,6 +822,9 @@ class Scope:
                 return self.value_of(obj, self.frame)
             if name == "valueAtTime":
                 return ("method", obj)
+        # D-1046: a list's length, as After Effects' `value.length`.
+        if name == "length" and isinstance(self.plain(obj), list):
+            return float(len(self.plain(obj)))
         raise syntax(f"\"{name}\" is not something this can be asked for")
 
     def call(self, fn, arg_nodes):
@@ -1548,5 +1559,41 @@ def controls_tables(data):
            for f in frames])
 
 
+def three_part_table(data):
+    """D-1046: FX-EXPR-021, three-part position expressions on a flat layer."""
+    nl = chr(92) + "n"  # a line break, written as the table shows it
+    tutorial = nl.join(["x = wiggle(1, 500)[0];", "y = wiggle(1, 100)[1];",
+                        "z = wiggle(2, 0)[2];", "[x, y, z]"])
+    cases = [
+        ("layer-shake", "position", tutorial),
+        ("layer-shake", "position", "[value[0], value[1], 300]"),
+        ("layer-shake", "position", "wiggle(2, 30) * (1 + [5, 6][2])"),
+        ("layer-shake", "position", "[value[0] + value.length * 100, value[1]]"),
+        ("layer-spin", "rotation", "[1, 2, 3].length"),
+        ("layer-shake", "position", "[value[0], value[2]]"),
+        ("layer-spin", "rotation", "value + wiggle(1, 0)[0]"),
+        ("layer-shake", "position", "value[3]"),
+        ("layer-shake", "position", "[1, 2, 3, 4]"),
+        ("layer-spin", "rotation", "[1, 2, 3]"),
+        ("layer-spin", "rotation", "value.length"),
+        ("layer-shake", "position", "[1, 2, 3][3]"),
+    ]
+    frames = [0, 12, 24]
+    rows = []
+    for lid, name, text in cases:
+        d = with_expression(data, lid, name, text.replace(nl, chr(10)))
+        out = [outcome(d, lid, name, f) for f in frames]
+        rows.append([f"{lid} {name}", f"`{text}`"] + [v for v, _ in out] + [out[0][1]])
+    table("FX-EXPR-021", ["property", "expression", "frame 0", "frame 12", "frame 24",
+                          "diagnostic"], rows)
+    # The first six are the ones D-1046 lets through; the last six stay refused.
+    assert [r[-1] for r in rows[:6]] == ["none"] * 6, rows
+    assert all(r[-1] != "none" for r in rows[6:]), rows
+
+
 if __name__ == "__main__":
-    main()
+    if "--three-part" in sys.argv:
+        three_part_table(project())
+        print("checked")
+    else:
+        main()

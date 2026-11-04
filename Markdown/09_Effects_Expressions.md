@@ -75,11 +75,12 @@ A value is a number (a 64-bit float), a list of one to four numbers, or a text. 
 - List `+` or `-` list: item by item, and the lists must be the same length.
 - List `*` number, number `*` list, list `/` number: every item.
 - Anything else - a list times a list, a number plus a list, any operation on a text - is `EXPRESSION_TYPE`. **After Effects accepts `value + 5` on a position and does something surprising with it; this language refuses it.**
-- `list[i]` needs a whole `i` inside the list, and only a list can be indexed.
+- `list[i]` needs a whole `i` inside the list, and only a list can be indexed. D-1046: item 2 of a list of two numbers is 0, the depth After Effects gives a flat layer's two-number values, so `wiggle(1, 50)[2]` and `value[2]` on a position read 0; any other item past the end is still `EXPRESSION_TYPE`.
+- D-1046: `list.length` is how many numbers the list holds, a property or setting read as its value first (`value.length` is 2 on a position); `.length` of a number is `EXPRESSION_SYNTAX`, as asking for any other unknown name is.
 
 ### The result
 
-The last value must be one number for a one-number property and a list of exactly the property's length for the others; every number in it must be finite; a camera's zoom must be greater than zero. Otherwise `EXPRESSION_TYPE`. An expression whose last statement gives nothing - `posterizeTime(8)` alone - is `EXPRESSION_TYPE`.
+The last value must be one number for a one-number property and a list of exactly the property's length for the others, except that D-1046 lets a two-number property take a list of three and drops the third, as After Effects does with `[x, y, z]` on a flat layer (FX-EXPR-021); every number in it must be finite; a camera's zoom must be greater than zero. Otherwise `EXPRESSION_TYPE`. An expression whose last statement gives nothing - `posterizeTime(8)` alone - is `EXPRESSION_TYPE`.
 
 Opacity is then limited to 0..100 without a diagnostic, as the window limits a typed opacity. No other property is limited or repaired.
 
