@@ -4712,9 +4712,9 @@ pub enum Effect {
     /// -36,000 to 36,000 degrees; `opacity`, 0 to 100 per cent; `fill`, "off" or "on", with
     /// `color`, linear 0 to 1; `tracking`, -1,000 to 1,000 thousandths of the size; `start` and
     /// `end`, 0 to 100 per cent; `offset`, -100 to 100; `amount`, -100 to 100; `based_on`,
-    /// "characters", "characters_excluding_spaces" or "words"; `shape`, "square", "ramp_up",
-    /// "ramp_down", "triangle", "round" or "smooth"; `smoothness`, `ease_high` and `ease_low`, 0
-    /// to 100 per cent. It has no pixel work: compose hands it to the text's drawing. D-990:
+    /// "characters", "characters_excluding_spaces", "words" or "lines" (D-1067); `shape`,
+    /// "square", "ramp_up", "ramp_down", "triangle", "round" or "smooth"; `smoothness`, 0 to 100
+    /// per cent; `ease_high` and `ease_low`, -100 to 100 per cent (D-1067). It has no pixel work: compose hands it to the text's drawing. D-990:
     /// `blur`, x then y, 0 to 1,000 pixels, each picked letter blurred by it.
     TextAnimator {
         position: [f64; 2],
@@ -7154,8 +7154,8 @@ pub const PAINT_STYLES: [&str; 3] = ["on_original", "on_transparent", "reveal"];
 pub const VEGAS_MODES: [&str; 4] = ["over", "under", "transparent", "stencil"];
 /// D-351: Spread Tones' ways.
 pub const EQUALIZE: [&str; 3] = ["rgb", "brightness", "photoshop"];
-/// D-350: what a text animator's selector counts, and the shapes of its range.
-pub const TEXT_BASED_ON: [&str; 3] = ["characters", "characters_excluding_spaces", "words"];
+/// D-350: what a text animator's selector counts, and the shapes of its range. D-1067: lines.
+pub const TEXT_BASED_ON: [&str; 4] = ["characters", "characters_excluding_spaces", "words", "lines"];
 pub const TEXT_SHAPES: [&str; 6] = [
     "square",
     "ramp_up",
@@ -10385,8 +10385,9 @@ impl Effect {
                 ("offset", vec![offset], -100.0, 100.0),
                 ("amount", vec![amount], -100.0, 100.0),
                 ("smoothness", vec![smoothness], 0.0, 100.0),
-                ("ease_high", vec![ease_high], 0.0, 100.0),
-                ("ease_low", vec![ease_low], 0.0, 100.0),
+                // D-1067: After Effects' -100 to 100.
+                ("ease_high", vec![ease_high], -100.0, 100.0),
+                ("ease_low", vec![ease_low], -100.0, 100.0),
             ],
             Effect::LineBlur {
                 length, strength, ..
@@ -14750,7 +14751,7 @@ impl Effect {
                 "Text Animator's fill is \"off\" or \"on\", and this is \"{fill}\"."
             )),
             Effect::TextAnimator { based_on, .. } if !TEXT_BASED_ON.contains(&based_on.as_str()) => Some(format!(
-                "Text Animator is based on \"characters\", \"characters_excluding_spaces\" or \"words\", and this is \"{based_on}\"."
+                "Text Animator is based on \"characters\", \"characters_excluding_spaces\", \"words\" or \"lines\", and this is \"{based_on}\"."
             )),
             Effect::TextAnimator { shape, .. } if !TEXT_SHAPES.contains(&shape.as_str()) => Some(format!(
                 "Text Animator's shape is \"square\", \"ramp_up\", \"ramp_down\", \"triangle\", \"round\" or \"smooth\", and this is \"{shape}\"."

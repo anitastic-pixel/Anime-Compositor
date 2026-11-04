@@ -12295,8 +12295,8 @@ const EFFECT_PARAMS = {
     ['offset', 'Offset', 1, 0.5, 'per cent, -100 to 100, slides Start and End together'],
     ['amount', 'Amount', 1, 1, 'per cent, -100 to 100, how much of the properties a picked letter gets'],
     ['smoothness', 'Smoothness', 1, 1, 'per cent, 0 to 100; for Square, how soft the range\'s edge is'],
-    ['ease_high', 'Ease High', 1, 1, 'per cent, 0 to 100, how slowly the shape leaves fully picked'],
-    ['ease_low', 'Ease Low', 1, 1, 'per cent, 0 to 100, how slowly the shape leaves not picked']],
+    ['ease_high', 'Ease High', 1, 1, 'per cent, -100 to 100, how slowly the shape leaves fully picked; below 0, how fast'],
+    ['ease_low', 'Ease Low', 1, 1, 'per cent, -100 to 100, how slowly the shape leaves not picked; below 0, how fast']],
   // D-351, After Effects' own words. Blend With Original is the Mix every effect has (100 less it).
   'core.stretch_levels': [['temporal_smoothing', 'Temporal Smoothing (seconds)', 1, 0.05, 'seconds each side whose pictures are read with this one, 0 to 10; 0 reads this frame only'],
     ['black_clip', 'Black Clip', 1, 0.05, 'per cent of the darkest pixels taken to black, 0 to 10'],
@@ -14805,7 +14805,7 @@ const EFFECT_WORDS = {
   'core.text_animator': {
     choices: [['fill', 'Fill Color', [['off', 'Off'], ['on', 'On']]],
       ['based_on', 'Based On', [['characters', 'Characters'], ['characters_excluding_spaces', 'Characters Excluding Spaces'],
-        ['words', 'Words']]],
+        ['words', 'Words'], ['lines', 'Lines']]],
       ['shape', 'Shape', [['square', 'Square'], ['ramp_up', 'Ramp Up'], ['ramp_down', 'Ramp Down'], ['triangle', 'Triangle'],
         ['round', 'Round'], ['smooth', 'Smooth']]]],
   },

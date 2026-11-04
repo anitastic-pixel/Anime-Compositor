@@ -871,8 +871,8 @@ pub fn outlines_layer(
 
 /// D-350: how much one animator's range selector picks each of `chars`, the layer's characters
 /// with line breaks left out, times its Amount. Document 21 and `tools/text_animator_reference.py`
-/// give the rule.
-fn picks(chars: &[char], animator: &crate::effects::Effect) -> Vec<f64> {
+/// give the rule. D-1067: `lines`, each character's line, the units of Based On Lines.
+fn picks(chars: &[char], lines: &[usize], animator: &crate::effects::Effect) -> Vec<f64> {
     let crate::effects::Effect::TextAnimator {
         start,
         end,
@@ -890,9 +890,13 @@ fn picks(chars: &[char], animator: &crate::effects::Effect) -> Vec<f64> {
     };
     // Each character's unit, if it is one, and how many units there are.
     let (mut unit, mut n, mut inside) = (Vec::with_capacity(chars.len()), 0usize, false);
-    for c in chars {
+    for (i, c) in chars.iter().enumerate() {
         let space = c.is_whitespace();
         match based_on.as_str() {
+            "lines" => {
+                unit.push(Some(lines[i]));
+                n = lines[i] + 1;
+            }
             "characters" => {
                 unit.push(Some(n));
                 n += 1;
@@ -902,6 +906,11 @@ fn picks(chars: &[char], animator: &crate::effects::Effect) -> Vec<f64> {
                 n += usize::from(!space);
             }
             _ => {
+                // D-1067: a line break ends a word too.
+                if inside && i > 0 && lines[i] != lines[i - 1] {
+                    n += 1;
+                    inside = false;
+                }
                 unit.push((!space).then_some(n));
                 n += usize::from(space && inside);
                 inside = !space;
@@ -950,9 +959,13 @@ fn picks(chars: &[char], animator: &crate::effects::Effect) -> Vec<f64> {
                 _ => 0.0,
             }
         };
-        // Document 20's ease curve, Ease Low the handle at the low end.
+        // Document 20's ease curve, Ease Low the handle at the low end. D-1067: a negative ease
+        // stands its handle up the side instead, so the pick turns fast at that end.
         let v = if *ease_high != 0.0 || *ease_low != 0.0 {
-            crate::model::solve(ease_low / 100.0, 0.0, 1.0 - ease_high / 100.0, 1.0, v)
+            let (l, h) = (ease_low / 100.0, ease_high / 100.0);
+            let (x1, y1) = if l >= 0.0 { (l, 0.0) } else { (0.0, -l) };
+            let (x2, y2) = if h >= 0.0 { (1.0 - h, 1.0) } else { (1.0, 1.0 + h) };
+            crate::model::solve(x1, y1, x2, y2, v)
         } else {
             v
         };
@@ -1381,12 +1394,14 @@ fn lay_out(text: &Text, animators: &[crate::effects::Effect], path: bool) -> Opt
     let mut kept = Vec::new();
     let mut across = [f64::INFINITY, f64::NEG_INFINITY];
     let mut n = 0;
-    // D-350: each animator's pick of every character, line breaks left out.
-    let flat: Vec<char> = words
+    // D-350: each animator's pick of every character, line breaks left out; D-1067: with the
+    // line of each.
+    let (flat, lines): (Vec<char>, Vec<usize>) = words
         .split('\n')
-        .flat_map(|p| p.trim_end_matches('\r').chars())
-        .collect();
-    let picked: Vec<Vec<f64>> = animators.iter().map(|a| picks(&flat, a)).collect();
+        .enumerate()
+        .flat_map(|(l, p)| p.trim_end_matches('\r').chars().map(move |c| (c, l)))
+        .unzip();
+    let picked: Vec<Vec<f64>> = animators.iter().map(|a| picks(&flat, &lines, a)).collect();
     let mut placed = Vec::new();
     let mut k = 0;
     let walk = Walk::new(animators);
