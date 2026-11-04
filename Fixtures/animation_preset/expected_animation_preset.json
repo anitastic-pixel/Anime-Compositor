@@ -878,6 +878,222 @@
           ]
         }
       ]
+    },
+    "FX-ANP-S13": {
+      "file": "../starter_presets/animation.fxpreset",
+      "preset": "Drop In By Character",
+      "about": "The letters drop in from above one after another, fading up as they fall, over a second and a quarter. For a text layer.",
+      "says": "The starter preset \"Drop In By Character\" applied at frame 10 to `words`.",
+      "layer": "words",
+      "at": 10,
+      "expect": [
+        {
+          "path": "effects",
+          "length": 1
+        },
+        {
+          "path": "effects/-1/parameters/offset",
+          "keys": [
+            [
+              10,
+              -100
+            ],
+            [
+              40,
+              100
+            ]
+          ]
+        },
+        {
+          "path": "effects/-1/parameters/position",
+          "equals": [
+            0,
+            -240
+          ]
+        },
+        {
+          "path": "effects/-1/parameters/opacity",
+          "equals": 0
+        },
+        {
+          "path": "effects/-1/parameters/start",
+          "equals": 0
+        },
+        {
+          "path": "effects/-1/parameters/end",
+          "equals": 100
+        },
+        {
+          "path": "effects/-1/parameters/based_on",
+          "equals": "characters"
+        },
+        {
+          "path": "effects/-1/parameters/shape",
+          "equals": "ramp_up"
+        }
+      ]
+    },
+    "FX-ANP-S14": {
+      "file": "../starter_presets/animation.fxpreset",
+      "preset": "Straight In By Character",
+      "about": "The letters slide in from the right one after another, fading up, over a second and a quarter. For a text layer.",
+      "says": "The starter preset \"Straight In By Character\" applied at frame 10 to `words`.",
+      "layer": "words",
+      "at": 10,
+      "expect": [
+        {
+          "path": "effects",
+          "length": 1
+        },
+        {
+          "path": "effects/-1/parameters/offset",
+          "keys": [
+            [
+              10,
+              -100
+            ],
+            [
+              40,
+              100
+            ]
+          ]
+        },
+        {
+          "path": "effects/-1/parameters/position",
+          "equals": [
+            300,
+            0
+          ]
+        },
+        {
+          "path": "effects/-1/parameters/opacity",
+          "equals": 0
+        },
+        {
+          "path": "effects/-1/parameters/start",
+          "equals": 0
+        },
+        {
+          "path": "effects/-1/parameters/end",
+          "equals": 100
+        },
+        {
+          "path": "effects/-1/parameters/based_on",
+          "equals": "characters"
+        },
+        {
+          "path": "effects/-1/parameters/shape",
+          "equals": "ramp_up"
+        }
+      ]
+    },
+    "FX-ANP-S15": {
+      "file": "../starter_presets/animation.fxpreset",
+      "preset": "Fade Up Characters",
+      "about": "The letters fade up one after another over a second and a quarter. For a text layer.",
+      "says": "The starter preset \"Fade Up Characters\" applied at frame 10 to `words`.",
+      "layer": "words",
+      "at": 10,
+      "expect": [
+        {
+          "path": "effects",
+          "length": 1
+        },
+        {
+          "path": "effects/-1/parameters/offset",
+          "keys": [
+            [
+              10,
+              -100
+            ],
+            [
+              40,
+              100
+            ]
+          ]
+        },
+        {
+          "path": "effects/-1/parameters/position",
+          "equals": [
+            0,
+            0
+          ]
+        },
+        {
+          "path": "effects/-1/parameters/opacity",
+          "equals": 0
+        },
+        {
+          "path": "effects/-1/parameters/start",
+          "equals": 0
+        },
+        {
+          "path": "effects/-1/parameters/end",
+          "equals": 100
+        },
+        {
+          "path": "effects/-1/parameters/based_on",
+          "equals": "characters"
+        },
+        {
+          "path": "effects/-1/parameters/shape",
+          "equals": "ramp_up"
+        }
+      ]
+    },
+    "FX-ANP-S16": {
+      "file": "../starter_presets/animation.fxpreset",
+      "preset": "Fade Up Words",
+      "about": "The words fade up one after another over a second and a quarter. For a text layer.",
+      "says": "The starter preset \"Fade Up Words\" applied at frame 10 to `words`.",
+      "layer": "words",
+      "at": 10,
+      "expect": [
+        {
+          "path": "effects",
+          "length": 1
+        },
+        {
+          "path": "effects/-1/parameters/offset",
+          "keys": [
+            [
+              10,
+              -100
+            ],
+            [
+              40,
+              100
+            ]
+          ]
+        },
+        {
+          "path": "effects/-1/parameters/position",
+          "equals": [
+            0,
+            0
+          ]
+        },
+        {
+          "path": "effects/-1/parameters/opacity",
+          "equals": 0
+        },
+        {
+          "path": "effects/-1/parameters/start",
+          "equals": 0
+        },
+        {
+          "path": "effects/-1/parameters/end",
+          "equals": 100
+        },
+        {
+          "path": "effects/-1/parameters/based_on",
+          "equals": "words"
+        },
+        {
+          "path": "effects/-1/parameters/shape",
+          "equals": "ramp_up"
+        }
+      ]
     }
   }
 }

@@ -493,6 +493,218 @@
           }
         }
       ]
+    },
+    {
+      "name": "Drop In By Character",
+      "kind": "animation",
+      "effects": [
+        {
+          "instance_id": "anp-drop-in",
+          "type_id": "core.text_animator",
+          "enabled": true,
+          "parameters": {
+            "position": [
+              0,
+              -240
+            ],
+            "scale": [
+              100,
+              100
+            ],
+            "rotation": 0,
+            "opacity": 0,
+            "fill": "off",
+            "color": [
+              1,
+              0,
+              0
+            ],
+            "tracking": 0,
+            "start": 0,
+            "end": 100,
+            "offset": {
+              "base": -100,
+              "keyframes": [
+                {
+                  "frame": 0,
+                  "value": -100,
+                  "interp": "linear"
+                },
+                {
+                  "frame": 30,
+                  "value": 100,
+                  "interp": "linear"
+                }
+              ]
+            },
+            "amount": 100,
+            "based_on": "characters",
+            "shape": "ramp_up",
+            "smoothness": 0,
+            "ease_high": 0,
+            "ease_low": 0
+          }
+        }
+      ]
+    },
+    {
+      "name": "Straight In By Character",
+      "kind": "animation",
+      "effects": [
+        {
+          "instance_id": "anp-straight-in",
+          "type_id": "core.text_animator",
+          "enabled": true,
+          "parameters": {
+            "position": [
+              300,
+              0
+            ],
+            "scale": [
+              100,
+              100
+            ],
+            "rotation": 0,
+            "opacity": 0,
+            "fill": "off",
+            "color": [
+              1,
+              0,
+              0
+            ],
+            "tracking": 0,
+            "start": 0,
+            "end": 100,
+            "offset": {
+              "base": -100,
+              "keyframes": [
+                {
+                  "frame": 0,
+                  "value": -100,
+                  "interp": "linear"
+                },
+                {
+                  "frame": 30,
+                  "value": 100,
+                  "interp": "linear"
+                }
+              ]
+            },
+            "amount": 100,
+            "based_on": "characters",
+            "shape": "ramp_up",
+            "smoothness": 0,
+            "ease_high": 0,
+            "ease_low": 0
+          }
+        }
+      ]
+    },
+    {
+      "name": "Fade Up Characters",
+      "kind": "animation",
+      "effects": [
+        {
+          "instance_id": "anp-fade-up-characters",
+          "type_id": "core.text_animator",
+          "enabled": true,
+          "parameters": {
+            "position": [
+              0,
+              0
+            ],
+            "scale": [
+              100,
+              100
+            ],
+            "rotation": 0,
+            "opacity": 0,
+            "fill": "off",
+            "color": [
+              1,
+              0,
+              0
+            ],
+            "tracking": 0,
+            "start": 0,
+            "end": 100,
+            "offset": {
+              "base": -100,
+              "keyframes": [
+                {
+                  "frame": 0,
+                  "value": -100,
+                  "interp": "linear"
+                },
+                {
+                  "frame": 30,
+                  "value": 100,
+                  "interp": "linear"
+                }
+              ]
+            },
+            "amount": 100,
+            "based_on": "characters",
+            "shape": "ramp_up",
+            "smoothness": 0,
+            "ease_high": 0,
+            "ease_low": 0
+          }
+        }
+      ]
+    },
+    {
+      "name": "Fade Up Words",
+      "kind": "animation",
+      "effects": [
+        {
+          "instance_id": "anp-fade-up-words",
+          "type_id": "core.text_animator",
+          "enabled": true,
+          "parameters": {
+            "position": [
+              0,
+              0
+            ],
+            "scale": [
+              100,
+              100
+            ],
+            "rotation": 0,
+            "opacity": 0,
+            "fill": "off",
+            "color": [
+              1,
+              0,
+              0
+            ],
+            "tracking": 0,
+            "start": 0,
+            "end": 100,
+            "offset": {
+              "base": -100,
+              "keyframes": [
+                {
+                  "frame": 0,
+                  "value": -100,
+                  "interp": "linear"
+                },
+                {
+                  "frame": 30,
+                  "value": 100,
+                  "interp": "linear"
+                }
+              ]
+            },
+            "amount": 100,
+            "based_on": "words",
+            "shape": "ramp_up",
+            "smoothness": 0,
+            "ease_high": 0,
+            "ease_low": 0
+          }
+        }
+      ]
     }
   ]
 }

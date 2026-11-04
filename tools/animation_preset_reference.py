@@ -172,6 +172,19 @@ def typewriter():
     return e
 
 
+def animate_in(slug, based_on="characters", **parameters):
+    """D-1087: After Effects' Text > Animate In presets as one Text Animator. Its range is a Ramp
+    Up the whole text wide, slid by Offset from -100 (every letter fully moved) to 100 (none),
+    linearly over 30 frames, so each letter comes in over half of it, the first first."""
+    e = copy.deepcopy(TYPER)
+    e["instance_id"] = f"anp-{slug}"
+    e["parameters"].update(
+        start=0, end=100, amount=100, based_on=based_on, shape="ramp_up", smoothness=0,
+        ease_high=0, ease_low=0, offset=prop(-100, [(0, -100), (30, 100)]), **parameters,
+    )
+    return e
+
+
 def animation(name, **parts):
     return {"name": name, "kind": "animation", **parts}
 
@@ -268,7 +281,32 @@ STARTER_LIST = [
         "The layer is wiped on from the left over half a second.",
         "big",
     ),
+    # D-1087: four of After Effects' Text > Animate In presets, by name; the numbers are this
+    # program's, as the tutorials show the look and not the settings.
+    (
+        animation("Drop In By Character", effects=[animate_in("drop-in", position=[0, -240], opacity=0)]),
+        "The letters drop in from above one after another, fading up as they fall, over a second and a quarter. For a text layer.",
+        "words",
+    ),
+    (
+        animation("Straight In By Character", effects=[animate_in("straight-in", position=[300, 0], opacity=0)]),
+        "The letters slide in from the right one after another, fading up, over a second and a quarter. For a text layer.",
+        "words",
+    ),
+    (
+        animation("Fade Up Characters", effects=[animate_in("fade-up-characters", opacity=0)]),
+        "The letters fade up one after another over a second and a quarter. For a text layer.",
+        "words",
+    ),
+    (
+        animation("Fade Up Words", effects=[animate_in("fade-up-words", based_on="words", opacity=0)]),
+        "The words fade up one after another over a second and a quarter. For a text layer.",
+        "words",
+    ),
 ]
+
+
+ANIMATE_IN = ["Drop In By Character", "Straight In By Character", "Fade Up Characters", "Fade Up Words"]
 
 
 def preset_file(*presets):
@@ -487,12 +525,18 @@ for n, (p, about, layer) in enumerate(STARTER_LIST, start=1):
         "at": 10,
         "expect": expect_applied(p, layer, 10),
     }
+    # D-1087: an Animate In preset's settings that are not keyed go on as written.
+    if p["name"] in ANIMATE_IN:
+        CASES[cid]["expect"] += [
+            {"path": f"effects/-1/parameters/{s}", "equals": p["effects"][0]["parameters"][s]}
+            for s in ("position", "opacity", "start", "end", "based_on", "shape")
+        ]
 
 
 def check():
     starters = [p for p, _, _ in STARTER_LIST]
     names = [p["name"] for p in starters]
-    assert len(names) == len(set(names)) == 12, names
+    assert len(names) == len(set(names)) == 16, names
     for p in starters:
         assert p["kind"] == "animation"
         assert set(p) <= {"name", "kind", "effects", "transform", "masks", "trim"}, p
