@@ -156,7 +156,7 @@ impl Gradient {
 
 /// Every name [`Shape::channels`] answers to. D-738 (a): a parametric shape's settings are
 /// `path_` and the setting's name in [`ParametricKind::settings`].
-pub const SHAPE_PROPERTIES: [&str; 21] = [
+pub const SHAPE_PROPERTIES: [&str; 24] = [
     "fill_start",
     "fill_end",
     "stroke_start",
@@ -164,6 +164,9 @@ pub const SHAPE_PROPERTIES: [&str; 21] = [
     "trim_start",
     "trim_end",
     "trim_offset",
+    "dashes_dash",
+    "dashes_gap",
+    "dashes_offset",
     "fill_color",
     "fill_opacity",
     "stroke_color",
@@ -1315,6 +1318,140 @@ impl Trim {
     }
 }
 
+/// D-1050: the stroke drawn as dashes, as After Effects' Stroke > Dashes.
+///
+/// `dash` and `gap` are pixels, 0 to 10000; `offset` is pixels, any number, and moves the pattern
+/// back along the line. Each is a one-number property keyed as any is.
+#[derive(Clone, PartialEq, Debug)]
+pub struct Dashes {
+    pub dash: Property,
+    pub gap: Property,
+    pub offset: Property,
+}
+
+impl Dashes {
+    /// What the window puts on a shape when dashes are turned on: 10 on, 10 off, no offset.
+    pub fn new() -> Dashes {
+        let n = |v| Property::constant(Value::Scalar(v));
+        Dashes {
+            dash: n(10.0),
+            gap: n(10.0),
+            offset: n(0.0),
+        }
+    }
+
+    fn at(&self, frame: i32) -> Dashes {
+        let now = |p: &Property| Property::constant(p.value_at(frame));
+        Dashes {
+            dash: now(&self.dash),
+            gap: now(&self.gap),
+            offset: now(&self.offset),
+        }
+    }
+
+    /// What is outside D-1050's ranges, as a sentence, for [`Shape::problem`].
+    fn problem(&self) -> Option<String> {
+        for (name, p, ranged) in [
+            ("dash", &self.dash, true),
+            ("gap", &self.gap, true),
+            ("offset", &self.offset, false),
+        ] {
+            let values: Vec<Option<f64>> = std::iter::once(p.base())
+                .chain(p.keyframes().iter().map(|k| k.value))
+                .map(|v| v.as_scalar())
+                .collect();
+            if p.split().is_some() || values.iter().any(Option::is_none) {
+                return Some(format!("a dash {name} of one number"));
+            }
+            if p.expression().is_some() {
+                return Some(format!("no expression on a dash {name}"));
+            }
+            if let Some(v) = values
+                .into_iter()
+                .flatten()
+                .find(|v| !v.is_finite() || ranged && !(0.0..=10000.0).contains(v))
+            {
+                return Some(format!("a dash {name} from 0 to 10000, not {v}"));
+            }
+        }
+        None
+    }
+
+    /// D-1050's dashes of one line the stroke is drawn along, each with whether it is closed.
+    /// The dashes must already be at the frame.
+    fn lines(&self, line: &[(f64, f64)], closed: bool) -> Vec<(Vec<(f64, f64)>, bool)> {
+        let n = |p: &Property| p.base().as_scalar().unwrap_or(0.0);
+        let (dash, gap, offset) = (n(&self.dash), n(&self.gap), n(&self.offset));
+        let whole = || vec![(line.to_vec(), closed)];
+        if gap <= 0.0 || dash + gap < 1.0 || line.is_empty() {
+            return whole();
+        }
+        let pieces = path_segments(line, closed);
+        let runs: Vec<f64> = pieces
+            .iter()
+            .map(|(a, b)| (b.0 - a.0).hypot(b.1 - a.1))
+            .collect();
+        let mut along = vec![0.0];
+        for r in &runs {
+            along.push(along[along.len() - 1] + r);
+        }
+        let total = along[along.len() - 1];
+        if total == 0.0 {
+            return whole();
+        }
+        let place = |d: f64| {
+            let i = (0..runs.len())
+                .find(|&i| runs[i] > 0.0 && along[i + 1] >= d)
+                .unwrap_or_else(|| {
+                    runs.iter()
+                        .rposition(|&r| r > 0.0)
+                        .expect("the path has length")
+                });
+            let f = (d - along[i]) / runs[i];
+            let (p, q) = pieces[i];
+            (p.0 + (q.0 - p.0) * f, p.1 + (q.1 - p.1) * f)
+        };
+        let period = dash + gap;
+        let phase = offset.rem_euclid(period);
+        let mut kept = Vec::new();
+        let mut k = 0.0;
+        while k * period - phase <= total {
+            let s = k * period - phase;
+            let (a, b) = (s.max(0.0), (s + dash).min(total));
+            if dash > 0.0 && b > a {
+                kept.push((a, b));
+            } else if dash == 0.0 && 0.0 <= s && (s < total || s == total && !closed) {
+                kept.push((s, s));
+            }
+            k += 1.0;
+        }
+        if closed && kept == [(0.0, total)] {
+            return whole();
+        }
+        let mut out: Vec<Vec<(f64, f64)>> = kept
+            .iter()
+            .map(|&(d0, d1)| {
+                let mut piece = vec![place(d0)];
+                piece.extend(
+                    (1..pieces.len())
+                        .filter(|&j| d0 < along[j] && along[j] < d1)
+                        .map(|j| pieces[j].0),
+                );
+                piece.push(place(d1));
+                piece
+            })
+            .collect();
+        let last = kept.len().wrapping_sub(1);
+        if closed && dash > 0.0 && kept.len() >= 2 && kept[0].0 == 0.0 && kept[last].1 == total {
+            // The last dash runs on through the start into the first.
+            let end = out.pop().expect("two or more");
+            let first = std::mem::replace(&mut out[0], end);
+            out[0].extend_from_slice(&first[1..]);
+        }
+        out.into_iter().map(|l| (l, false)).collect()
+    }
+}
+
 /// D-78: a shape's fill — one colour over its whole even-odd interior.
 ///
 /// The colour is linear working-space RGB from 0 to 1, as a solid's is and as the tint effect's
@@ -1379,6 +1516,8 @@ pub struct Shape {
     pub stroke: Option<Stroke>,
     /// D-169: where along the path the stroke is drawn; `None` is all of it.
     pub trim: Option<Trim>,
+    /// D-1050: the stroke drawn as dashes; `None` is a solid stroke.
+    pub dashes: Option<Dashes>,
     /// D-170: the keys of a style that has any, by its name in `SHAPE_PROPERTIES`
     /// (`fill_color` and so on), one one-number property per channel, a colour's three sharing
     /// their frames. The fill's and stroke's own numbers are the bases. A style without keys has
@@ -1414,6 +1553,10 @@ impl Shape {
             .trim
             .iter_mut()
             .flat_map(|t| [&mut t.start, &mut t.end, &mut t.offset]);
+        let dashes = self
+            .dashes
+            .iter_mut()
+            .flat_map(|d| [&mut d.dash, &mut d.gap, &mut d.offset]);
         let settings = self
             .parametric
             .iter_mut()
@@ -1421,6 +1564,7 @@ impl Shape {
         for property in (self.tracks.values_mut().flatten())
             .chain(points)
             .chain(trim)
+            .chain(dashes)
             .chain(settings)
         {
             property.shift_keyframes(by);
@@ -1439,6 +1583,7 @@ impl Default for Shape {
             fill: None,
             stroke: None,
             trim: None,
+            dashes: None,
             tracks: BTreeMap::new(),
             record: Default::default(),
             parametric: None,
@@ -1481,6 +1626,7 @@ impl Shape {
             *g = g.at(frame);
         }
         now.trim = self.trim.as_ref().map(|t| t.at(frame));
+        now.dashes = self.dashes.as_ref().map(|d| d.at(frame));
         now.tracks.clear();
         for (name, track) in &self.tracks {
             if let Some(values) = now.style_mut(name) {
@@ -1529,6 +1675,13 @@ impl Shape {
             s.width_px *= (m[0] * m[3] - m[1] * m[2]).abs().sqrt();
             if let Some(g) = s.gradient.as_mut() {
                 place(g);
+            }
+        }
+        // D-1050: dashes are lengths along the stroke, sized as its width is.
+        if let Some(d) = now.dashes.as_mut() {
+            let k = (m[0] * m[3] - m[1] * m[2]).abs().sqrt();
+            for p in [&mut d.dash, &mut d.gap, &mut d.offset] {
+                *p = Property::constant(Value::Scalar(p.base().as_scalar().unwrap_or(0.0) * k));
             }
         }
         now
@@ -1596,6 +1749,16 @@ impl Shape {
     /// B-109b: a gradient's two points and a trim's three numbers by their window names.
     fn property_mut(&mut self, name: &str) -> Option<&mut Property> {
         let (group, which) = name.split_once('_')?;
+        // D-1050: a dash's three numbers.
+        if group == "dashes" {
+            let d = self.dashes.as_mut()?;
+            return match which {
+                "dash" => Some(&mut d.dash),
+                "gap" => Some(&mut d.gap),
+                "offset" => Some(&mut d.offset),
+                _ => None,
+            };
+        }
         let (start, end, offset) = match group {
             "fill" => {
                 let g = self.fill.as_mut()?.gradient.as_mut()?;
@@ -1692,6 +1855,9 @@ impl Shape {
             }
         }
         if let Some(p) = self.trim.as_ref().and_then(Trim::problem) {
+            return Some(p);
+        }
+        if let Some(p) = self.dashes.as_ref().and_then(Dashes::problem) {
             return Some(p);
         }
         if let Some(s) = &self.stroke {
@@ -1934,6 +2100,9 @@ pub fn draw(shapes: &[Shape], width: usize, height: usize) -> WorkingBuffer {
                     Some(stretch) => lines.extend(stretch.into_iter().map(|l| (l, false))),
                     None => lines.push((outline.clone(), *closed)),
                 }
+            }
+            if let Some(d) = &shape.dashes {
+                lines = lines.iter().flat_map(|(l, c)| d.lines(l, *c)).collect();
             }
             let r = stroke.width_px / 2.0;
             let f = if stroke.join == Join::Round && stroke.cap == Cap::Round {

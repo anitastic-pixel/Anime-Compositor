@@ -1006,6 +1006,24 @@ fn layer_fields_json(base: Option<&J>, layer: &Layer) -> J {
                         map.insert("trim".into(), J::Object(m));
                     }
                 }
+                // D-1050: written only while the shape has dashes.
+                match &s.dashes {
+                    None => {
+                        map.remove("dashes");
+                    }
+                    Some(d) => {
+                        let was = was.and_then(|w| w.get("dashes"));
+                        let mut m = Map::new();
+                        for (key, p) in [("dash", &d.dash), ("gap", &d.gap), ("offset", &d.offset)]
+                        {
+                            m.insert(
+                                key.into(),
+                                property_json(was.and_then(|w| w.get(key)), p, 1.0),
+                            );
+                        }
+                        map.insert("dashes".into(), J::Object(m));
+                    }
+                }
                 J::Object(map)
             })
             .collect();
@@ -14116,6 +14134,10 @@ fn parse_shape(v: &J, at: &str, index: usize) -> Result<crate::shape::Shape, Dia
             None => None,
             Some(t) => Some(parse_trim(t, &format!("{at}/trim"))?),
         },
+        dashes: match v.get("dashes").filter(|d| !d.is_null()) {
+            None => None,
+            Some(d) => Some(parse_dashes(d, &format!("{at}/dashes"))?),
+        },
         record: crate::model::FileRecord::new(v),
         parametric,
         group: match v.get("group").filter(|g| !g.is_null()) {
@@ -14266,6 +14288,26 @@ fn parse_trim(t: &J, at: &str) -> Result<crate::shape::Trim, Diagnostic> {
     Ok(crate::shape::Trim {
         start: number("start")?,
         end: number("end")?,
+        offset: number("offset")?,
+    })
+}
+
+/// D-1050: three one-number properties; their ranges are `Shape::problem`'s.
+fn parse_dashes(d: &J, at: &str) -> Result<crate::shape::Dashes, Diagnostic> {
+    as_object(d, at)?;
+    let number = |key: &str| {
+        parse_property(
+            field(d, at, key)?,
+            &format!("{at}/{key}"),
+            "scalar",
+            false,
+            false,
+            1.0,
+        )
+    };
+    Ok(crate::shape::Dashes {
+        dash: number("dash")?,
+        gap: number("gap")?,
         offset: number("offset")?,
     })
 }

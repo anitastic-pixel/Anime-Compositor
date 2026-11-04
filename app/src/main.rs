@@ -17976,6 +17976,17 @@ fn shape_settings(
         Some("off") => shape.trim = None,
         Some(text) => return Err(format!("\"{text}\" is not on or off.")),
     }
+    // D-1050: `dashes` is on or off. Turned on, it is 10 on and 10 off with no offset.
+    match parameter(query, "dashes").as_deref() {
+        None => {}
+        Some("on") => {
+            shape
+                .dashes
+                .get_or_insert_with(anime_compositor::shape::Dashes::new);
+        }
+        Some("off") => shape.dashes = None,
+        Some(text) => return Err(format!("\"{text}\" is not on or off.")),
+    }
     if let Some(v) = number("fill_opacity", "an opacity")? {
         let Some(fill) = shape.fill.as_mut() else {
             return Err(format!(

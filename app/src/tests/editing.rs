@@ -11995,6 +11995,88 @@ fn a_shape_is_trimmed_from_the_window() {
     assert!(failed.is_empty(), "these checks failed: {failed:#?}");
 }
 
+/// D-1050: dashes from the window. The core's half is `verification/B-930_shape_dash_table.md`.
+#[test]
+fn d1050_a_shape_is_dashed_from_the_window() {
+    let source = repo("Fixtures/projects/cel_holds_project.json");
+    let viewer = Mutex::new(
+        open(&source).unwrap_or_else(|d| panic!("open {}: {}", source.display(), d.message)),
+    );
+    run(&viewer, "layer.add_shape");
+    let id = shown_layer(&viewer, "Shape Layer 1")["id"]
+        .as_str()
+        .unwrap_or_default()
+        .to_string();
+    run(
+        &viewer,
+        &format!("shape.add?layer={id}&points=100,100,0,0,0,0;300,100,0,0,0,0&closed=0"),
+    );
+    let dashes = |viewer: &Mutex<Viewer>| {
+        let d = shown_layer(viewer, "Shape Layer 1")["shapes"][0]["dashes"].clone();
+        if d.is_null() {
+            return "none".to_string();
+        }
+        ["dash", "gap", "offset"]
+            .map(|name| match d[name]["keyframes"].as_array() {
+                Some(keys) if !keys.is_empty() => format!(
+                    "{name} keyed {}",
+                    keys.iter()
+                        .map(|k| format!("{}@{}", k["value"], k["frame"]))
+                        .collect::<Vec<_>>()
+                        .join(" ")
+                ),
+                _ => format!("{name} {}", d[name]["base"]),
+            })
+            .join(", ")
+    };
+    let set = |prop: &str, value: &str, frame: i32| {
+        run(
+            &viewer,
+            &format!(
+                "property.set_base?layer={id}&prop=shape:0:{prop}&value={value}&frame={frame}"
+            ),
+        )
+    };
+    assert_eq!(dashes(&viewer), "none", "a new shape has no dashes");
+    run(&viewer, &format!("shape.set?layer={id}&shape=0&dashes=on"));
+    assert_eq!(dashes(&viewer), "dash 10, gap 10, offset 0");
+    set("dashes_dash", "4", 0);
+    set("dashes_gap", "6", 0);
+    run(
+        &viewer,
+        &format!("keyframe.add_remove?layer={id}&prop=shape:0:dashes_offset&frame=0"),
+    );
+    set("dashes_offset", "40", 10);
+    assert_eq!(
+        dashes(&viewer),
+        "dash 4, gap 6, offset keyed 0@0 40@10",
+        "the rows set the dash and gap, and the diamond keys the offset"
+    );
+    assert_eq!(
+        set("dashes_gap", "-1", 0),
+        "Shape \"Shape 1\" cannot be drawn: it needs a dash gap from 0 to 10000, not -1. Set a value inside the range and send the shapes again."
+    );
+    assert_eq!(
+        run(&viewer, &format!("shape.set?layer={id}&shape=0&dashes=maybe")),
+        "\"maybe\" is not on or off."
+    );
+    run(&viewer, &format!("shape.set?layer={id}&shape=0&dashes=off"));
+    assert_eq!(dashes(&viewer), "none", "off takes the dashes away");
+    assert_eq!(
+        run(
+            &viewer,
+            &format!("keyframe.add_remove?layer={id}&prop=shape:0:dashes_offset&frame=0"),
+        ),
+        "\"Shape 1\" has no dashes."
+    );
+    run(&viewer, "edit.undo");
+    assert_eq!(
+        dashes(&viewer),
+        "dash 4, gap 6, offset keyed 0@0 40@10",
+        "Undo puts them back, keys and all"
+    );
+}
+
 /// B-110b: D-170's keyed colours, opacities and width, and its joins and caps, from the
 /// window. The core's half is `verification/B-110_shape_style_table.md`.
 #[test]

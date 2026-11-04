@@ -9564,9 +9564,11 @@ const pathAt = (layer, prop) => pathsNamed(layer, prop.split(':')[0])[prop.split
 // B-108b: a shape's gradient point is named `shape:<n>:fill_start`, `fill_end`, `stroke_start` or
 // `stroke_end` wherever a property is named, as its path is. D-168 gives it keys and no expression.
 // B-109b: and a trim's numbers `trim_start`, `trim_end` and `trim_offset`, as D-169 gives them.
+// D-1050: and a dash's `dashes_dash`, `dashes_gap` and `dashes_offset`, in pixels.
 // B-110b: and a paint's `fill_color`, `fill_opacity`, `stroke_color`, `stroke_opacity` and
 // `stroke_width`, as D-170 gives them: the file writes one plain while it has no keys.
 const SHAPE_PROPS = ['fill_start', 'fill_end', 'stroke_start', 'stroke_end', 'trim_start', 'trim_end', 'trim_offset',
+  'dashes_dash', 'dashes_gap', 'dashes_offset',
   'fill_color', 'fill_opacity', 'stroke_color', 'stroke_opacity', 'stroke_width',
   // D-738 (a): a parametric shape's settings, `path_` and the setting's name.
   'path_size', 'path_position', 'path_roundness', 'path_points', 'path_rotation', 'path_inner_radius',
@@ -9659,7 +9661,8 @@ function propLabel(layer, prop) {
   if (isGroupNum(prop)) return ((layer.groups || [])[prop.split(':')[1]] || {}).name + ' ' + prop.split(':')[2]
     .replace(/^repeater_(anchor|position|scale|rotation)$/, 'copy $1').replace(/^repeater_/, '').replaceAll('_', ' ');
   if (isGrad(prop)) return ((layer.shapes || [])[prop.split(':')[1]] || {}).name + ' '
-    + prop.split(':')[2].replace(/^(fill|stroke)_(start|end)$/, '$1 gradient $2').replace(/^path_/, '').replaceAll('_', ' ');
+    + prop.split(':')[2].replace(/^(fill|stroke)_(start|end)$/, '$1 gradient $2').replace(/^path_/, '')
+      .replace(/^dashes_dash$/, 'dash').replace(/^dashes_/, 'dash ').replaceAll('_', ' ');
   if (prop === 'time_remap') return 'Time Remap';
   if (!isFx(prop)) return prop.replace(/^position_(.)$/, '$1 position');
   const [fx, name] = fxParts(layer, prop);
@@ -9985,6 +9988,7 @@ function propScrubs(layer, prop) {
           repeater_rotation: '\u00b0', repeater_scale: '%', repeater_start_opacity: '%', repeater_end_opacity: '%' }[prop.split(':')[2]]
           || ((opOf(layer, prop)[1] || [])[3]) || '' : ''),
       ...(per === 100 || /^shape:\d+:trim_(start|end)$/.test(prop) ? { min: 0, max: 100 }
+        : /^shape:\d+:dashes_(dash|gap)$/.test(prop) ? { min: 0, max: 10000 }
         : prop === 'zoom' ? { min: 0.01 }
           : /^mask:\d+:feather$/.test(prop) ? { min: 0 }
             : /^mask:\d+:expansion$/.test(prop) ? { min: -8192, max: 8192 }
@@ -10579,6 +10583,14 @@ function drawInspector() {
       dl.lastChild.append(button(shape.trim ? 'On' : 'Off', !!shape.trim,
         () => set('trim=' + (shape.trim ? 'off' : 'on'))));
       if (shape.trim) for (const name of ['start', 'end', 'offset']) propRow(dl, layer, 'shape:' + at + ':trim_' + name);
+      // D-1050: Dashes, on or off, and Dash, Gap and Offset in pixels, each keyed as a trim's
+      // number is. A gap of 0 is a solid line; a dash of 0 with round caps is dots.
+      if (shape.stroke) {
+        field(dl, 'Dashes', '');
+        dl.lastChild.append(button(shape.dashes ? 'On' : 'Off', !!shape.dashes,
+          () => set('dashes=' + (shape.dashes ? 'off' : 'on'))));
+        if (shape.dashes) for (const name of ['dash', 'gap', 'offset']) propRow(dl, layer, 'shape:' + at + ':dashes_' + name);
+      }
     }
     // D-738 (b): each group's transform, keyed as a layer's is; Ungroup gives its shapes to the
     // group it sits in and drops its transform.
