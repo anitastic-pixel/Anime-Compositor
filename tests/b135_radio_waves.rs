@@ -46,6 +46,10 @@ fn waves(producer_point: [f64; 2], n: [f64; 13], words: [&str; 2]) -> Effect {
         frame: 0,
         parameters_at: "each_frame".to_string(),
         births: None,
+        curve_size: 0.0,
+        star: "off".to_string(),
+        star_depth: -0.3,
+        frequency: 0.0,
     }
 }
 

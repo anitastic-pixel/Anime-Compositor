@@ -2139,7 +2139,10 @@ pub enum Effect {
     /// settings it was sent with. `births` is not a setting and is never saved: in "birth", the
     /// waves alive, oldest first, each its birth frame then the producer x and y, expansion,
     /// orientation, direction, velocity, spin, lifespan, opacity, fade in and out and start and
-    /// end widths it was sent with; `None`, every wave takes the settings now.
+    /// end widths it was sent with; `None`, every wave takes the settings now. D-1071:
+    /// `curve_size`, 0 to 1, how much of each corner is rounded; `star`, "off" or "on", kept as
+    /// written; `star_depth`, -1 to 1, where a star's inner corners sit; and `frequency`, 0 to
+    /// 1000 waves a second, 0 keeping `interval` (the composition turns it into frames).
     RadioWaves {
         producer_point: [f64; 2],
         sides: f64,
@@ -2160,6 +2163,10 @@ pub enum Effect {
         frame: i32,
         parameters_at: String,
         births: Option<Vec<[f64; 14]>>,
+        curve_size: f64,
+        star: String,
+        star_depth: f64,
+        frequency: f64,
     },
     /// D-201: `interpolation`, 0 to 100, how far the drawing is bent; and `conversion`,
     /// "rect_to_polar" or "polar_to_rect". The word is kept as written, so a wrong one is
@@ -11493,6 +11500,9 @@ impl Effect {
                 fade_out_time,
                 start_width,
                 end_width,
+                curve_size,
+                star_depth,
+                frequency,
                 ..
             } => vec![
                 (
@@ -11501,6 +11511,9 @@ impl Effect {
                     -1000.0,
                     1000.0,
                 ),
+                ("curve_size", vec![curve_size], 0.0, 1.0),
+                ("star_depth", vec![star_depth], -1.0, 1.0),
+                ("frequency", vec![frequency], 0.0, 1000.0),
                 ("sides", vec![sides], 3.0, 128.0),
                 ("interval", vec![interval], 1.0, 1000.0),
                 ("expansion", vec![expansion], 0.0, 1000.0),
@@ -15068,7 +15081,7 @@ impl Effect {
                         })
                     })
             }
-            Effect::RadioWaves { profile, color, parameters_at, .. } => hex_fault("Radio Waves", "colour", color).or_else(|| {
+            Effect::RadioWaves { profile, color, parameters_at, star, .. } => hex_fault("Radio Waves", "colour", color).or_else(|| {
                 (!["square", "triangle", "sine"].contains(&profile.as_str())).then(|| {
                     format!("Radio Waves' profile is \"square\", \"triangle\" or \"sine\", and this is \"{profile}\".")
                 })
@@ -15076,6 +15089,9 @@ impl Effect {
                 (!["birth", "each_frame"].contains(&parameters_at.as_str())).then(|| {
                     format!("Radio Waves' parameters are set at \"birth\" or \"each_frame\", and this is \"{parameters_at}\".")
                 })
+            }).or_else(|| {
+                (!["off", "on"].contains(&star.as_str()))
+                    .then(|| format!("Radio Waves' Star is \"off\" or \"on\", and this is \"{star}\"."))
             }),
             Effect::Bulge { antialiasing, .. } if !["low", "high"].contains(&antialiasing.as_str()) => Some(format!(
                 "Bulge's antialiasing is \"low\" or \"high\", and this is \"{antialiasing}\"."
@@ -20626,10 +20642,15 @@ pub(crate) fn apply_stack_at(
                 color,
                 frame,
                 births,
+                curve_size,
+                star,
+                star_depth,
                 ..
             } => crate::perf::time(crate::perf::Stage::EffectRadioWaves, || {
                 let size = (source.width(), source.height());
                 let s = crate::layer_fx::RadioWaves {
+                    curve_size: *curve_size,
+                    star_depth: (star == "on").then_some(*star_depth),
                     producer: radial_center(*producer_point, size, (ox, oy)),
                     births: radio_births(births, size, (ox, oy)),
                     sides: *sides,

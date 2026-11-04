@@ -126,6 +126,10 @@ fn b657_radio_waves_birth() {
         births: Some(vec![[
             2.0, 25.0, 50.0, 6.0, 0.0, 90.0, 8.0, 0.0, 5.0, 100.0, 0.0, 0.0, 2.0, 10.0,
         ]]),
+        curve_size: 0.0,
+        star: "off".to_string(),
+        star_depth: -0.3,
+        frequency: 0.0,
     };
     draft.scale_distances(|d| d * 0.5);
     let kept = match &draft {

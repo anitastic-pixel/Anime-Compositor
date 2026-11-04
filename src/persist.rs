@@ -3697,8 +3697,23 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             profile,
             color,
             parameters_at,
+            curve_size,
+            star,
+            star_depth,
+            frequency,
             ..
         } => {
+            // D-1071: written only when not the default, keyed, or in the file already.
+            for (key, value, plain) in [
+                ("curve_size", num(*curve_size), *curve_size == 0.0),
+                ("star", J::from(star.as_str()), star == "off"),
+                ("star_depth", num(*star_depth), *star_depth == -0.3),
+                ("frequency", num(*frequency), *frequency == 0.0),
+            ] {
+                if !plain || instance.tracks.contains_key(key) || params.contains_key(key) {
+                    params.insert(key.into(), value);
+                }
+            }
             params.insert(
                 "producer_point".into(),
                 J::Array(producer_point.iter().map(|c| num(*c)).collect()),
@@ -10847,6 +10862,10 @@ fn parse_effect(
             // D-777: a file from before keeps every wave on the settings now.
             parameters_at: effect_word_or(params, "parameters_at", at, "each_frame")?,
             births: None,
+            curve_size: effect_number_or(params, "curve_size", at, 0.0)?,
+            star: effect_word_or(params, "star", at, "off")?,
+            star_depth: effect_number_or(params, "star_depth", at, -0.3)?,
+            frequency: effect_number_or(params, "frequency", at, 0.0)?,
         }),
         crate::effects::POLAR_COORDINATES => Some(crate::effects::Effect::PolarCoordinates {
             interpolation: effect_number(params, "interpolation", at)?,

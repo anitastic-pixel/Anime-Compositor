@@ -5505,6 +5505,10 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             // D-777: After Effects' own, each wave keeps the settings it was sent with.
             parameters_at: "birth".to_string(),
             births: None,
+            curve_size: 0.0,
+            star: "off".to_string(),
+            star_depth: -0.3,
+            frequency: 0.0,
         }),
         // D-201: all the way round, so the effect shows as soon as it is added; After Effects
         // starts at 0, which shows nothing. D-320: a circle, After Effects' look.
@@ -9032,6 +9036,11 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             // D-777: a command without it keeps a file's own rule, each frame.
             parameters_at: word("parameters_at").unwrap_or_else(|_| "each_frame".to_string()),
             births: None,
+            // D-1071.
+            curve_size: number_or("curve_size", 0.0)?,
+            star: word("star").unwrap_or_else(|_| "off".to_string()),
+            star_depth: number_or("star_depth", -0.3)?,
+            frequency: number_or("frequency", 0.0)?,
         }),
         // D-320: a command without a shape keeps a file's own rule, the ellipse.
         POLAR_COORDINATES => Ok(Effect::PolarCoordinates {

@@ -105,7 +105,7 @@ D-200, accepted on 2026-09-28 with the After Effects picks (A10). Every expected
 | as added, it never grows the drawing's bounds | 0 | yes |
 | expansion 1000, the most, does not grow them either | 0 | yes |
 | end width 1000, the most, does not grow them either | 0 | yes |
-| a half-size draft preview halves the expansion, 5 to 2.5, the velocity, 3 to 1.5, and the widths, 5 to 2.5 and 8 to 4, and keeps the rest | RadioWaves { producer_point: [50.0, 50.0], sides: 64.0, interval: 24.0, expansion: 2.5, orientation: 0.0, direction: 90.0, velocity: 1.5, spin: 2.0, lifespan: 96.0, opacity: 100.0, fade_in_time: 0.0, fade_out_time: 48.0, start_width: 2.5, end_width: 4.0, profile: "square", color: "#ffffff", frame: 0, parameters_at: "each_frame", births: None } | yes |
+| a half-size draft preview halves the expansion, 5 to 2.5, the velocity, 3 to 1.5, and the widths, 5 to 2.5 and 8 to 4, and keeps the rest | RadioWaves { producer_point: [50.0, 50.0], sides: 64.0, interval: 24.0, expansion: 2.5, orientation: 0.0, direction: 90.0, velocity: 1.5, spin: 2.0, lifespan: 96.0, opacity: 100.0, fade_in_time: 0.0, fade_out_time: 48.0, start_width: 2.5, end_width: 4.0, profile: "square", color: "#ffffff", frame: 0, parameters_at: "each_frame", births: None, curve_size: 0.0, star: "off", star_depth: -0.3, frequency: 0.0 } | yes |
 
 ## The file
 

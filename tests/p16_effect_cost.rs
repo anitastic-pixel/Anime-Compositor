@@ -936,6 +936,10 @@ fn cases() -> Vec<(&'static str, Effect)> {
                 frame: 48,
                 parameters_at: "each_frame".into(),
                 births: None,
+                curve_size: 0.0,
+                star: "off".to_string(),
+                star_depth: -0.3,
+                frequency: 0.0,
             },
         ),
         (

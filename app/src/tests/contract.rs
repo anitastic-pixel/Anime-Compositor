@@ -3055,6 +3055,11 @@ const EFFECT_KINDS: &[(&str, &[(&str, &str)])] = &[
             ("end_width", "2"),
             ("profile", "sine"),
             ("color", "%23ffb040"),
+            // D-1071.
+            ("curve_size", "0.5"),
+            ("star", "on"),
+            ("star_depth", "-0.6"),
+            ("frequency", "2"),
         ],
     ),
     // D-201: the number and the word.

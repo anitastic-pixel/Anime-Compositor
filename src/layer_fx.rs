@@ -13613,6 +13613,9 @@ pub(crate) struct RadioWaves<'a> {
     pub profile: &'a str,
     pub color: [f64; 3],
     pub frame: i32,
+    /// D-1071: Curve Size, 0 to 1; and Star Depth when Star is on.
+    pub curve_size: f64,
+    pub star_depth: Option<f64>,
 }
 
 /// D-200: the waves alive at the frame, each a regular polygon sent from the producer every
@@ -13626,6 +13629,8 @@ pub(crate) fn radio_waves(source: &mut WorkingBuffer, s: &RadioWaves) {
     let n = s.sides.floor();
     let a = 360.0 / n;
     let apothem = (std::f64::consts::PI / n).cos();
+    let half_side = (std::f64::consts::PI / n).sin();
+    let c = s.curve_size;
     let w = source.width();
     source
         .data_mut()
@@ -13637,14 +13642,40 @@ pub(crate) fn radio_waves(source: &mut WorkingBuffer, s: &RadioWaves) {
             for &(cx, cy, r, theta, h, g) in &waves {
                 let (qx, qy) = (x - cx, y - cy);
                 let q = qx.hypot(qy);
-                // A profile reaches h + 0.5 from the outline at most; the outline runs between the
-                // edges' middles, r cos(180 / n) out, and the corners, r out.
-                if q < r * apothem - h - 0.5 || q * apothem > r * apothem + h + 0.5 {
-                    continue;
-                }
                 let phi = qx.atan2(-qy).to_degrees();
                 let delta = phi - theta - a * (((phi - theta) / a).floor() + 0.5);
-                let d = (q * delta.to_radians().cos() - r * apothem).abs();
+                let d = if let Some(depth) = s.star_depth {
+                    // D-1071: a star, folded onto the half edge from the inner corner, `(1 +
+                    // depth)` of the way to a side's middle, to the corner: the distance to that
+                    // segment, so the points end round.
+                    let inner = r * apothem * (1.0 + depth);
+                    if q > r.max(inner) + h + 0.5 {
+                        continue;
+                    }
+                    let (sn, cs) = delta.abs().to_radians().sin_cos();
+                    let (px, py) = (q * cs - inner, q * sn);
+                    let (ex, ey) = (r * apothem - inner, r * half_side);
+                    let l = ex * ex + ey * ey;
+                    let t = if l > 0.0 { ((px * ex + py * ey) / l).clamp(0.0, 1.0) } else { 0.0 };
+                    (px - t * ex).hypot(py - t * ey)
+                } else {
+                    // A profile reaches h + 0.5 from the outline at most; the outline runs between
+                    // the edges' middles, r cos(180 / n) out, and the corners, r out.
+                    if q < r * apothem - h - 0.5 || q * apothem > r * apothem + h + 0.5 {
+                        continue;
+                    }
+                    if c == 0.0 {
+                        (q * delta.to_radians().cos() - r * apothem).abs()
+                    } else {
+                        // D-1071: the polygon shrunk by `1 - c` and grown again round by `c` of
+                        // the middles' distance, so each corner is a circle taking `c` of the
+                        // half sides either side.
+                        let (sn, cs) = delta.abs().to_radians().sin_cos();
+                        let (px, py) = (q * cs - r * apothem * (1.0 - c), q * sn - r * half_side * (1.0 - c));
+                        let inside = if py <= 0.0 { px } else { px.hypot(py) };
+                        (inside - c * r * apothem).abs()
+                    }
+                };
                 let p = match s.profile {
                     "square" => ((d + 0.5).min(h) - (d - 0.5).max(-h)).clamp(0.0, 1.0),
                     "triangle" => (1.0 - d / h).max(0.0),

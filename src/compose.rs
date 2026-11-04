@@ -1493,6 +1493,9 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
             if sets.iter().any(|s| s[0] == s[1]) || sets[4] != crate::effects::LEVELS_PLAIN)
         // D-304: the card tiles the drawing at its own size, round its middle, only.
         // ponytail: teach the card's tile pass a size and centre if a sized tile is slow here.
+        // D-1071: the card draws Radio Waves' sharp polygons only.
+        // ponytail: teach the card's wave pass round corners and stars if they are slow here.
+        && !matches!(&instance.effect, crate::effects::Effect::RadioWaves { curve_size, star, .. } if *curve_size != 0.0 || star == "on")
         // D-1070: and with no Phase.
         && !matches!(&instance.effect, crate::effects::Effect::MotionTile { tile_center, tile_width, tile_height, phase, .. }
             if (*tile_center, *tile_width, *tile_height) != (crate::layer_fx::PLAIN_TILE, 100.0, 100.0) || *phase != 0.0)
@@ -3539,6 +3542,14 @@ fn effect_now(
         // keyed, every wave's settings are the ones now.
         // ponytail: reads every wave that could be alive (lifespan up to 1000 frames) each
         // frame, O(1000 / interval); keep them between frames if fine intervals crawl.
+        // D-1071: a Frequency above 0 is waves a second, so the interval is the composition's
+        // frames a second over it, held inside Interval's 1 to 1000.
+        if let crate::effects::Effect::RadioWaves { frequency, interval, .. } = &mut now.effect {
+            if *frequency > 0.0 {
+                let fps = comp.frame_rate.numerator() as f64 / comp.frame_rate.denominator() as f64;
+                *interval = (fps / *frequency).clamp(1.0, 1000.0);
+            }
+        }
         if let crate::effects::Effect::RadioWaves {
             parameters_at,
             interval,

@@ -23239,6 +23239,9 @@ impl Gpu {
                     profile,
                     color: linear(color),
                     frame: *frame,
+                    // D-1071: a round corner or a star stays on the CPU (`compose`).
+                    curve_size: 0.0,
+                    star_depth: None,
                 };
                 let list = crate::layer_fx::radio_wave_list(&s);
                 let n = sides.floor();
