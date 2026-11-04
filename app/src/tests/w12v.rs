@@ -231,3 +231,106 @@ fn held_labels(viewer: &Mutex<Viewer>) -> String {
         .unwrap_or_default()
         .to_string()
 }
+
+/// D-1030 / B-909: Ctrl+Shift+X cuts the composition down to its work area.
+#[test]
+fn b909_trim_to_work_area() {
+    let mut rows: Rows = Vec::new();
+    let source = repo("Fixtures/projects/cel_holds_project.json");
+    let viewer = Mutex::new(open(&source).unwrap_or_else(|d| panic!("open: {}", d.message)));
+    let comp = || -> String {
+        let answer: serde_json::Value = serde_json::from_str(&state(&viewer)).expect("JSON");
+        let c = &answer["project"]["compositions"][0];
+        let cel = &c["layers"][0];
+        format!(
+            "first frame {}, {} frames, work area {}, markers [{}], Cel {} to {}",
+            c["start_frame"],
+            c["duration_frames"],
+            if c["work_area"].is_null() {
+                "none".to_string()
+            } else {
+                format!("{} to {}", c["work_area"]["start_frame"], c["work_area"]["end_frame_exclusive"])
+            },
+            c["markers"]
+                .as_array()
+                .cloned()
+                .unwrap_or_default()
+                .iter()
+                .map(|m| m["frame"].to_string())
+                .collect::<Vec<_>>()
+                .join(", "),
+            cel["in_frame"],
+            cel["out_frame"],
+        )
+    };
+    let run = |id: &str, query: Option<&str>| -> String {
+        edit_command(&viewer, id, query).expect("a command the window answers")
+    };
+    let trim = || run("composition.trim_to_work_area", None);
+    let whole = comp();
+    rows.push((
+        "The project as saved: five frames, the work area the whole of them".into(),
+        "first frame 0, 5 frames, work area 0 to 5, markers [], Cel 0 to 5".into(),
+        whole.clone(),
+    ));
+    rows.push((
+        "Trimming with the work area the whole composition is refused, with what to do".into(),
+        "The work area is already the whole composition: set it with B and N first.".into(),
+        trim(),
+    ));
+    rows.push(("and nothing changed".into(), whole.clone(), comp()));
+    run("timeline.set_markers", Some("marker=0|a&marker=2|b&marker=4|c"));
+    run("timeline.set_work_start", Some("frame=1"));
+    run("timeline.set_work_end", Some("frame=3"));
+    let before = comp();
+    rows.push((
+        "B at frame 1, N at frame 3, markers on 0, 2 and 4".into(),
+        "first frame 0, 5 frames, work area 1 to 4, markers [0, 2, 4], Cel 0 to 5".into(),
+        before.clone(),
+    ));
+    trim();
+    rows.push((
+        "Ctrl+Shift+X: the composition is frames 1 to 3, the work area all of it, the marker inside kept, the layer untouched"
+            .into(),
+        "first frame 1, 3 frames, work area 1 to 4, markers [2], Cel 0 to 5".into(),
+        comp(),
+    ));
+    rows.push((
+        "One entry to undo".into(),
+        "Trim the composition to the work area".into(),
+        held_labels(&viewer),
+    ));
+    rows.push((
+        "A second Ctrl+Shift+X has no work area to trim to and is refused".into(),
+        "The work area is already the whole composition: set it with B and N first.".into(),
+        trim(),
+    ));
+    let _ = edit_command(&viewer, "edit.undo", None);
+    rows.push(("Undo puts the composition back as it was".into(), before, comp()));
+    pins(
+        &mut rows,
+        &[
+            ("Ctrl+Shift+X sends it", "e.code === 'KeyX') { e.preventDefault(); trimToWork(); }"),
+            ("the command it sends", "await command('/composition.trim_to_work_area');"),
+            ("the Composition menu has it", "<button data-run=\"Trim comp to work area\"></button>"),
+            (
+                "the command finder has it, under After Effects' key",
+                "['Trim comp to work area', 'Ctrl+Shift+X', { key: 'X', code: 'KeyX', ctrlKey: true, shiftKey: true }],",
+            ),
+            (
+                "the timeline's right-click menu has it, greyed with no work area",
+                "['Trim comp to work area', 'Ctrl+Shift+X', trimToWork, !!composition()?.work_area],",
+            ),
+        ],
+    );
+    table(
+        "B-909_trim_to_work_area_table.md",
+        "B-909: Trim Comp to Work Area, Ctrl+Shift+X (D-1030)",
+        "b909_trim_to_work_area",
+        "After Effects: Composition > Trim Comp to Work Area (Ctrl+Shift+X) makes the work area the \
+         whole composition. The first rows run the window's own commands on \
+         `Fixtures/projects/cel_holds_project.json` and read the composition back; the last rows pin \
+         how the page sends it.",
+        &rows,
+    );
+}

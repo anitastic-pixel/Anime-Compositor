@@ -18,6 +18,7 @@ Every state-changing UI action invokes a stable command ID through the command l
 | composition.create | Create a composition in the open project | Ctrl+N | yes |
 | composition.open | Put one of the project's compositions in the viewer | none | no |
 | composition.set_settings | Change the composition's name, size, frame rate and length | Ctrl+K | yes |
+| composition.trim_to_work_area | Cut the composition down to its work area: its first frame and length become the work area's, markers outside go, layers stay where they are (D-1030, B-909) | Ctrl+Shift+X | yes |
 | composition.set_motion_blur | Turn the composition's motion blur on or off, or set its shutter angle, phase and samples, as one step of history (D-188; in the window since B-124b, 2026-09-28) | none | yes |
 | composition.set_frame_blending | Turn the composition's frame blending on or off; off until the user turns it on (D-216; in the window since B-150b, 2026-09-29) | none | yes |
 | composition.set_global_light | Set the composition's Global Light angle, which every Layer Style with Use Global Light on takes; 120 until the user sets it (D-922; in the window since B-801, 2026-10-27) | none | yes |

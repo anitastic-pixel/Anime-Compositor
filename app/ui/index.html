@@ -1915,6 +1915,7 @@
     <button data-run="New composition"></button>
     <button data-run="New comp from selection"></button>
     <button data-run="Composition settings"></button>
+    <button data-run="Trim comp to work area"></button>
     <button data-run="Pre-compose"></button>
     <button data-run="Map of compositions"></button>
     <hr>
@@ -3942,6 +3943,15 @@ function setWork(which) {
   });
 }
 
+// D-1030: After Effects' Trim Comp to Work Area, Ctrl+Shift+X. The window refuses it, with a
+// sentence, when there is no work area to trim to. A playhead the cut leaves outside goes to the
+// new first frame.
+async function trimToWork() {
+  await command('/composition.trim_to_work_area');
+  const comp = composition();
+  if (comp && (frame < comp.start_frame || frame >= comp.start_frame + comp.duration_frames)) seek(comp.start_frame);
+}
+
 // W-24: the composition's markers. The window takes the whole list each time, so adding, moving,
 // naming and removing one are all the same request and a drag is one entry to undo.
 // D-765: a layer's markers are the same list, so `markersOf` reads either; a marker with a length
@@ -5067,6 +5077,7 @@ sheet.addEventListener('contextmenu', (e) => {
     ['New null', 'Ctrl+Alt+Shift+Y', () => $('addnull').click()],
     ['Add a marker at frame ' + at, '*', () => addMarker(at)],
     ['Composition settings', 'Ctrl+K', compSettings],
+    ['Trim comp to work area', 'Ctrl+Shift+X', trimToWork, !!composition()?.work_area],
   ]);
 });
 
@@ -5815,6 +5826,7 @@ function paletteLines() {
     ['Set the work area start', 'B', { key: 'b' }],
     ['Set the work area end', 'N', { key: 'n' }],
     ['Reset the work area', '', () => setWork('reset')],
+    ['Trim comp to work area', 'Ctrl+Shift+X', { key: 'X', code: 'KeyX', ctrlKey: true, shiftKey: true }],
     ['Add a marker', '*', { key: '*' }],
     ['Name the marker at the playhead', '', () => nameMarker(frame)],
     ['Remove the marker at the playhead', '', () => removeMarkerAt(frame)],
@@ -21576,6 +21588,8 @@ addEventListener('keydown', (e) => {
   else if (e.ctrlKey && e.altKey && e.code === 'KeyG') { e.preventDefault(); holdKeys(); }
   // B-18c: After Effects' Ctrl+Shift+C, ahead of Ctrl+C, which would otherwise take it.
   else if (e.ctrlKey && e.shiftKey && !typing && e.code === 'KeyC') { e.preventDefault(); precompose(); }
+  // D-1030: After Effects' Ctrl+Shift+X, Trim Comp to Work Area.
+  else if (e.ctrlKey && e.shiftKey && !typing && e.code === 'KeyX') { e.preventDefault(); trimToWork(); }
   // W-30: with an effect's card clicked, Ctrl+C copies that effect and its settings.
   else if (e.ctrlKey && !typing && cardInHand() && (e.key === 'c' || e.key === 'C')) { e.preventDefault(); copyEffects([cardInHand()]); }
   else if (e.ctrlKey && !typing && pickedKeys.size && (e.key === 'c' || e.key === 'C')) { e.preventDefault(); copyKeys(); }

@@ -10982,6 +10982,7 @@ const ANSWERS: &[&str] = &[
     "composition.set_global_light",
     "composition.set_motion_blur",
     "composition.set_settings",
+    "composition.trim_to_work_area",
     "edit.redo",
     "edit.undo",
     "effect.add",
@@ -12944,7 +12945,7 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
         // a frame and keeps the end, unless the end would then come first, when the end goes back
         // to the composition's; N is the same the other way round. Markers are the whole list,
         // `marker=frame|name` repeated, so a drag sends where every marker now is.
-        if id.starts_with("timeline.") {
+        if id.starts_with("timeline.") || id == "composition.trim_to_work_area" {
             let past = comp.start_frame + comp.duration_frames as i32;
             let (start, end) = comp.work_area.unwrap_or((comp.start_frame, past));
             match id {
@@ -12974,6 +12975,8 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                         end_frame_exclusive: frame + 1,
                     }
                 }
+                // D-1030: Ctrl+Shift+X, the composition cut down to its work area.
+                "composition.trim_to_work_area" => Command::TrimToWorkArea { composition },
                 _ => match markers_parameter(query) {
                     Ok(markers) => Command::SetMarkers {
                         composition,

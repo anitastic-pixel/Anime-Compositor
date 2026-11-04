@@ -289,6 +289,10 @@ pub enum Command {
         start_frame: i32,
         end_frame_exclusive: i32,
     },
+    /// D-1030: After Effects' Trim Comp to Work Area. The composition's first frame and length
+    /// become the work area's, the work area then spans the whole composition and markers
+    /// outside are dropped; the layers are untouched.
+    TrimToWorkArea { composition: Id },
     /// W-24: the composition's markers, the whole list, so adding, moving, naming and removing
     /// one are all this command and a dragged marker is one entry to undo.
     SetMarkers {
@@ -679,6 +683,7 @@ impl Command {
             Command::MoveSketchStrokes { .. } => "MOVE_SKETCH_STROKES",
             Command::SetWorkArea { .. } => "SET_WORK_AREA",
             Command::SetMarkers { .. } => "SET_MARKERS",
+            Command::TrimToWorkArea { .. } => "TRIM_TO_WORK_AREA",
             Command::SetBlendMode { .. } => "SET_BLEND_MODE",
             Command::SetSolid { .. } => "SET_SOLID",
             Command::SetText { .. } => "SET_TEXT",
@@ -910,6 +915,7 @@ impl Command {
                 "Set the work area to frames {start_frame} to {}",
                 end_frame_exclusive - 1
             ),
+            Command::TrimToWorkArea { .. } => "Trim the composition to the work area".to_string(),
             Command::SetMarkers { markers, .. } => match markers.len() {
                 0 => "Clear the markers".to_string(),
                 1 => "Set one marker".to_string(),
@@ -1106,6 +1112,7 @@ impl Command {
             | Command::SetMotionBlur { composition, .. }
             | Command::SetWorkArea { composition, .. }
             | Command::SetMarkers { composition, .. }
+            | Command::TrimToWorkArea { composition }
             | Command::SetBlendMode { composition, .. }
             | Command::SetSolid { composition, .. }
             | Command::SetText { composition, .. }
@@ -1159,6 +1166,7 @@ impl Command {
             Command::AddLayer { layer, .. } => ids.push(layer.id.clone()),
             Command::SetWorkArea { .. }
             | Command::SetMarkers { .. }
+            | Command::TrimToWorkArea { .. }
             | Command::SetSheetText { .. }
             | Command::SetMotionBlur { .. }
             | Command::SetFrameBlending { .. }
@@ -3027,6 +3035,25 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
                 ));
             }
             comp.work_area = Some((*start_frame, *end_frame_exclusive));
+        }
+        Command::TrimToWorkArea { .. } => {
+            let comp = comp_mut(project, &comp_id)?;
+            let whole = (
+                comp.start_frame,
+                comp.start_frame + comp.duration_frames as i32,
+            );
+            let Some((first, past)) = comp.work_area.filter(|w| *w != whole) else {
+                return Err(reject(
+                    "The work area is already the whole composition: set it with B and N first.",
+                    "D-1030: Trim Comp to Work Area needs a work area shorter than the composition.",
+                ));
+            };
+            comp.start_frame = first;
+            comp.duration_frames = (past - first) as u32;
+            // Kept as the whole composition rather than cleared: a file that had a work area
+            // keeps the key it was read with when the model has none (persist.rs, W-24).
+            comp.work_area = Some((first, past));
+            comp.markers.retain(|m| m.frame >= first && m.frame < past);
         }
         Command::SetMarkers { markers, .. } => {
             let comp = comp_mut(project, &comp_id)?;

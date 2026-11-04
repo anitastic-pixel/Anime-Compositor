@@ -102,6 +102,7 @@ const SENT: &[&str] = &[
     "composition.set_global_light",
     "composition.set_motion_blur",
     "composition.set_settings",
+    "composition.trim_to_work_area",
     "edit.redo",
     "edit.undo",
     "effect.add",
@@ -616,6 +617,8 @@ const REACHED: &[(&str, &str)] = &[
     ("composition.create", "a command the window answers"),
     ("composition.open", "a command the window answers"),
     ("composition.set_settings", "a command the window answers"),
+    // D-1030: Ctrl+Shift+X.
+    ("composition.trim_to_work_area", "a command the window answers"),
     // D-188: the composition's shutter, built by B-124b.
     (
         "composition.set_motion_blur",
