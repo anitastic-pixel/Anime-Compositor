@@ -221005,6 +221005,30 @@ HUECURVE-023 (drag): Dragged above 200 and below 0: held.
 
 HUECURVE-024 (drag): Dragged below 0.
 
+### Warp Stabilizer, Crop Less <-> Smooth More (D-1012)
+
+Warp Stabilizer's second unit (B-892). `tools/warp_stabilizer_2_reference.py` runs D-653's reference with step 5's steadied map blended toward the unchanged map, writes the projects, media and `expected_warp_stabilizer_2.json` in `Fixtures/warp_stabilizer_2/`, and checks each case's claim; linear premultiplied, tolerance 2e-5. Checked by `tests/b892_warp_stabilizer_2.rs`.
+
+FX-WS2-001 (`fx_ws2_001.json`): As added, Crop Less <-> Smooth More 50: steadied half as far as D-653's, so cut and scaled up less (FX-WS-001 at 100). Frames 2, 3.
+
+FX-WS2-002 (`fx_ws2_002.json`): At 100: D-653's own picture, FX-WS-001. Frames 2.
+
+FX-WS2-003 (`fx_ws2_003.json`): At 0: not moved, so nothing cut or scaled: the drawing as it is. Frames 2.
+
+FX-WS2-004 (`fx_ws2_004.json`): At 50, Stabilize, Crop: fewer pixels cut away than FX-WS-003's. Frames 2.
+
+FX-WS2-005 (`fx_ws2_005.json`): At 50 with Stabilize Only: the setting does nothing, FX-WS-002. Frames 2.
+
+FX-WS2-006 (`fx_ws2_006.json`): At 50 with No Motion: the setting does nothing, No Motion's own picture. Frames 3.
+
+FX-WS2-007 (`fx_ws2_007.json`): Keyed from 0 at frame 0 to 100 at frame 4: 50 at frame 2, FX-WS2-001's frame 2. Frames 2.
+
+FX-WS2-008 (`fx_ws2_008.json`): A D-653 file without the setting: read as 100, FX-WS-001's picture. Frames 2.
+
+FX-WS2-009 (`fx_ws2_009.json`): Crop Less <-> Smooth More 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning.
+
+FX-WS2-010 (`fx_ws2_010.json`): Crop Less <-> Smooth More -1, below 0. The file is read, the effect is kept as written and left out of every frame, with a warning.
+
 ### CC Force Motion Blur (D-581)
 
 CC Force Motion Blur (`core.force_motion_blur`), after CycoreFX's CC Force Motion Blur (B-470), the rule ours. Each case is a project whose composition `comp-main` is 20 by 1, five frames, in `Fixtures/force_motion_blur/`; the holder shows `comp-in`, also 20 by 1, where a bar four pixels wide runs 16 pixels a frame, its left edge at 6 on frame 1. `tools/force_motion_blur_reference.py` works the expected frames, `Fixtures/force_motion_blur/expected_force_motion_blur.json`, tolerance 2e-5, through `tools/motion_blur_reference.py`'s slide and resampling, reading each key at the moment's time directly; the rule is in document 21.
