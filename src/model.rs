@@ -1075,6 +1075,14 @@ pub struct Timesheet {
 }
 
 impl Layer {
+    /// D-1119: equal in everything a frame is drawn from. The colour label, lock, shy switch
+    /// and markers are left out: nothing that draws a frame reads them, an expression
+    /// included. A name is not left out, because an expression can find a layer by it.
+    pub fn draws_as(&self, other: &Layer) -> bool {
+        let plain = |l: &Layer| Layer { label: 0, locked: false, shy: false, markers: Vec::new(), ..l.clone() };
+        self == other || plain(self) == plain(other)
+    }
+
     /// D-740: every key the layer holds `by` frames later, as a layer's keys travel with its bar
     /// (the owner's decision of 2026-09-13). The exposures and the timesheet are in source frames
     /// and stay. A kind of key added to a layer is added here, and both moving and trimming a
@@ -1582,6 +1590,22 @@ pub struct Marker {
 }
 
 impl Composition {
+    /// D-1119: [`Layer::draws_as`] for every layer, in the same order, and the composition's
+    /// own label and markers left out. A layer two copies share is not looked into.
+    pub fn draws_as(&self, other: &Composition) -> bool {
+        let plain = |c: &Composition| Composition {
+            label: 0,
+            markers: Vec::new(),
+            layers: BTreeMap::new(),
+            ..c.clone()
+        };
+        self.layers.len() == other.layers.len()
+            && self.layers.iter().zip(&other.layers).all(|((a, la), (b, lb))| {
+                a == b && (Arc::ptr_eq(la, lb) || la.draws_as(lb))
+            })
+            && plain(self) == plain(other)
+    }
+
     pub fn new(
         id: Id,
         name: impl Into<String>,
@@ -1958,6 +1982,14 @@ pub struct Project {
 }
 
 impl Project {
+    /// D-1119: [`Composition::draws_as`] for every composition, and the rest equal.
+    pub fn draws_as(&self, other: &Project) -> bool {
+        let plain = |p: &Project| Project { compositions: Vec::new(), ..p.clone() };
+        self.compositions.len() == other.compositions.len()
+            && self.compositions.iter().zip(&other.compositions).all(|(a, b)| a.draws_as(b))
+            && plain(self) == plain(other)
+    }
+
     pub fn new(id: Id) -> Self {
         Project {
             id,

@@ -232,3 +232,49 @@ fn d1116_the_page_copy_built_from_changes_equals_a_full_read() {
         assert!(stale.get("project").is_some() && stale.get("changes").is_none());
     }
 }
+
+/// D-1119, by B-780's check: the 240 frames of the reference shot made ahead, then one edit, then
+/// every frame the frame memory sends is byte for byte the frame made by hand after the same
+/// edit. An edit that draws nothing keeps all 240; an edit that draws (hiding a layer), or a rename (names stay
+/// in the comparison), keeps none, and no frame from memory is ever stale.
+#[test]
+fn d1119_frames_made_ahead_survive_an_edit_that_draws_nothing() {
+    let export = Mutex::new(Export::default());
+    let ask = |v: &Mutex<Viewer>, a: Ask| serve_logged(v, &export, None, None, a, Some(PreviewQuality::Draft));
+    let cached = |r: &Response<Vec<u8>>| r.headers().get("x-cached").is_some_and(|v| v == "1");
+    let shot = repo("Fixtures/reference_shot");
+    let viewer_on = || {
+        let mut viewer = demo();
+        viewer.root = shot.clone();
+        Mutex::new(viewer)
+    };
+    let edits: [(&str, &str, usize); 7] = [
+        ("layer.set_label", "layer=layer-1&label=3", 240),
+        ("layer.toggle_lock", "layer=layer-1", 240),
+        ("layer.toggle_shy", "layer=layer-1", 240),
+        ("layer.set_markers", "layer=layer-1&marker=2|beat", 240),
+        ("timeline.set_markers", "marker=2|hit", 240),
+        ("layer.rename", "layer=layer-1&name=p27", 0),
+        ("layer.toggle_visibility", "layer=layer-1", 0),
+    ];
+    for (name, query, keeps) in edits {
+        let ahead = viewer_on();
+        ask(&ahead, Ask::Play(0));
+        render_ahead_by(&ahead, None, 1);
+        let cold = viewer_on();
+        for v in [&ahead, &cold] {
+            edit_command(v, name, Some(query)).expect(name);
+        }
+        let (mut kept, mut same) = (0, 0);
+        for n in 0..240 {
+            let from = ask(&ahead, Ask::Frame(n));
+            if cached(&from) {
+                kept += 1;
+                same += usize::from(from.body() == ask(&cold, Ask::Frame(n)).body());
+            }
+        }
+        println!("{name}: {kept} of 240 sent from memory, {same} of them byte for byte the frame made by hand");
+        assert_eq!(same, kept, "{name}: a frame from memory is not the frame made by hand");
+        assert_eq!(kept, keeps, "{name}: frames kept");
+    }
+}

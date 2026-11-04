@@ -1902,13 +1902,27 @@ pub fn build() -> Option<&'static str> {
 /// value for the reason [`EffectKey`] is: a comparison of the inputs cannot collide. `card` is the
 /// card's budget when the card drew it and `None` for the CPU, because the two are allowed to
 /// differ by a level and a frame from one must never be sent as the other's.
-#[derive(Clone, PartialEq, Debug)]
+///
+/// D-1119: two sights are the same when their projects draw the same
+/// ([`Project::draws_as`](crate::model::Project::draws_as)), so a label, lock, shy or marker
+/// change keeps the frames made ahead.
+#[derive(Clone, Debug)]
 pub struct Sight {
     pub project: crate::model::Project,
     pub composition: crate::model::Id,
     pub root: PathBuf,
     pub quality: crate::preview::PreviewQuality,
     pub card: Option<usize>,
+}
+
+impl PartialEq for Sight {
+    fn eq(&self, other: &Sight) -> bool {
+        self.composition == other.composition
+            && self.root == other.root
+            && self.quality == other.quality
+            && self.card == other.card
+            && self.project.draws_as(&other.project)
+    }
 }
 
 /// A finished frame as the viewer sends it: 8-bit straight sRGB, and what was said making it.
