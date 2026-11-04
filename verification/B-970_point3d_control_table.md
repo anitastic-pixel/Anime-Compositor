@@ -52,10 +52,10 @@ Document 25's FX-EXPR-023, from `tools/expression_reference.py`, against the bui
 | Point3D rotation | `effect("3D Point Control")("3D Point")` | 12 | 0, EXPRESSION_TYPE | 0, EXPRESSION_TYPE | pass |
 | Point3D rotation | `effect("3D Point Control")("3D Point")` | 24 | 0, EXPRESSION_TYPE | 0, EXPRESSION_TYPE | pass |
 | Point3D rotation | `effect("3D Point Control")("3D Point")` | 48 | 0, EXPRESSION_TYPE | 0, EXPRESSION_TYPE | pass |
-| Point3D position | `effect("3D Point Control")("3D Point")` | 0 | (960, 540), EXPRESSION_TYPE | (960, 540), EXPRESSION_TYPE | pass |
-| Point3D position | `effect("3D Point Control")("3D Point")` | 12 | (960, 540), EXPRESSION_TYPE | (960, 540), EXPRESSION_TYPE | pass |
-| Point3D position | `effect("3D Point Control")("3D Point")` | 24 | (960, 540), EXPRESSION_TYPE | (960, 540), EXPRESSION_TYPE | pass |
-| Point3D position | `effect("3D Point Control")("3D Point")` | 48 | (960, 540), EXPRESSION_TYPE | (960, 540), EXPRESSION_TYPE | pass |
+| Point3D position | `effect("3D Point Control")("3D Point")` | 0 | (0, 0) | (0, 0) | pass |
+| Point3D position | `effect("3D Point Control")("3D Point")` | 12 | (120, -60) | (120, -60) | pass |
+| Point3D position | `effect("3D Point Control")("3D Point")` | 24 | (240, -120) | (240, -120) | pass |
+| Point3D position | `effect("3D Point Control")("3D Point")` | 48 | (480, -240) | (480, -240) | pass |
 | Point3D rotation | `effect("3D Point Control")("3D Point")[3]` | 0 | 0, EXPRESSION_TYPE | 0, EXPRESSION_TYPE | pass |
 | Point3D rotation | `effect("3D Point Control")("3D Point")[3]` | 12 | 0, EXPRESSION_TYPE | 0, EXPRESSION_TYPE | pass |
 | Point3D rotation | `effect("3D Point Control")("3D Point")[3]` | 24 | 0, EXPRESSION_TYPE | 0, EXPRESSION_TYPE | pass |

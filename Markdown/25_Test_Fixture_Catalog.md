@@ -225159,7 +225159,7 @@ FX-EXPR-023: each row is one expression on the property named, alone in the proj
 | Point3D position | `p = effect("3D Point Control")("3D Point"); [p[0] + 960, p[1] + 540]` | (960, 540) | (1080, 480) | (1200, 420) | (1440, 300) |
 | Point3D depth | `effect("3D Point Control")("3D Point")[2]` | 0 | 240 | 480 | 960 |
 | Point3D rotation | `effect("3D Point Control")("3D Point")` | 0, EXPRESSION_TYPE | 0, EXPRESSION_TYPE | 0, EXPRESSION_TYPE | 0, EXPRESSION_TYPE |
-| Point3D position | `effect("3D Point Control")("3D Point")` | (960, 540), EXPRESSION_TYPE | (960, 540), EXPRESSION_TYPE | (960, 540), EXPRESSION_TYPE | (960, 540), EXPRESSION_TYPE |
+| Point3D position | `effect("3D Point Control")("3D Point")` | (0, 0) | (120, -60) | (240, -120) | (480, -240) |
 | Point3D rotation | `effect("3D Point Control")("3D Point")[3]` | 0, EXPRESSION_TYPE | 0, EXPRESSION_TYPE | 0, EXPRESSION_TYPE | 0, EXPRESSION_TYPE |
 | Point3D rotation | `effect("3D Point Control")("Point")[0]` | 0, EXPRESSION_REFERENCE_MISSING | 0, EXPRESSION_REFERENCE_MISSING | 0, EXPRESSION_REFERENCE_MISSING | 0, EXPRESSION_REFERENCE_MISSING |
 | Point3D rotation | `effect("Point Control")("Point")[0]` | 0, EXPRESSION_REFERENCE_MISSING | 0, EXPRESSION_REFERENCE_MISSING | 0, EXPRESSION_REFERENCE_MISSING | 0, EXPRESSION_REFERENCE_MISSING |

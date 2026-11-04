@@ -31,8 +31,8 @@ expressions at four frames against numbers worked out by a separate program
 5. **Save and open.** Save, close and open the project: the control and its three numbers
    should come back.
 
-Known differences: in After Effects a 2D layer's Position accepts a list of three and drops the z;
-here that is refused as a wrong-length list (the expression shows an error and the layer keeps
-its own position), so write `p = ...; [p[0], p[1]]`. No handle is drawn in the viewer for the
+A 2D layer's Position also accepts the whole point and drops the z, as in After Effects (D-1046,
+D-1094): `effect("3D Point Control")("3D Point")` on Position puts the layer at the point's x and y.
+Known differences: no handle is drawn in the viewer for the
 point, as none is for Point Control. An older build keeps the effect but does not run it, so an
 expression reading it shows an error there.
