@@ -1278,6 +1278,11 @@
   }
   /* D-949: the eyedropper after every colour field in the panels. */
   .dropbtn { min-width: 0; padding: 0 3px; height: 1.7em; vertical-align: middle; margin-left: 2px; }
+  /* D-1008: Color Grade's three wheels, each with its lightness slider under it. */
+  .effect .wheels { display: flex; gap: 6px; justify-content: space-between; }
+  .effect .wheels > div { display: flex; flex-direction: column; align-items: center; flex: 1; min-width: 0; font-size: 11px; color: #9a9aa2; }
+  .effect canvas.wheel { width: 100%; max-width: 92px; height: auto; cursor: crosshair; touch-action: none; }
+  .effect .wheels input[type=range] { width: 100%; max-width: 92px; }
   /* D-1007: Color Grade's key strip, its droppers and six colour dots. */
   .keytools .dropbtn { display: inline-flex; align-items: center; gap: 2px; white-space: nowrap; padding: 0 5px; }
   .keytools .keydot { min-width: 0; width: 1.1em; height: 1.1em; padding: 0; margin-left: 4px; border-radius: 50%; vertical-align: middle; border: 1px solid #4a4a50; }
@@ -15627,6 +15632,88 @@ function fxKeyTools(k, label) {
   return box;
 }
 // ---- B-887 end
+// ---- B-888 begin
+// D-1008: Color Grade's three wheels, exactly `tools/color_wheels_reference.py`: a disc of
+// radius 1, y up, the hue h at h + 103 degrees counter-clockwise from the right (red up and to
+// the left, as a vectorscope puts it). The page check runs its cases through these two.
+const WHEEL_RED = 103;
+function wheelAt(x, y, hue) {
+  const amount = Math.min(100, rnd(100 * Math.hypot(x, y)));
+  return amount === 0 ? { hue, amount: 0 } : { hue: pmod(rnd(Math.atan2(y, x) * (180 / Math.PI) - WHEEL_RED), 360), amount };
+}
+function wheelDot(hue, amount) {
+  const a = (hue + WHEEL_RED) * (Math.PI / 180);
+  return { x: (amount / 100) * Math.cos(a), y: (amount / 100) * Math.sin(a) };
+}
+function fxWheels(k, label) {
+  const box = Object.assign(document.createElement('div'), { className: 'wheels' });
+  for (const [part, word] of [['shadow', 'Shadows'], ['midtone', 'Midtones'], ['highlight', 'Highlights']]) {
+    const [hn, an, ln] = [part + '_wheel_hue', part + '_wheel_amount', part + '_lightness'];
+    const num = (n) => Number(k.fields[n][0].value) || 0;
+    const S = 92, R = S / 2 - 5, c = fxCanvas(S, S, 'wheel', label + ' ' + word + ' wheel');
+    c.title = word + ': drag the dot towards a colour to push the ' + word.toLowerCase()
+      + ' that way, further out for more; double-click puts it back; Escape while dragging cancels';
+    const g = c.getContext('2d');
+    const draw = () => {
+      g.clearRect(0, 0, S, S);
+      g.lineWidth = 5;
+      for (let d = 0; d < 360; d += 2) {   // the ring: each hue in its own colour, where it pushes
+        g.strokeStyle = 'hsl(' + d + ',100%,50%)';
+        g.beginPath();
+        g.arc(S / 2, S / 2, R + 2, -(d + 1.6 + WHEEL_RED) * (Math.PI / 180), -(d - 1.6 + WHEEL_RED) * (Math.PI / 180));
+        g.stroke();
+      }
+      g.fillStyle = '#26262a';
+      g.beginPath();
+      g.arc(S / 2, S / 2, R - 1, 0, 2 * Math.PI);
+      g.fill();
+      g.strokeStyle = '#3c3c42';
+      g.lineWidth = 1;
+      g.beginPath();
+      g.moveTo(S / 2 - R, S / 2); g.lineTo(S / 2 + R, S / 2);
+      g.moveTo(S / 2, S / 2 - R); g.lineTo(S / 2, S / 2 + R);
+      g.stroke();
+      const p = wheelDot(num(hn), num(an));
+      g.fillStyle = num(an) ? 'hsl(' + num(hn) + ',100%,60%)' : '#bbbbbb';
+      g.strokeStyle = '#ffffff';
+      g.lineWidth = 1.5;
+      g.beginPath();
+      g.arc(S / 2 + p.x * R, S / 2 - p.y * R, 4, 0, 2 * Math.PI);
+      g.fill();
+      g.stroke();
+    };
+    draw();
+    k.redraws.push(draw);
+    const put = ([x, y]) => {
+      const to = wheelAt((x - S / 2) / R, (S / 2 - y) / R, num(hn));
+      k.fields[hn][0].value = to.hue;
+      k.fields[an][0].value = to.amount;
+      draw();
+      k.live(an);
+    };
+    c.onpointerdown = (e) => {
+      if (e.button !== 0) return;
+      const start = [num(hn), num(an)];
+      put(fxAt(c, e));
+      fxDrag(c, e, put, (cancelled) => {
+        if (cancelled) { k.fields[hn][0].value = start[0]; k.fields[an][0].value = start[1]; draw(); }
+        k.close(cancelled);
+      });
+    };
+    c.ondblclick = () => { k.fields[an][0].value = 0; draw(); k.send(); };
+    const slide = Object.assign(document.createElement('input'), { type: 'range', min: -100, max: 100, step: 1, value: num(ln) });
+    slide.setAttribute('aria-label', label + ' ' + word + ' lightness');
+    slide.title = word + ' lightness, -100 to 100';
+    slide.oninput = () => { k.fields[ln][0].value = slide.value; k.live(ln); };
+    slide.onchange = () => k.close(false);
+    k.redraws.push(() => { slide.value = num(ln); });
+    const cell = document.createElement('div');
+    cell.append(c, slide, Object.assign(document.createElement('span'), { textContent: word }));
+    box.append(cell);
+  }
+  return box;
+}
+// ---- B-888 end
 function fxHues(k, label) {
   const W = 240;
   const c = fxCanvas(W, 48, 'fxview', label + ' colour bars');
@@ -16294,6 +16381,11 @@ function effectRow(layer, fx, at, of) {
     const dd = Object.assign(document.createElement('dd'), { className: 'wide' });
     dd.append(picture);
     dl.prepend(dd);
+  }
+  if (fx.type_id === 'core.color_grade' && fields.shadow_wheel_hue) {   // D-1008
+    const dd = Object.assign(document.createElement('dd'), { className: 'wide' });
+    dd.append(fxWheels(k, label));
+    fields.shadow_wheel_hue[0].closest('dd').previousElementSibling.before(dd);
   }
   if (fx.type_id === 'core.color_grade' && fields.key_softness) {   // D-1007
     const dd = Object.assign(document.createElement('dd'), { className: 'wide' });
