@@ -1,0 +1,2393 @@
+{
+ "tolerance": 0.02,
+ "curve_tolerance": 0.1,
+ "curve_turn_tolerance": 0.3,
+ "defaults": {
+  "path": 1,
+  "reverse": "off",
+  "perpendicular": "on",
+  "force_alignment": "off",
+  "first_margin": 0,
+  "last_margin": 0
+ },
+ "cases": {
+  "FX-TXP-001": {
+   "says": "Left, First Margin 20, on an open path with a corner: the letters past the corner climb its second piece.",
+   "text": {
+    "text": "ALONG A PATH",
+    "font": "MPLUSRounded1c-Regular.ttf",
+    "size": 60,
+    "color": [
+     1,
+     1,
+     1
+    ],
+    "at": [
+     80,
+     120
+    ],
+    "align": "left"
+   },
+   "mask": {
+    "id": "mask-1",
+    "name": "Mask 1",
+    "enabled": true,
+    "inverted": false,
+    "mode": "none",
+    "opacity": 1,
+    "feather_px": 0,
+    "expansion_px": 0,
+    "closed": false,
+    "path": {
+     "base": {
+      "points": [
+       {
+        "point": [
+         100,
+         300
+        ],
+        "in": [
+         0,
+         0
+        ],
+        "out": [
+         0,
+         0
+        ]
+       },
+       {
+        "point": [
+         500,
+         300
+        ],
+        "in": [
+         0,
+         0
+        ],
+        "out": [
+         0,
+         0
+        ]
+       },
+       {
+        "point": [
+         700,
+         100
+        ],
+        "in": [
+         0,
+         0
+        ],
+        "out": [
+         0,
+         0
+        ]
+       }
+      ]
+     },
+     "keyframes": []
+    }
+   },
+   "options": {
+    "path": 1,
+    "reverse": "off",
+    "perpendicular": "on",
+    "force_alignment": "off",
+    "first_margin": 20,
+    "last_margin": 0
+   },
+   "animators": [],
+   "curved": false,
+   "chars": [
+    {
+     "index": 0,
+     "char": "A",
+     "at": [
+      139.17000000000002,
+      300.0
+     ],
+     "turn": 0.0
+    },
+    {
+     "index": 1,
+     "char": "L",
+     "at": [
+      175.8,
+      300.0
+     ],
+     "turn": 0.0
+    },
+    {
+     "index": 2,
+     "char": "O",
+     "at": [
+      214.68,
+      300.0
+     ],
+     "turn": 0.0
+    },
+    {
+     "index": 3,
+     "char": "N",
+     "at": [
+      256.68,
+      300.0
+     ],
+     "turn": 0.0
+    },
+    {
+     "index": 4,
+     "char": "G",
+     "at": [
+      297.87,
+      300.0
+     ],
+     "turn": 0.0
+    },
+    {
+     "index": 5,
+     "char": " ",
+     "at": [
+      326.58,
+      300.0
+     ],
+     "turn": 0.0
+    },
+    {
+     "index": 6,
+     "char": "A",
+     "at": [
+      353.84999999999997,
+      300.0
+     ],
+     "turn": 0.0
+    },
+    {
+     "index": 7,
+     "char": " ",
+     "at": [
+      381.12,
+      300.0
+     ],
+     "turn": 0.0
+    },
+    {
+     "index": 8,
+     "char": "P",
+     "at": [
+      407.21999999999997,
+      300.0
+     ],
+     "turn": 0.0
+    },
+    {
+     "index": 9,
+     "char": "A",
+     "at": [
+      444.39,
+      300.0
+     ],
+     "turn": 0.0
+    },
+    {
+     "index": 10,
+     "char": "T",
+     "at": [
+      482.5799999999999,
+      300.0
+     ],
+     "turn": 0.0
+    },
+    {
+     "index": 11,
+     "char": "H",
+     "at": [
+      515.4714963723616,
+      284.5285036276384
+     ],
+     "turn": -45.0
+    }
+   ]
+  },
+  "FX-TXP-002": {
+   "says": "Center on the open path.",
+   "text": {
+    "text": "CENTER",
+    "font": "MPLUSRounded1c-Regular.ttf",
+    "size": 60,
+    "color": [
+     1,
+     1,
+     1
+    ],
+    "at": [
+     80,
+     120
+    ],
+    "align": "center"
+   },
+   "mask": {
+    "id": "mask-1",
+    "name": "Mask 1",
+    "enabled": true,
+    "inverted": false,
+    "mode": "none",
+    "opacity": 1,
+    "feather_px": 0,
+    "expansion_px": 0,
+    "closed": false,
+    "path": {
+     "base": {
+      "points": [
+       {
+        "point": [
+         100,
+         300
+        ],
+        "in": [
+         0,
+         0
+        ],
+        "out": [
+         0,
+         0
+        ]
+       },
+       {
+        "point": [
+         500,
+         300
+        ],
+        "in": [
+         0,
+         0
+        ],
+        "out": [
+         0,
+         0
+        ]
+       },
+       {
+        "point": [
+         700,
+         100
+        ],
+        "in": [
+         0,
+         0
+        ],
+        "out": [
+         0,
+         0
+        ]
+       }
+      ]
+     },
+     "keyframes": []
+    }
+   },
+   "options": {
+    "path": 1,
+    "reverse": "off",
+    "perpendicular": "on",
+    "force_alignment": "off",
+    "first_margin": 0,
+    "last_margin": 0
+   },
+   "animators": [],
+   "curved": false,
+   "chars": [
+    {
+     "index": 0,
+     "char": "C",
+     "at": [
+      348.4213562373095,
+      300.0
+     ],
+     "turn": 0.0
+    },
+    {
+     "index": 1,
+     "char": "E",
+     "at": [
+      384.4213562373095,
+      300.0
+     ],
+     "turn": 0.0
+    },
+    {
+     "index": 2,
+     "char": "N",
+     "at": [
+      422.6113562373095,
+      300.0
+     ],
+     "turn": 0.0
+    },
+    {
+     "index": 3,
+     "char": "T",
+     "at": [
+      462.21135623730953,
+      300.0
+     ],
+     "turn": 0.0
+    },
+    {
+     "index": 4,
+     "char": "E",
+     "at": [
+      498.8413562373095,
+      300.0
+     ],
+     "turn": 0.0
+    },
+    {
+     "index": 5,
+     "char": "R",
+     "at": [
+      524.4880668370886,
+      275.51193316291136
+     ],
+     "turn": -45.0
+    }
+   ]
+  },
+  "FX-TXP-003": {
+   "says": "Right, Last Margin 30, on the open path.",
+   "text": {
+    "text": "RIGHT",
+    "font": "MPLUSRounded1c-Regular.ttf",
+    "size": 60,
+    "color": [
+     1,
+     1,
+     1
+    ],
+    "at": [
+     80,
+     120
+    ],
+    "align": "right"
+   },
+   "mask": {
+    "id": "mask-1",
+    "name": "Mask 1",
+    "enabled": true,
+    "inverted": false,
+    "mode": "none",
+    "opacity": 1,
+    "feather_px": 0,
+    "expansion_px": 0,
+    "closed": false,
+    "path": {
+     "base": {
+      "points": [
+       {
+        "point": [
+         100,
+         300
+        ],
+        "in": [
+         0,
+         0
+        ],
+        "out": [
+         0,
+         0
+        ]
+       },
+       {
+        "point": [
+         500,
+         300
+        ],
+        "in": [
+         0,
+         0
+        ],
+        "out": [
+         0,
+         0
+        ]
+       },
+       {
+        "point": [
+         700,
+         100
+        ],
+        "in": [
+         0,
+         0
+        ],
+        "out": [
+         0,
+         0
+        ]
+       }
+      ]
+     },
+     "keyframes": []
+    }
+   },
+   "options": {
+    "path": 1,
+    "reverse": "off",
+    "perpendicular": "on",
+    "force_alignment": "off",
+    "first_margin": 0,
+    "last_margin": 30
+   },
+   "animators": [],
+   "curved": false,
+   "chars": [
+    {
+     "index": 0,
+     "char": "R",
+     "at": [
+      567.7993161893631,
+      232.20068381063692
+     ],
+     "turn": -45.0
+    },
+    {
+     "index": 1,
+     "char": "I",
+     "at": [
+      587.357889756983,
+      212.642110243017
+     ],
+     "turn": -45.0
+    },
+    {
+     "index": 2,
+     "char": "G",
+     "at": [
+      608.6347328028862,
+      191.36526719711384
+     ],
+     "turn": -45.0
+    },
+    {
+     "index": 3,
+     "char": "H",
+     "at": [
+      637.5483290856041,
+      162.45167091439583
+     ],
+     "turn": -45.0
+    },
+    {
+     "index": 4,
+     "char": "T",
+     "at": [
+      665.3376255862354,
+      134.66237441376455
+     ],
+     "turn": -45.0
+    }
+   ]
+  },
+  "FX-TXP-004": {
+   "says": "Force Alignment, margins 10 and 10: the word spreads over the whole path.",
+   "text": {
+    "text": "FORCE",
+    "font": "MPLUSRounded1c-Regular.ttf",
+    "size": 60,
+    "color": [
+     1,
+     1,
+     1
+    ],
+    "at": [
+     80,
+     120
+    ],
+    "align": "left"
+   },
+   "mask": {
+    "id": "mask-1",
+    "name": "Mask 1",
+    "enabled": true,
+    "inverted": false,
+    "mode": "none",
+    "opacity": 1,
+    "feather_px": 0,
+    "expansion_px": 0,
+    "closed": false,
+    "path": {
+     "base": {
+      "points": [
+       {
+        "point": [
+         100,
+         300
+        ],
+        "in": [
+         0,
+         0
+        ],
+        "out": [
+         0,
+         0
+        ]
+       },
+       {
+        "point": [
+         500,
+         300
+        ],
+        "in": [
+         0,
+         0
+        ],
+        "out": [
+         0,
+         0
+        ]
+       },
+       {
+        "point": [
+         700,
+         100
+        ],
+        "in": [
+         0,
+         0
+        ],
+        "out": [
+         0,
+         0
+        ]
+       }
+      ]
+     },
+     "keyframes": []
+    }
+   },
+   "options": {
+    "path": 1,
+    "reverse": "off",
+    "perpendicular": "on",
+    "force_alignment": "on",
+    "first_margin": 10,
+    "last_margin": 10
+   },
+   "animators": [],
+   "curved": false,
+   "chars": [
+    {
+     "index": 0,
+     "char": "F",
+     "at": [
+      127.16,
+      300.0
+     ],
+     "turn": 0.0
+    },
+    {
+     "index": 1,
+     "char": "O",
+     "at": [
+      285.07067811865477,
+      300.0
+     ],
+     "turn": 0.0
+    },
+    {
+     "index": 2,
+     "char": "R",
+     "at": [
+      444.00135623730955,
+      300.0
+     ],
+     "turn": 0.0
+    },
+    {
+     "index": 3,
+     "char": "C",
+     "at": [
+      570.6414059474338,
+      229.35859405256625
+     ],
+     "turn": -45.0
+    },
+    {
+     "index": 4,
+     "char": "E",
+     "at": [
+      680.4767817714395,
+      119.52321822856052
+     ],
+     "turn": -45.0
+    }
+   ]
+  },
+  "FX-TXP-005": {
+   "says": "Perpendicular To Path off: the letters follow the path but stay upright.",
+   "text": {
+    "text": "UPRIGHT",
+    "font": "MPLUSRounded1c-Regular.ttf",
+    "size": 60,
+    "color": [
+     1,
+     1,
+     1
+    ],
+    "at": [
+     80,
+     120
+    ],
+    "align": "left"
+   },
+   "mask": {
+    "id": "mask-1",
+    "name": "Mask 1",
+    "enabled": true,
+    "inverted": false,
+    "mode": "none",
+    "opacity": 1,
+    "feather_px": 0,
+    "expansion_px": 0,
+    "closed": false,
+    "path": {
+     "base": {
+      "points": [
+       {
+        "point": [
+         100,
+         300
+        ],
+        "in": [
+         0,
+         0
+        ],
+        "out": [
+         0,
+         0
+        ]
+       },
+       {
+        "point": [
+         500,
+         300
+        ],
+        "in": [
+         0,
+         0
+        ],
+        "out": [
+         0,
+         0
+        ]
+       },
+       {
+        "point": [
+         700,
+         100
+        ],
+        "in": [
+         0,
+         0
+        ],
+        "out": [
+         0,
+         0
+        ]
+       }
+      ]
+     },
+     "keyframes": []
+    }
+   },
+   "options": {
+    "path": 1,
+    "reverse": "off",
+    "perpendicular": "off",
+    "force_alignment": "off",
+    "first_margin": 300,
+    "last_margin": 0
+   },
+   "animators": [],
+   "curved": false,
+   "chars": [
+    {
+     "index": 0,
+     "char": "U",
+     "at": [
+      419.68,
+      300.0
+     ],
+     "turn": 0.0
+    },
+    {
+     "index": 1,
+     "char": "P",
+     "at": [
+      457.36,
+      300.0
+     ],
+     "turn": 0.0
+    },
+    {
+     "index": 2,
+     "char": "R",
+     "at": [
+      493.53999999999996,
+      300.0
+     ],
+     "turn": 0.0
+    },
+    {
+     "index": 3,
+     "char": "I",
+     "at": [
+      514.9906637611548,
+      285.0093362388452
+     ],
+     "turn": 0.0
+    },
+    {
+     "index": 4,
+     "char": "G",
+     "at": [
+      536.267506807058,
+      263.73249319294194
+     ],
+     "turn": 0.0
+    },
+    {
+     "index": 5,
+     "char": "H",
+     "at": [
+      565.1811030897759,
+      234.81889691022405
+     ],
+     "turn": 0.0
+    },
+    {
+     "index": 6,
+     "char": "T",
+     "at": [
+      592.9703995904073,
+      207.02960040959272
+     ],
+     "turn": 0.0
+    }
+   ]
+  },
+  "FX-TXP-006": {
+   "says": "An open path's ends go on straight: First Margin -80 starts before it, and the last letters run past its end.",
+   "text": {
+    "text": "BEYOND THE END",
+    "font": "MPLUSRounded1c-Regular.ttf",
+    "size": 60,
+    "color": [
+     1,
+     1,
+     1
+    ],
+    "at": [
+     80,
+     120
+    ],
+    "align": "left"
+   },
+   "mask": {
+    "id": "mask-1",
+    "name": "Mask 1",
+    "enabled": true,
+    "inverted": false,
+    "mode": "none",
+    "opacity": 1,
+    "feather_px": 0,
+    "expansion_px": 0,
+    "closed": false,
+    "path": {
+     "base": {
+      "points": [
+       {
+        "point": [
+         100,
+         300
+        ],
+        "in": [
+         0,
+         0
+        ],
+        "out": [
+         0,
+         0
+        ]
+       },
+       {
+        "point": [
+         500,
+         300
+        ],
+        "in": [
+         0,
+         0
+        ],
+        "out": [
+         0,
+         0
+        ]
+       },
+       {
+        "point": [
+         700,
+         100
+        ],
+        "in": [
+         0,
+         0
+        ],
+        "out": [
+         0,
+         0
+        ]
+       }
+      ]
+     },
+     "keyframes": []
+    }
+   },
+   "options": {
+    "path": 1,
+    "reverse": "off",
+    "perpendicular": "on",
+    "force_alignment": "off",
+    "first_margin": -80,
+    "last_margin": 0
+   },
+   "animators": [],
+   "curved": false,
+   "chars": [
+    {
+     "index": 0,
+     "char": "B",
+     "at": [
+      37.94,
+      300.0
+     ],
+     "turn": 0.0
+    },
+    {
+     "index": 1,
+     "char": "E",
+     "at": [
+      73.49,
+      300.0
+     ],
+     "turn": 0.0
+    },
+    {
+     "index": 2,
+     "char": "Y",
+     "at": [
+      109.39999999999999,
+      300.0
+     ],
+     "turn": 0.0
+    },
+    {
+     "index": 3,
+     "char": "O",
+     "at": [
+      149.11999999999998,
+      300.0
+     ],
+     "turn": 0.0
+    },
+    {
+     "index": 4,
+     "char": "N",
+     "at": [
+      191.12,
+      300.0
+     ],
+     "turn": 0.0
+    },
+    {
+     "index": 5,
+     "char": "D",
+     "at": [
+      231.44,
+      300.0
+     ],
+     "turn": 0.0
+    },
+    {
+     "index": 6,
+     "char": " ",
+     "at": [
+      259.28,
+      300.0
+     ],
+     "turn": 0.0
+    },
+    {
+     "index": 7,
+     "char": "T",
+     "at": [
+      286.4,
+      300.0
+     ],
+     "turn": 0.0
+    },
+    {
+     "index": 8,
+     "char": "H",
+     "at": [
+      325.69999999999993,
+      300.0
+     ],
+     "turn": 0.0
+    },
+    {
+     "index": 9,
+     "char": "E",
+     "at": [
+      363.59,
+      300.0
+     ],
+     "turn": 0.0
+    },
+    {
+     "index": 10,
+     "char": " ",
+     "at": [
+      389.29999999999995,
+      300.0
+     ],
+     "turn": 0.0
+    },
+    {
+     "index": 11,
+     "char": "E",
+     "at": [
+      415.00999999999993,
+      300.0
+     ],
+     "turn": 0.0
+    },
+    {
+     "index": 12,
+     "char": "N",
+     "at": [
+      453.1999999999999,
+      300.0
+     ],
+     "turn": 0.0
+    },
+    {
+     "index": 13,
+     "char": "D",
+     "at": [
+      493.51999999999987,
+      300.0
+     ],
+     "turn": 0.0
+    }
+   ]
+  },
+  "FX-TXP-007": {
+   "says": "A closed square, First Margin 1500 of its 1600: the word wraps round its first corner.",
+   "text": {
+    "text": "ROUND",
+    "font": "MPLUSRounded1c-Regular.ttf",
+    "size": 60,
+    "color": [
+     1,
+     1,
+     1
+    ],
+    "at": [
+     80,
+     120
+    ],
+    "align": "left"
+   },
+   "mask": {
+    "id": "mask-1",
+    "name": "Mask 1",
+    "enabled": true,
+    "inverted": false,
+    "mode": "none",
+    "opacity": 1,
+    "feather_px": 0,
+    "expansion_px": 0,
+    "closed": true,
+    "path": {
+     "base": {
+      "points": [
+       {
+        "point": [
+         200,
+         100
+        ],
+        "in": [
+         0,
+         0
+        ],
+        "out": [
+         0,
+         0
+        ]
+       },
+       {
+        "point": [
+         600,
+         100
+        ],
+        "in": [
+         0,
+         0
+        ],
+        "out": [
+         0,
+         0
+        ]
+       },
+       {
+        "point": [
+         600,
+         500
+        ],
+        "in": [
+         0,
+         0
+        ],
+        "out": [
+         0,
+         0
+        ]
+       },
+       {
+        "point": [
+         200,
+         500
+        ],
+        "in": [
+         0,
+         0
+        ],
+        "out": [
+         0,
+         0
+        ]
+       }
+      ]
+     },
+     "keyframes": []
+    }
+   },
+   "options": {
+    "path": 1,
+    "reverse": "off",
+    "perpendicular": "on",
+    "force_alignment": "off",
+    "first_margin": 1500,
+    "last_margin": 0
+   },
+   "animators": [],
+   "curved": false,
+   "chars": [
+    {
+     "index": 0,
+     "char": "R",
+     "at": [
+      200.0,
+      181.81999999999994
+     ],
+     "turn": -90.0
+    },
+    {
+     "index": 1,
+     "char": "O",
+     "at": [
+      200.0,
+      142.22000000000003
+     ],
+     "turn": -90.0
+    },
+    {
+     "index": 2,
+     "char": "U",
+     "at": [
+      200.0,
+      101.11999999999989
+     ],
+     "turn": -90.0
+    },
+    {
+     "index": 3,
+     "char": "N",
+     "at": [
+      239.13999999999987,
+      100.0
+     ],
+     "turn": 0.0
+    },
+    {
+     "index": 4,
+     "char": "D",
+     "at": [
+      279.46000000000004,
+      100.0
+     ],
+     "turn": 0.0
+    }
+   ]
+  },
+  "FX-TXP-008": {
+   "says": "Reverse Path on the closed square: same first corner, walked the other way.",
+   "text": {
+    "text": "REVERSE",
+    "font": "MPLUSRounded1c-Regular.ttf",
+    "size": 60,
+    "color": [
+     1,
+     1,
+     1
+    ],
+    "at": [
+     80,
+     120
+    ],
+    "align": "left"
+   },
+   "mask": {
+    "id": "mask-1",
+    "name": "Mask 1",
+    "enabled": true,
+    "inverted": false,
+    "mode": "none",
+    "opacity": 1,
+    "feather_px": 0,
+    "expansion_px": 0,
+    "closed": true,
+    "path": {
+     "base": {
+      "points": [
+       {
+        "point": [
+         200,
+         100
+        ],
+        "in": [
+         0,
+         0
+        ],
+        "out": [
+         0,
+         0
+        ]
+       },
+       {
+        "point": [
+         600,
+         100
+        ],
+        "in": [
+         0,
+         0
+        ],
+        "out": [
+         0,
+         0
+        ]
+       },
+       {
+        "point": [
+         600,
+         500
+        ],
+        "in": [
+         0,
+         0
+        ],
+        "out": [
+         0,
+         0
+        ]
+       },
+       {
+        "point": [
+         200,
+         500
+        ],
+        "in": [
+         0,
+         0
+        ],
+        "out": [
+         0,
+         0
+        ]
+       }
+      ]
+     },
+     "keyframes": []
+    }
+   },
+   "options": {
+    "path": 1,
+    "reverse": "on",
+    "perpendicular": "on",
+    "force_alignment": "off",
+    "first_margin": 40,
+    "last_margin": 0
+   },
+   "animators": [],
+   "curved": false,
+   "chars": [
+    {
+     "index": 0,
+     "char": "R",
+     "at": [
+      200.0,
+      158.18
+     ],
+     "turn": 90.0
+    },
+    {
+     "index": 1,
+     "char": "E",
+     "at": [
+      200.0,
+      193.97
+     ],
+     "turn": 90.0
+    },
+    {
+     "index": 2,
+     "char": "V",
+     "at": [
+      200.0,
+      230.75
+     ],
+     "turn": 90.0
+    },
+    {
+     "index": 3,
+     "char": "E",
+     "at": [
+      200.0,
+      267.53
+     ],
+     "turn": 90.0
+    },
+    {
+     "index": 4,
+     "char": "R",
+     "at": [
+      200.0,
+      303.32
+     ],
+     "turn": 90.0
+    },
+    {
+     "index": 5,
+     "char": "S",
+     "at": [
+      200.0,
+      338.09000000000003
+     ],
+     "turn": 90.0
+    },
+    {
+     "index": 6,
+     "char": "E",
+     "at": [
+      200.0,
+      372.29
+     ],
+     "turn": 90.0
+    }
+   ]
+  },
+  "FX-TXP-009": {
+   "says": "The tutorial's circle (tQ5wqg10x_I at 2:30): an ellipse mask, centred words, First Margin 73.6: inside the ring, just right of the bottom.",
+   "text": {
+    "text": "CIRCULAR TEXT",
+    "font": "MPLUSRounded1c-Regular.ttf",
+    "size": 60,
+    "color": [
+     1,
+     1,
+     1
+    ],
+    "at": [
+     80,
+     120
+    ],
+    "align": "center"
+   },
+   "mask": {
+    "id": "mask-1",
+    "name": "Mask 1",
+    "enabled": true,
+    "inverted": false,
+    "mode": "none",
+    "opacity": 1,
+    "feather_px": 0,
+    "expansion_px": 0,
+    "closed": true,
+    "path": {
+     "base": {
+      "points": [
+       {
+        "point": [
+         640,
+         60
+        ],
+        "in": [
+         165.68542494923807,
+         0
+        ],
+        "out": [
+         -165.68542494923807,
+         0
+        ]
+       },
+       {
+        "point": [
+         340,
+         360
+        ],
+        "in": [
+         0,
+         -165.68542494923807
+        ],
+        "out": [
+         0,
+         165.68542494923807
+        ]
+       },
+       {
+        "point": [
+         640,
+         660
+        ],
+        "in": [
+         -165.68542494923807,
+         0
+        ],
+        "out": [
+         165.68542494923807,
+         0
+        ]
+       },
+       {
+        "point": [
+         940,
+         360
+        ],
+        "in": [
+         0,
+         165.68542494923807
+        ],
+        "out": [
+         0,
+         -165.68542494923807
+        ]
+       }
+      ]
+     },
+     "keyframes": []
+    }
+   },
+   "options": {
+    "path": 1,
+    "reverse": "off",
+    "perpendicular": "on",
+    "force_alignment": "off",
+    "first_margin": 73.6,
+    "last_margin": 0
+   },
+   "animators": [],
+   "curved": true,
+   "chars": [
+    {
+     "index": 0,
+     "char": "C",
+     "at": [
+      514.9378561514217,
+      632.7693521615879
+     ],
+     "turn": 24.66474500163621
+    },
+    {
+     "index": 1,
+     "char": "I",
+     "at": [
+      540.7710970374924,
+      643.2007765103043
+     ],
+     "turn": 19.307305740242658
+    },
+    {
+     "index": 2,
+     "char": "R",
+     "at": [
+      567.2623566169563,
+      651.1215309049816
+     ],
+     "turn": 13.982803940538775
+    },
+    {
+     "index": 3,
+     "char": "C",
+     "at": [
+      603.2005523082657,
+      657.7655014975178
+     ],
+     "turn": 6.9670016444350855
+    },
+    {
+     "index": 4,
+     "char": "U",
+     "at": [
+      641.1799970684083,
+      659.9977221548842
+     ],
+     "turn": -0.2206222987108965
+    },
+    {
+     "index": 5,
+     "char": "L",
+     "at": [
+      678.2184507362495,
+      657.5885086941408
+     ],
+     "turn": -7.2443641125124785
+    },
+    {
+     "index": 6,
+     "char": "A",
+     "at": [
+      714.1825745665394,
+      650.7578425610044
+     ],
+     "turn": -14.280044691018336
+    },
+    {
+     "index": 7,
+     "char": "R",
+     "at": [
+      749.7081725390955,
+      639.3068547506912
+     ],
+     "turn": -21.45282886694393
+    },
+    {
+     "index": 8,
+     "char": " ",
+     "at": [
+      773.7113092408309,
+      628.6278385177302
+     ],
+     "turn": -26.49724872799441
+    },
+    {
+     "index": 9,
+     "char": "T",
+     "at": [
+      797.3993275342,
+      615.4418748070068
+     ],
+     "turn": -31.69253553873482
+    },
+    {
+     "index": 10,
+     "char": "E",
+     "at": [
+      827.3178602021524,
+      594.3472986210719
+     ],
+     "turn": -38.6665640917741
+    },
+    {
+     "index": 11,
+     "char": "X",
+     "at": [
+      853.9538035936451,
+      570.2945753678795
+     ],
+     "turn": -45.49179874614936
+    },
+    {
+     "index": 12,
+     "char": "T",
+     "at": [
+      878.4055427488149,
+      542.1322002538357
+     ],
+     "turn": -52.58333491970196
+    }
+   ]
+  },
+  "FX-TXP-010": {
+   "says": "The tutorial's circle at 2:40: Reverse Path on, First Margin 1146: outside the ring, just right of the top.",
+   "text": {
+    "text": "CIRCULAR TEXT",
+    "font": "MPLUSRounded1c-Regular.ttf",
+    "size": 60,
+    "color": [
+     1,
+     1,
+     1
+    ],
+    "at": [
+     80,
+     120
+    ],
+    "align": "center"
+   },
+   "mask": {
+    "id": "mask-1",
+    "name": "Mask 1",
+    "enabled": true,
+    "inverted": false,
+    "mode": "none",
+    "opacity": 1,
+    "feather_px": 0,
+    "expansion_px": 0,
+    "closed": true,
+    "path": {
+     "base": {
+      "points": [
+       {
+        "point": [
+         640,
+         60
+        ],
+        "in": [
+         165.68542494923807,
+         0
+        ],
+        "out": [
+         -165.68542494923807,
+         0
+        ]
+       },
+       {
+        "point": [
+         340,
+         360
+        ],
+        "in": [
+         0,
+         -165.68542494923807
+        ],
+        "out": [
+         0,
+         165.68542494923807
+        ]
+       },
+       {
+        "point": [
+         640,
+         660
+        ],
+        "in": [
+         -165.68542494923807,
+         0
+        ],
+        "out": [
+         165.68542494923807,
+         0
+        ]
+       },
+       {
+        "point": [
+         940,
+         360
+        ],
+        "in": [
+         0,
+         165.68542494923807
+        ],
+        "out": [
+         0,
+         -165.68542494923807
+        ]
+       }
+      ]
+     },
+     "keyframes": []
+    }
+   },
+   "options": {
+    "path": 1,
+    "reverse": "on",
+    "perpendicular": "on",
+    "force_alignment": "off",
+    "first_margin": 1146,
+    "last_margin": 0
+   },
+   "animators": [],
+   "curved": true,
+   "chars": [
+    {
+     "index": 0,
+     "char": "C",
+     "at": [
+      640.7999863014968,
+      60.00105016345029
+     ],
+     "turn": 0.15095267039098711
+    },
+    {
+     "index": 1,
+     "char": "I",
+     "at": [
+      668.6276160987463,
+      61.34817202419658
+     ],
+     "turn": 5.416831583273624
+    },
+    {
+     "index": 2,
+     "char": "R",
+     "at": [
+      696.0055817211373,
+      65.21858448470437
+     ],
+     "turn": 10.702885623436826
+    },
+    {
+     "index": 3,
+     "char": "C",
+     "at": [
+      731.4347145014654,
+      74.18867935462424
+     ],
+     "turn": 17.720362181834027
+    },
+    {
+     "index": 4,
+     "char": "U",
+     "at": [
+      766.8587062749124,
+      88.06293286916139
+     ],
+     "turn": 25.045198565957516
+    },
+    {
+     "index": 5,
+     "char": "L",
+     "at": [
+      799.444771369402,
+      105.83255313311098
+     ],
+     "turn": 32.15654813646662
+    },
+    {
+     "index": 6,
+     "char": "A",
+     "at": [
+      829.1933741520223,
+      127.166126234571
+     ],
+     "turn": 39.12671389539753
+    },
+    {
+     "index": 7,
+     "char": "R",
+     "at": [
+      856.6351438544091,
+      152.46814338543763
+     ],
+     "turn": 46.21313711715006
+    },
+    {
+     "index": 8,
+     "char": " ",
+     "at": [
+      873.9687718488441,
+      172.21015933871408
+     ],
+     "turn": 51.201947128478494
+    },
+    {
+     "index": 9,
+     "char": "T",
+     "at": [
+      889.9834788300088,
+      194.08540078929974
+     ],
+     "turn": 56.365189678542066
+    },
+    {
+     "index": 10,
+     "char": "E",
+     "at": [
+      908.3572718863306,
+      225.74754219629287
+     ],
+     "turn": 63.368922335919336
+    },
+    {
+     "index": 11,
+     "char": "X",
+     "at": [
+      922.4808550688565,
+      258.739890402322
+     ],
+     "turn": 70.28544896033691
+    },
+    {
+     "index": 12,
+     "char": "T",
+     "at": [
+      932.8432893899814,
+      294.5669651694013
+     ],
+     "turn": 77.45992709944213
+    }
+   ]
+  },
+  "FX-TXP-011": {
+   "says": "A text animator on a path: Position 15, -20 and Rotation 30 on every letter; x moves along the path, y lifts off it.",
+   "text": {
+    "text": "LIFTED",
+    "font": "MPLUSRounded1c-Regular.ttf",
+    "size": 60,
+    "color": [
+     1,
+     1,
+     1
+    ],
+    "at": [
+     80,
+     120
+    ],
+    "align": "left"
+   },
+   "mask": {
+    "id": "mask-1",
+    "name": "Mask 1",
+    "enabled": true,
+    "inverted": false,
+    "mode": "none",
+    "opacity": 1,
+    "feather_px": 0,
+    "expansion_px": 0,
+    "closed": false,
+    "path": {
+     "base": {
+      "points": [
+       {
+        "point": [
+         100,
+         300
+        ],
+        "in": [
+         0,
+         0
+        ],
+        "out": [
+         0,
+         0
+        ]
+       },
+       {
+        "point": [
+         500,
+         300
+        ],
+        "in": [
+         0,
+         0
+        ],
+        "out": [
+         0,
+         0
+        ]
+       },
+       {
+        "point": [
+         700,
+         100
+        ],
+        "in": [
+         0,
+         0
+        ],
+        "out": [
+         0,
+         0
+        ]
+       }
+      ]
+     },
+     "keyframes": []
+    }
+   },
+   "options": {
+    "path": 1,
+    "reverse": "off",
+    "perpendicular": "on",
+    "force_alignment": "off",
+    "first_margin": 40,
+    "last_margin": 0
+   },
+   "animators": [
+    {
+     "position": [
+      15,
+      -20
+     ],
+     "rotation": 30
+    }
+   ],
+   "curved": false,
+   "chars": [
+    {
+     "index": 0,
+     "char": "L",
+     "at": [
+      172.46,
+      280.0
+     ],
+     "turn": 30.0
+    },
+    {
+     "index": 1,
+     "char": "I",
+     "at": [
+      199.4,
+      280.0
+     ],
+     "turn": 30.0
+    },
+    {
+     "index": 2,
+     "char": "F",
+     "at": [
+      226.04000000000002,
+      280.0
+     ],
+     "turn": 30.0
+    },
+    {
+     "index": 3,
+     "char": "T",
+     "at": [
+      262.22,
+      280.0
+     ],
+     "turn": 30.0
+    },
+    {
+     "index": 4,
+     "char": "E",
+     "at": [
+      298.85,
+      280.0
+     ],
+     "turn": 30.0
+    },
+    {
+     "index": 5,
+     "char": "D",
+     "at": [
+      336.20000000000005,
+      280.0
+     ],
+     "turn": 30.0
+    }
+   ]
+  },
+  "FX-TXP-012": {
+   "says": "Two lines: each starts at the path's start, the second a line lower.",
+   "text": {
+    "text": "TOP\nLOW",
+    "font": "MPLUSRounded1c-Regular.ttf",
+    "size": 60,
+    "color": [
+     1,
+     1,
+     1
+    ],
+    "at": [
+     80,
+     120
+    ],
+    "align": "left"
+   },
+   "mask": {
+    "id": "mask-1",
+    "name": "Mask 1",
+    "enabled": true,
+    "inverted": false,
+    "mode": "none",
+    "opacity": 1,
+    "feather_px": 0,
+    "expansion_px": 0,
+    "closed": false,
+    "path": {
+     "base": {
+      "points": [
+       {
+        "point": [
+         100,
+         300
+        ],
+        "in": [
+         0,
+         0
+        ],
+        "out": [
+         0,
+         0
+        ]
+       },
+       {
+        "point": [
+         500,
+         300
+        ],
+        "in": [
+         0,
+         0
+        ],
+        "out": [
+         0,
+         0
+        ]
+       },
+       {
+        "point": [
+         700,
+         100
+        ],
+        "in": [
+         0,
+         0
+        ],
+        "out": [
+         0,
+         0
+        ]
+       }
+      ]
+     },
+     "keyframes": []
+    }
+   },
+   "options": {
+    "path": 1,
+    "reverse": "off",
+    "perpendicular": "on",
+    "force_alignment": "off",
+    "first_margin": 60,
+    "last_margin": 0
+   },
+   "animators": [],
+   "curved": false,
+   "chars": [
+    {
+     "index": 0,
+     "char": "T",
+     "at": [
+      179.01999999999998,
+      300.0
+     ],
+     "turn": 0.0
+    },
+    {
+     "index": 1,
+     "char": "O",
+     "at": [
+      219.45999999999998,
+      300.0
+     ],
+     "turn": 0.0
+    },
+    {
+     "index": 2,
+     "char": "P",
+     "at": [
+      258.88,
+      300.0
+     ],
+     "turn": 0.0
+    },
+    {
+     "index": 3,
+     "char": "L",
+     "at": [
+      177.46,
+      389.1
+     ],
+     "turn": 0.0
+    },
+    {
+     "index": 4,
+     "char": "O",
+     "at": [
+      216.34,
+      389.1
+     ],
+     "turn": 0.0
+    },
+    {
+     "index": 5,
+     "char": "W",
+     "at": [
+      263.68,
+      389.1
+     ],
+     "turn": 0.0
+    }
+   ]
+  }
+ },
+ "projects": {
+  "FX-TXP-020": {
+   "says": "First Margin keyed 0 at frame 0 to 500 at frame 10, linear: frame 5 is First Margin 250, its letters as FX-TXP-001's rule gives them.",
+   "project": "fx_txp_020.json",
+   "frames": {
+    "0": [
+     {
+      "index": 0,
+      "char": "K",
+      "at": [
+       117.58,
+       300.0
+      ],
+      "turn": 0.0
+     },
+     {
+      "index": 1,
+      "char": "E",
+      "at": [
+       152.76999999999998,
+       300.0
+      ],
+      "turn": 0.0
+     },
+     {
+      "index": 2,
+      "char": "Y",
+      "at": [
+       188.68,
+       300.0
+      ],
+      "turn": 0.0
+     },
+     {
+      "index": 3,
+      "char": "E",
+      "at": [
+       224.58999999999997,
+       300.0
+      ],
+      "turn": 0.0
+     },
+     {
+      "index": 4,
+      "char": "D",
+      "at": [
+       261.94,
+       300.0
+      ],
+      "turn": 0.0
+     },
+     {
+      "index": 5,
+      "char": " ",
+      "at": [
+       289.78,
+       300.0
+      ],
+      "turn": 0.0
+     },
+     {
+      "index": 6,
+      "char": "M",
+      "at": [
+       322.35999999999996,
+       300.0
+      ],
+      "turn": 0.0
+     },
+     {
+      "index": 7,
+      "char": "A",
+      "at": [
+       366.01,
+       300.0
+      ],
+      "turn": 0.0
+     },
+     {
+      "index": 8,
+      "char": "R",
+      "at": [
+       403.35999999999996,
+       300.0
+      ],
+      "turn": 0.0
+     },
+     {
+      "index": 9,
+      "char": "G",
+      "at": [
+       442.15,
+       300.0
+      ],
+      "turn": 0.0
+     },
+     {
+      "index": 10,
+      "char": "I",
+      "at": [
+       472.24,
+       300.0
+      ],
+      "turn": 0.0
+     },
+     {
+      "index": 11,
+      "char": "N",
+      "at": [
+       501.62634559672904,
+       298.37365440327096
+      ],
+      "turn": -45.0
+     }
+    ],
+    "5": [
+     {
+      "index": 0,
+      "char": "K",
+      "at": [
+       367.58,
+       300.0
+      ],
+      "turn": 0.0
+     },
+     {
+      "index": 1,
+      "char": "E",
+      "at": [
+       402.77,
+       300.0
+      ],
+      "turn": 0.0
+     },
+     {
+      "index": 2,
+      "char": "Y",
+      "at": [
+       438.68,
+       300.0
+      ],
+      "turn": 0.0
+     },
+     {
+      "index": 3,
+      "char": "E",
+      "at": [
+       474.59,
+       300.0
+      ],
+      "turn": 0.0
+     },
+     {
+      "index": 4,
+      "char": "D",
+      "at": [
+       508.4428549673674,
+       291.5571450326326
+      ],
+      "turn": -45.0
+     },
+     {
+      "index": 5,
+      "char": " ",
+      "at": [
+       528.1287077556009,
+       271.87129224439917
+      ],
+      "turn": -45.0
+     },
+     {
+      "index": 6,
+      "char": "M",
+      "at": [
+       551.1662466866585,
+       248.83375331334145
+      ],
+      "turn": -45.0
+     },
+     {
+      "index": 7,
+      "char": "A",
+      "at": [
+       582.0314576854514,
+       217.96854231454864
+      ],
+      "turn": -45.0
+     },
+     {
+      "index": 8,
+      "char": "R",
+      "at": [
+       608.4418959627689,
+       191.55810403723115
+      ],
+      "turn": -45.0
+     },
+     {
+      "index": 9,
+      "char": "G",
+      "at": [
+       635.8705680049951,
+       164.12943199500492
+      ],
+      "turn": -45.0
+     },
+     {
+      "index": 10,
+      "char": "I",
+      "at": [
+       657.1474110508983,
+       142.8525889491017
+      ],
+      "turn": -45.0
+     },
+     {
+      "index": 11,
+      "char": "N",
+      "at": [
+       678.4030408933659,
+       121.5969591066341
+      ],
+      "turn": -45.0
+     }
+    ],
+    "10": [
+     {
+      "index": 0,
+      "char": "K",
+      "at": [
+       583.1416153319143,
+       216.8583846680857
+      ],
+      "turn": -45.0
+     },
+     {
+      "index": 1,
+      "char": "E",
+      "at": [
+       608.0247029618688,
+       191.97529703813115
+      ],
+      "turn": -45.0
+     },
+     {
+      "index": 2,
+      "char": "Y",
+      "at": [
+       633.4169074742778,
+       166.58309252572226
+      ],
+      "turn": -45.0
+     },
+     {
+      "index": 3,
+      "char": "E",
+      "at": [
+       658.8091119866867,
+       141.19088801331327
+      ],
+      "turn": -45.0
+     },
+     {
+      "index": 4,
+      "char": "D",
+      "at": [
+       685.2195502640043,
+       114.78044973599572
+      ],
+      "turn": -45.0
+     },
+     {
+      "index": 5,
+      "char": " ",
+      "at": [
+       704.9054030522377,
+       95.09459694776228
+      ],
+      "turn": -45.0
+     },
+     {
+      "index": 6,
+      "char": "M",
+      "at": [
+       727.9429419832953,
+       72.05705801670464
+      ],
+      "turn": -45.0
+     },
+     {
+      "index": 7,
+      "char": "A",
+      "at": [
+       758.8081529820882,
+       41.191847017911755
+      ],
+      "turn": -45.0
+     },
+     {
+      "index": 8,
+      "char": "R",
+      "at": [
+       785.2185912594057,
+       14.781408740594259
+      ],
+      "turn": -45.0
+     },
+     {
+      "index": 9,
+      "char": "G",
+      "at": [
+       812.6472633016319,
+       -12.647263301631938
+      ],
+      "turn": -45.0
+     },
+     {
+      "index": 10,
+      "char": "I",
+      "at": [
+       833.9241063475351,
+       -33.9241063475352
+      ],
+      "turn": -45.0
+     },
+     {
+      "index": 11,
+      "char": "N",
+      "at": [
+       855.1797361900028,
+       -55.17973619000276
+      ],
+      "turn": -45.0
+     }
+    ]
+   }
+  },
+  "FX-TXP-021": {
+   "says": "Path is mask 3 on a layer with one mask: said on every frame (EFFECT_PATH_MISSING) and the words are drawn where they are without a path.",
+   "project": "fx_txp_021.json",
+   "frame_warning": "EFFECT_PATH_MISSING"
+  }
+ }
+}

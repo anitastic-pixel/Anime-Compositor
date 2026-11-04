@@ -1,0 +1,167 @@
+{
+  "schema_version": 0,
+  "project_id": "proj-fx-txp-021",
+  "color_settings": {
+    "working_space": "linear-srgb",
+    "alpha_mode": "premultiplied"
+  },
+  "assets": [],
+  "compositions": [
+    {
+      "id": "comp-main",
+      "name": "comp-main",
+      "width": 1280,
+      "height": 720,
+      "pixel_aspect_ratio": 1,
+      "frame_rate": {
+        "numerator": 24,
+        "denominator": 1
+      },
+      "start_frame": 0,
+      "duration_frames": 11,
+      "work_area": {
+        "start_frame": 0,
+        "end_frame_exclusive": 11
+      },
+      "layer_order": [
+        "art"
+      ],
+      "layers": [
+        {
+          "id": "art",
+          "kind": "text",
+          "name": "art",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 11,
+          "transform": {
+            "anchor": {
+              "base": [
+                640,
+                360
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                640,
+                360
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [
+            {
+              "instance_id": "fx-0",
+              "type_id": "core.text_path",
+              "enabled": true,
+              "parameters": {
+                "path": 3,
+                "reverse": "off",
+                "perpendicular": "on",
+                "force_alignment": "off",
+                "first_margin": 0,
+                "last_margin": 0
+              }
+            }
+          ],
+          "masks": [
+            {
+              "id": "mask-1",
+              "name": "Mask 1",
+              "enabled": true,
+              "inverted": false,
+              "mode": "none",
+              "opacity": 1,
+              "feather_px": 0,
+              "expansion_px": 0,
+              "closed": false,
+              "path": {
+                "base": {
+                  "points": [
+                    {
+                      "point": [
+                        100,
+                        300
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        500,
+                        300
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        700,
+                        100
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    }
+                  ]
+                },
+                "keyframes": []
+              }
+            }
+          ],
+          "source_text": {
+            "text": "KEYED MARGIN",
+            "font": "MPLUSRounded1c-Regular.ttf",
+            "size": 60,
+            "color": [
+              1,
+              1,
+              1
+            ],
+            "at": [
+              80,
+              120
+            ],
+            "align": "left"
+          }
+        }
+      ]
+    }
+  ]
+}

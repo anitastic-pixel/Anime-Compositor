@@ -225090,3 +225090,35 @@ FX-CW-081 (`fx_cw_081.json`): Y rot jitter amount 361, above 360. The file is re
 ### Lightning Bolt's Core Opacity and Glow Opacity on the graphics card (D-1106)
 
 No new cases. FX-LOPAC-001 to 010 (D-1051, above) are drawn on the graphics card and on the processor at Full and Draft, every frame each case lists; the two must agree within 1 level of 255 (the card's tolerance, as B-107's), with the same warnings. FX-LOPAC-009 and 010 are left out on both, with the same `EFFECT_PARAMETER_INVALID` warning.
+
+### Text on a path (D-1085)
+
+After After Effects' Path Options (B-965; wave 12, lane w12y, gap G3). The rule is D-1085's in `tools/text_path_reference.py`, which reads the bundled M PLUS Rounded 1c's advances with fontTools and measures curved masks by sampling their Bezier curves finely, never by the build's pieces. For every character of every case, `Fixtures/text_path/expected_text_path.json` gives where its anchor lands and its turn, within 0.02 pixel and 0.02 degree on straight masks and 0.1 pixel and 0.3 degree on the circle.
+
+FX-TXP-001: Left, First Margin 20, on an open path with a corner: the letters past the corner climb its second piece.
+
+FX-TXP-002: Center on the open path.
+
+FX-TXP-003: Right, Last Margin 30, on the open path.
+
+FX-TXP-004: Force Alignment, margins 10 and 10: the word spreads over the whole path.
+
+FX-TXP-005: Perpendicular To Path off: the letters follow the path but stay upright.
+
+FX-TXP-006: First Margin -80: the word starts before the open path's start and runs past its end, straight on.
+
+FX-TXP-007: A closed square, First Margin 1500 of its 1600: the word wraps round its first corner.
+
+FX-TXP-008: Reverse Path on the closed square: same first corner, walked the other way.
+
+FX-TXP-009: The tutorial's circle (tQ5wqg10x_I at 2:30): centred words, First Margin 73.6, inside the ring just right of the bottom.
+
+FX-TXP-010: The tutorial's circle at 2:40: Reverse Path on, First Margin 1146, outside the ring just right of the top.
+
+FX-TXP-011: A text animator on a path: Position 15, -20 and Rotation 30 on every letter; x along the path, y off it.
+
+FX-TXP-012: Two lines: each starts at the path's start, the second a line lower.
+
+FX-TXP-020 (`fx_txp_020.json`): First Margin keyed 0 at frame 0 to 500 at frame 10, linear. Frames 0, 5 and 10 are First Margin 0, 250 and 500.
+
+FX-TXP-021 (`fx_txp_021.json`): Path is mask 3 on a layer with one mask. Warning `EFFECT_PATH_MISSING` every frame; the words are drawn where they are without a path.
