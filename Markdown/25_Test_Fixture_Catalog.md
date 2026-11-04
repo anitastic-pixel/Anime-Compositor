@@ -220855,6 +220855,38 @@ KEYTOOL-014: The red dot: hue 0, range 30, softness 15, saturation and lightness
 
 KEYTOOL-015: The cyan dot after the skin key: the key softness kept. Dot cyan: hue 180, range 30, softness 15, saturation 0 to 100, lightness 0 to 100, key softness 10.
 
+### Color Grade colour wheels (D-1008)
+
+`tools/color_wheels_reference.py` writes `Fixtures/color_wheels/expected_wheel_drags.json`: where a press on a wheel (a disc of radius 1, y up) puts its hue and amount, and where a hue and amount put the dot. Checked by B-888's page check in the page's own code. Positions to 6 places.
+
+WHEEL-001: The middle: no push, the hue kept. At (0.0000, 0.0000), hue before 40: hue 40, amount 0.
+
+WHEEL-002: A touch off the middle, under half a step: still no push, the hue kept. At (0.0040, 0.0000), hue before 40: hue 40, amount 0.
+
+WHEEL-003: Up and to the left at the edge: red, full. At (-0.2250, 0.9744), hue before 0: hue 0, amount 100.
+
+WHEEL-004: Straight up, half way: hue 347, amount 50. At (0.0000, 0.5000), hue before 0: hue 347, amount 50.
+
+WHEEL-005: Straight down, a quarter: hue 167, amount 25. At (0.0000, -0.2500), hue before 0: hue 167, amount 25.
+
+WHEEL-006: To the right, 0.3: hue 257, amount 30. At (0.3000, 0.0000), hue before 0: hue 257, amount 30.
+
+WHEEL-007: To the left, 0.7: hue 77, amount 70. At (-0.7000, 0.0000), hue before 0: hue 77, amount 70.
+
+WHEEL-008: Past the edge: held at 100. At (1.5000, 1.5000), hue before 0: hue 302, amount 100.
+
+WHEEL-009: A blue-ish point. At (0.4200, -0.3100), hue before 0: hue 221, amount 52.
+
+WHEEL-010: A hue that rounds across 0 to 359.5, so 0. At (-0.2164, 0.9763), hue before 0: hue 0, amount 100.
+
+WHEEL-011: Hue 0, amount 100: up and to the left. Hue 0, amount 100: the dot at (-0.224951, 0.97437).
+
+WHEEL-012: Hue 120, amount 50. Hue 120, amount 50: the dot at (-0.365677, -0.340999).
+
+WHEEL-013: Hue 257, amount 30: to the right. Hue 257, amount 30: the dot at (0.3, -0.0).
+
+WHEEL-014: Amount 0: the middle. Hue 200, amount 0: the dot at (0.0, -0.0).
+
 ### CC Force Motion Blur (D-581)
 
 CC Force Motion Blur (`core.force_motion_blur`), after CycoreFX's CC Force Motion Blur (B-470), the rule ours. Each case is a project whose composition `comp-main` is 20 by 1, five frames, in `Fixtures/force_motion_blur/`; the holder shows `comp-in`, also 20 by 1, where a bar four pixels wide runs 16 pixels a frame, its left edge at 6 on frame 1. `tools/force_motion_blur_reference.py` works the expected frames, `Fixtures/force_motion_blur/expected_force_motion_blur.json`, tolerance 2e-5, through `tools/motion_blur_reference.py`'s slide and resampling, reading each key at the moment's time directly; the rule is in document 21.

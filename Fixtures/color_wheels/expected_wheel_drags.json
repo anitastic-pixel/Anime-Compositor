@@ -1,0 +1,143 @@
+{
+ "rule": "D-1008",
+ "at": [
+  {
+   "says": "The middle: no push, the hue kept.",
+   "x": 0,
+   "y": 0,
+   "hue_before": 40,
+   "to": {
+    "hue": 40,
+    "amount": 0
+   }
+  },
+  {
+   "says": "A touch off the middle, under half a step: still no push, the hue kept.",
+   "x": 0.004,
+   "y": 0,
+   "hue_before": 40,
+   "to": {
+    "hue": 40,
+    "amount": 0
+   }
+  },
+  {
+   "says": "Up and to the left at the edge: red, full.",
+   "x": -0.22495105434386503,
+   "y": 0.9743700647852352,
+   "hue_before": 0,
+   "to": {
+    "hue": 0,
+    "amount": 100
+   }
+  },
+  {
+   "says": "Straight up, half way: hue 347, amount 50.",
+   "x": 0,
+   "y": 0.5,
+   "hue_before": 0,
+   "to": {
+    "hue": 347,
+    "amount": 50
+   }
+  },
+  {
+   "says": "Straight down, a quarter: hue 167, amount 25.",
+   "x": 0,
+   "y": -0.25,
+   "hue_before": 0,
+   "to": {
+    "hue": 167,
+    "amount": 25
+   }
+  },
+  {
+   "says": "To the right, 0.3: hue 257, amount 30.",
+   "x": 0.3,
+   "y": 0,
+   "hue_before": 0,
+   "to": {
+    "hue": 257,
+    "amount": 30
+   }
+  },
+  {
+   "says": "To the left, 0.7: hue 77, amount 70.",
+   "x": -0.7,
+   "y": 0,
+   "hue_before": 0,
+   "to": {
+    "hue": 77,
+    "amount": 70
+   }
+  },
+  {
+   "says": "Past the edge: held at 100.",
+   "x": 1.5,
+   "y": 1.5,
+   "hue_before": 0,
+   "to": {
+    "hue": 302,
+    "amount": 100
+   }
+  },
+  {
+   "says": "A blue-ish point.",
+   "x": 0.42,
+   "y": -0.31,
+   "hue_before": 0,
+   "to": {
+    "hue": 221,
+    "amount": 52
+   }
+  },
+  {
+   "says": "A hue that rounds across 0 to 359.5, so 0.",
+   "x": -0.2164396139381028,
+   "y": 0.9762960071199334,
+   "hue_before": 0,
+   "to": {
+    "hue": 0,
+    "amount": 100
+   }
+  }
+ ],
+ "dot": [
+  {
+   "says": "Hue 0, amount 100: up and to the left.",
+   "hue": 0,
+   "amount": 100,
+   "to": {
+    "x": -0.224951,
+    "y": 0.97437
+   }
+  },
+  {
+   "says": "Hue 120, amount 50.",
+   "hue": 120,
+   "amount": 50,
+   "to": {
+    "x": -0.365677,
+    "y": -0.340999
+   }
+  },
+  {
+   "says": "Hue 257, amount 30: to the right.",
+   "hue": 257,
+   "amount": 30,
+   "to": {
+    "x": 0.3,
+    "y": -0.0
+   }
+  },
+  {
+   "says": "Amount 0: the middle.",
+   "hue": 200,
+   "amount": 0,
+   "to": {
+    "x": 0.0,
+    "y": -0.0
+   }
+  }
+ ]
+}
