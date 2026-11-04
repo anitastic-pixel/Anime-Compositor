@@ -4958,6 +4958,12 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             center: [50.0, 50.0],
             feather: 0.0,
             invert: "off".to_string(),
+            // D-1045: the circle, no hole, unturned.
+            points: 0.0,
+            outer_radius: 0.0,
+            use_inner: "off".to_string(),
+            inner_radius: 0.0,
+            rotation: 0.0,
         }),
         // D-159: no change yet.
         SIMPLE_CHOKER => Some(Effect::SimpleChoker { choke: 0.0 }),
@@ -8417,6 +8423,12 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             center: pair("center")?,
             feather: number("feather")?,
             invert: word("invert")?,
+            // D-1045: D-158's circle when the page does not say.
+            points: if parameter(query, "points").is_some() { number("points")? } else { 0.0 },
+            outer_radius: if parameter(query, "outer_radius").is_some() { number("outer_radius")? } else { 0.0 },
+            use_inner: if parameter(query, "use_inner").is_some() { word("use_inner")? } else { "off".to_string() },
+            inner_radius: if parameter(query, "inner_radius").is_some() { number("inner_radius")? } else { 0.0 },
+            rotation: if parameter(query, "rotation").is_some() { number("rotation")? } else { 0.0 },
         }),
         SIMPLE_CHOKER => Ok(Effect::SimpleChoker {
             choke: number("choke")?,

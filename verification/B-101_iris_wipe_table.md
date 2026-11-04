@@ -84,7 +84,7 @@ D-158, accepted on 2026-09-26 by the owner's message asking for thirty more effe
 | Check | The build's answer | Matches |
 | --- | --- | --- |
 | it grows the drawing's bounds by nothing | 0 | yes |
-| a half-size draft preview halves the feather, 8 to 4, and nothing else | IrisWipe { completion: 50.0, center: [50.0, 50.0], feather: 4.0, invert: "off" } | yes |
+| a half-size draft preview halves the feather, 8 to 4, and nothing else | IrisWipe { completion: 50.0, center: [50.0, 50.0], feather: 4.0, invert: "off", points: 0.0, outer_radius: 0.0, use_inner: "off", inner_radius: 0.0, rotation: 0.0 } | yes |
 
 ## The file
 

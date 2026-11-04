@@ -18,6 +18,11 @@ fn iris(completion: f64, center: [f64; 2], feather: f64, invert: &str) -> Effect
         center,
         feather,
         invert: invert.to_string(),
+        points: 0.0,
+        outer_radius: 0.0,
+        use_inner: "off".to_string(),
+        inner_radius: 0.0,
+        rotation: 0.0,
     }
 }
 

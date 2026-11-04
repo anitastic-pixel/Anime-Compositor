@@ -19127,13 +19127,16 @@ impl Gpu {
                 center,
                 feather,
                 invert,
+                ..
             } => {
+                // D-1045: the card draws the circle only (compose's card_can).
                 let invert = invert == "on";
                 let ((cx, cy), r) = crate::layer_fx::iris_circle(
                     *completion,
                     *center,
                     *feather,
                     invert,
+                    None,
                     (w, h),
                     f.origin,
                 );

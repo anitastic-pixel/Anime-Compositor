@@ -2742,6 +2742,11 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             center,
             feather,
             invert,
+            points,
+            outer_radius,
+            use_inner,
+            inner_radius,
+            rotation,
         } => {
             params.insert("completion".into(), num(*completion));
             params.insert(
@@ -2750,6 +2755,20 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             );
             params.insert("feather".into(), num(*feather));
             params.insert("invert".into(), J::from(invert.as_str()));
+            // D-1045: as D-304, written only if moved, keyed or already in the file.
+            for (key, value) in [
+                ("points", *points),
+                ("outer_radius", *outer_radius),
+                ("inner_radius", *inner_radius),
+                ("rotation", *rotation),
+            ] {
+                if value != 0.0 || instance.tracks.contains_key(key) || params.contains_key(key) {
+                    params.insert(key.into(), num(value));
+                }
+            }
+            if use_inner != "off" || params.contains_key("use_inner") {
+                params.insert("use_inner".into(), J::from(use_inner.as_str()));
+            }
         }
         Effect::SimpleChoker { choke } => {
             params.insert("choke".into(), num(*choke));
@@ -10031,6 +10050,12 @@ fn parse_effect(
             center: effect_array(params, "center", "two numbers, x then y", at)?,
             feather: effect_number(params, "feather", at)?,
             invert: effect_word(params, "invert", at)?,
+            // D-1045: a file without them reads D-158's circle.
+            points: effect_number_or(params, "points", at, 0.0)?,
+            outer_radius: effect_number_or(params, "outer_radius", at, 0.0)?,
+            use_inner: effect_word_or(params, "use_inner", at, "off")?,
+            inner_radius: effect_number_or(params, "inner_radius", at, 0.0)?,
+            rotation: effect_number_or(params, "rotation", at, 0.0)?,
         }),
         crate::effects::SIMPLE_CHOKER => Some(crate::effects::Effect::SimpleChoker {
             choke: effect_number(params, "choke", at)?,

@@ -11428,7 +11428,7 @@ const EFFECT_SEARCH = {
   'core.linear_wipe': 'reveal transition',
   'core.radial_wipe': 'clock reveal transition',
   'core.venetian_blinds': 'stripes slats wipe reveal transition',
-  'core.iris_wipe': 'circle reveal transition',
+  'core.iris_wipe': 'circle reveal transition iris points star triangle diamond hole outer radius',
 };
 // W-30: what each effect does, in one line, shown on hover in the Effects panel and under each
 // name in the effects console. Kept out of the search, so that "wipe" still finds only the wipes.
@@ -12148,7 +12148,12 @@ const EFFECT_PARAMS = {
   // D-158.
   'core.iris_wipe': [['completion', 'Completion', 1, 1, '% closed, 0 to 100'],
     ['center', 'Centre', 2, 1, '% of the width and height, -1000 to 1000'],
-    ['feather', 'Feather', 1, 1, 'pixels, 0 to 10000, how soft the circle is']],
+    ['feather', 'Feather', 1, 1, 'pixels, 0 to 10000, how soft the circle is'],
+    // D-1045: After Effects' Iris Points, Outer Radius, Inner Radius and Rotation.
+    ['points', 'Iris Points', 1, 1, '0 to 32; under 6 a circle, 6 a triangle, 8 a diamond, 10 a star', '', 0],
+    ['outer_radius', 'Outer Radius', 1, 1, 'pixels, 0 to 100000; above 0 a hole this big opens from the centre and Completion is not read', '', 0],
+    ['inner_radius', 'Inner Radius', 1, 1, 'pixels, 0 to 100000, the star\'s inner points, with Use Inner Radius on', '', 0],
+    ['rotation', 'Rotation', 1, 1, 'degrees, clockwise', '', 0]],
   // D-214, After Effects' own words.
   // D-305: only choices.
   'core.shift_channels': [],
@@ -14816,7 +14821,8 @@ const EFFECT_WORDS = {
   // D-156.
   'core.radial_wipe': { choices: [['wipe', 'Wipe', [['clockwise', 'Clockwise'], ['counterclockwise', 'Counterclockwise'], ['both', 'Both']]]] },
   // D-158.
-  'core.iris_wipe': { choices: [['invert', 'Invert', [['off', 'Off'], ['on', 'On']]]] },
+  'core.iris_wipe': { choices: [['invert', 'Invert', [['off', 'Off'], ['on', 'On']]],
+    ['use_inner', 'Use Inner Radius', [['off', 'Off'], ['on', 'On']]]] },
   // D-160.
   'core.speed_lines': { colours: [['color', 'Colour']] },
   // D-161.

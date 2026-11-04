@@ -8055,39 +8055,46 @@ pub(crate) fn dissolve_down(
 /// D-158: every pixel outside a circle closing on `center`, a point in the drawing's own pixels,
 /// whose corner is at `origin` in the buffer, gone, `completion` per cent of the way; with
 /// `invert`, every pixel inside a hole opening from it; the edge softened over `feather` pixels.
-/// The settings are already valid.
+/// The settings are already valid. D-1045: `star` the shape for Iris Points 6 or more (none for
+/// the circle), measured by its gauge in place of the distance; `outer_radius` above 0 is After
+/// Effects' hole of that size, Completion not read.
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn iris_wipe(
     source: &mut WorkingBuffer,
     completion: f64,
     center: [f64; 2],
     feather: f64,
     invert: bool,
+    star: Option<&IrisStar>,
+    outer_radius: f64,
     origin: (usize, usize),
 ) {
-    if completion == 0.0 {
+    let hole = outer_radius > 0.0;
+    if !hole && completion == 0.0 {
         return;
     }
-    if completion == 100.0 {
+    if !hole && completion == 100.0 {
         source.data_mut().fill(0.0);
         return;
     }
     let w = source.width();
-    let ((cx, cy), r) = iris_circle(
-        completion,
-        center,
-        feather,
-        invert,
-        (source.width(), source.height()),
-        origin,
-    );
+    let size = (source.width(), source.height());
+    let ((cx, cy), r) = if hole {
+        let (w0, h0) = ((size.0 - 2 * origin.0) as f64, (size.1 - 2 * origin.1) as f64);
+        ((center[0] / 100.0 * w0, center[1] / 100.0 * h0), outer_radius)
+    } else {
+        iris_circle(completion, center, feather, invert, star, size, origin)
+    };
     let (ox, oy) = (origin.0 as f64, origin.1 as f64);
     source
         .data_mut()
         .par_chunks_exact_mut(4)
         .enumerate()
         .for_each(|(i, px)| {
-            let d = ((i % w) as f64 - ox + 0.5 - cx).hypot((i / w) as f64 - oy + 0.5 - cy);
-            let inside = if invert { d - r } else { r - d };
+            let (dx, dy) = ((i % w) as f64 - ox + 0.5 - cx, (i / w) as f64 - oy + 0.5 - cy);
+            let d = star.map_or_else(|| dx.hypot(dy), |s| s.gauge(dx, dy));
+            // The hole keeps the outside and the closing circle the inside, so they swap.
+            let inside = if invert != hole { d - r } else { r - d };
             let k = if feather > 0.0 {
                 (inside / feather + 0.5).clamp(0.0, 1.0)
             } else if inside >= 0.0 {
@@ -8101,13 +8108,70 @@ pub(crate) fn iris_wipe(
         });
 }
 
+/// D-1045: Iris Wipe's star of `n` points about the centre, point j at `rotation + 360 j / n`
+/// degrees clockwise from straight up, at 1 for even j and `q` for odd j.
+pub(crate) struct IrisStar {
+    points: Vec<(f64, f64)>,
+    rotation: f64,
+}
+
+impl IrisStar {
+    /// None below 6 points, D-158's circle.
+    pub(crate) fn new(
+        points: f64,
+        use_inner: bool,
+        outer_radius: f64,
+        inner_radius: f64,
+        rotation: f64,
+    ) -> Option<IrisStar> {
+        let n = points.floor() as usize;
+        if n < 6 {
+            return None;
+        }
+        let q = if use_inner && outer_radius > 0.0 {
+            inner_radius / outer_radius
+        } else {
+            (std::f64::consts::TAU / n as f64).cos()
+        };
+        let points = (0..n)
+            .map(|j| {
+                let a = (rotation + 360.0 * j as f64 / n as f64).to_radians();
+                let rho = if j % 2 == 0 { 1.0 } else { q };
+                (rho * a.sin(), -rho * a.cos())
+            })
+            .collect();
+        Some(IrisStar {
+            points,
+            rotation: rotation.to_radians(),
+        })
+    }
+
+    /// How far out `(dx, dy)` from the centre is in units of the star: 1 on its edge.
+    pub(crate) fn gauge(&self, dx: f64, dy: f64) -> f64 {
+        if dx == 0.0 && dy == 0.0 {
+            return 0.0;
+        }
+        let n = self.points.len();
+        let t = (dx.atan2(-dy) - self.rotation).rem_euclid(std::f64::consts::TAU);
+        let j = ((t / (std::f64::consts::TAU / n as f64)) as usize).min(n - 1);
+        let (a, b) = (self.points[j], self.points[(j + 1) % n]);
+        let across = a.0 * b.1 - a.1 * b.0;
+        if across == 0.0 {
+            return f64::INFINITY; // an inner radius of 0: the star is empty
+        }
+        (dx * (b.1 - a.1) - dy * (b.0 - a.0)) / across
+    }
+}
+
 /// D-158's centre, in the drawing's own pixels, and radius, for the drawing whose corner is at
-/// `origin` in a buffer `w` by `h`. B-107's card takes the same.
+/// `origin` in a buffer `w` by `h`. B-107's card takes the same. D-1045: with a star, the
+/// radius is in the star's own units.
 pub(crate) fn iris_circle(
     completion: f64,
     center: [f64; 2],
     feather: f64,
     invert: bool,
+    star: Option<&IrisStar>,
     (w, h): (usize, usize),
     origin: (usize, usize),
 ) -> ((f64, f64), f64) {
@@ -8115,7 +8179,7 @@ pub(crate) fn iris_circle(
     let (cx, cy) = (center[0] / 100.0 * w0, center[1] / 100.0 * h0);
     let far = [(0.0, 0.0), (0.0, h0), (w0, 0.0), (w0, h0)]
         .iter()
-        .map(|&(a, b)| (cx - a).hypot(cy - b))
+        .map(|&(a, b)| star.map_or_else(|| (cx - a).hypot(cy - b), |s| s.gauge(a - cx, b - cy)))
         .fold(0.0, f64::max);
     let cc = completion / 100.0;
     (

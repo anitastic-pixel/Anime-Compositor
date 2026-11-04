@@ -1426,12 +1426,20 @@ pub enum Effect {
     },
     /// D-158: `completion`, 0 to 100 per cent closed; `center`, per cent of the drawing's width
     /// and height, -1000 to 1000 each; `feather`, 0 to 10000 pixels; `invert`, "off" or "on", a
-    /// hole opening instead.
+    /// hole opening instead. D-1045: `points`, 0 to 32, its whole part counted, below 6 the
+    /// circle; `outer_radius`, 0 to 100000 pixels, above 0 After Effects' hole of that size,
+    /// Completion not read; `use_inner`, "off" or "on", and `inner_radius`, 0 to 100000 pixels,
+    /// the star's in-between points; `rotation`, degrees clockwise.
     IrisWipe {
         completion: f64,
         center: [f64; 2],
         feather: f64,
         invert: String,
+        points: f64,
+        outer_radius: f64,
+        use_inner: String,
+        inner_radius: f64,
+        rotation: f64,
     },
     /// D-159: `choke`, -100 to 100 pixels, positive to shrink the covering and negative to
     /// spread it.
@@ -8458,11 +8466,19 @@ impl Effect {
                 completion,
                 center,
                 feather,
+                points,
+                outer_radius,
+                inner_radius,
+                rotation,
                 ..
             } => vec![
                 ("completion", vec![completion], 0.0, 100.0),
                 ("center", center.iter_mut().collect(), -1000.0, 1000.0),
                 ("feather", vec![feather], 0.0, 10000.0),
+                ("points", vec![points], 0.0, 32.0),
+                ("outer_radius", vec![outer_radius], 0.0, 100000.0),
+                ("inner_radius", vec![inner_radius], 0.0, 100000.0),
+                ("rotation", vec![rotation], -100000.0, 100000.0),
             ],
             Effect::SimpleChoker { choke } => vec![("choke", vec![choke], -100.0, 100.0)],
             Effect::SpeedLines {
@@ -11878,7 +11894,16 @@ impl Effect {
                 }
             }
             Effect::LinearWipe { feather, .. } => *feather = scale(*feather),
-            Effect::IrisWipe { feather, .. } => *feather = scale(*feather),
+            Effect::IrisWipe {
+                feather,
+                outer_radius,
+                inner_radius,
+                ..
+            } => {
+                *feather = scale(*feather);
+                *outer_radius = scale(*outer_radius);
+                *inner_radius = scale(*inner_radius);
+            }
             Effect::SimpleChoker { choke } => *choke = scale(*choke),
             Effect::MatteChoker {
                 geometric_softness_1,
@@ -15720,6 +15745,9 @@ impl Effect {
                     .then(|| format!("Tile Wipe's reverse is \"off\" or \"on\", and this is \"{reverse}\"."))),
             Effect::IrisWipe { invert, .. } if !["off", "on"].contains(&invert.as_str()) => Some(format!(
                 "Iris Wipe's invert is \"off\" or \"on\", and this is \"{invert}\"."
+            )),
+            Effect::IrisWipe { use_inner, .. } if !["off", "on"].contains(&use_inner.as_str()) => Some(format!(
+                "Iris Wipe's use inner radius is \"off\" or \"on\", and this is \"{use_inner}\"."
             )),
             Effect::SpeedLines { color, .. } => hex_fault("Speed Lines", "colour", color),
             // D-546: Glint Streaks' ray colours and second colour too.
@@ -20420,13 +20448,27 @@ pub(crate) fn apply_stack_at(
                 center,
                 feather,
                 invert,
+                points,
+                outer_radius,
+                use_inner,
+                inner_radius,
+                rotation,
             } => crate::perf::time(crate::perf::Stage::EffectIrisWipe, || {
+                let star = crate::layer_fx::IrisStar::new(
+                    *points,
+                    use_inner == "on",
+                    *outer_radius,
+                    *inner_radius,
+                    *rotation,
+                );
                 crate::layer_fx::iris_wipe(
                     source,
                     *completion,
                     *center,
                     *feather,
                     invert == "on",
+                    star.as_ref(),
+                    *outer_radius,
                     (ox, oy),
                 )
             }),

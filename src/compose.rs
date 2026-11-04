@@ -1524,6 +1524,10 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
         // ponytail: high and pinned on the processor; a card pass when a timing asks for it.
         && !matches!(&instance.effect, crate::effects::Effect::Bulge { vertical_radius, taper_radius, antialiasing, pin_all_edges, .. }
             if *vertical_radius != 0.0 || *taper_radius != 0.0 || antialiasing != "low" || pin_all_edges != "off")
+        // D-1045: the card draws D-158's closing circle only; the star and the hole are here.
+        // ponytail: processor only; a card pass when a timing asks for it.
+        && !matches!(&instance.effect, crate::effects::Effect::IrisWipe { points, outer_radius, .. }
+            if *points >= 6.0 || *outer_radius > 0.0)
         // D-937: Add Grain's Preview, and Match Grain's, is drawn here.
         // ponytail: processor only; a card box when a timing asks for it.
         && !matches!(&instance.effect, crate::effects::Effect::AddGrain { viewing_mode, .. } if viewing_mode == "preview")
@@ -1928,12 +1932,16 @@ fn card_effect(
                 E::LinearWipe { completion, .. }
                 | E::RadialWipe { completion, .. }
                 | E::VenetianBlinds { completion, .. }
-                | E::IrisWipe { completion, .. }
                 | E::TileWipe { completion, .. }
                 | E::TeethWipe { completion, .. }
                 | E::GlowWipe { completion, .. }
                 | E::StripeSweep { completion, .. }
                 | E::PushIris { completion, .. } => *completion == 0.0,
+                E::IrisWipe {
+                    completion,
+                    outer_radius,
+                    ..
+                } => *completion == 0.0 && *outer_radius == 0.0,
                 E::StretchWipe { scale, .. } => *scale == 100.0,
                 E::SimpleChoker { choke } => *choke == 0.0,
                 E::CrossGlare {
