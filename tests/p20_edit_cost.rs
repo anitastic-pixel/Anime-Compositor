@@ -140,6 +140,15 @@ fn p20_edit_cost() {
             let tree: J = serde_json::from_str(&persist::to_json(&project, &preserved)).unwrap();
             std::hint::black_box(json!({"project": tree}).to_string());
         }));
+        // D-1115: what `state` holds the viewer lock for now (copies), and what it does after.
+        let shared = Arc::new(preserved.clone());
+        row("/state after D-1115: held under the lock (copies)", layers, time(|| {
+            std::hint::black_box((project.clone(), shared.clone()));
+        }));
+        row("/state after D-1115: text spliced, outside the lock", layers, time(|| {
+            let text = persist::to_json_compact(&project, &shared);
+            std::hint::black_box(format!("{{\"project\":{text},{}", &json!({"undo": []}).to_string()[1..]));
+        }));
         row("copy of the project (Project::clone)", layers, time(|| {
             std::hint::black_box(project.clone());
         }));

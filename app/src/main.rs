@@ -132,8 +132,9 @@ struct Viewer {
     document: Document,
     /// Everything in the file this build does not model — masks, effects, anything a later
     /// version writes. Opaque here on purpose; the shell's only dealing with it is handing it
-    /// back to `persist::save` unread.
-    preserved: Preserved,
+    /// back to `persist::save` unread. Shared (D-1115) so `/state` and autosave can take it out
+    /// of the lock without copying the file's whole tree.
+    preserved: Arc<Preserved>,
     /// Where Save writes. `None` until the project has a file of its own, which is the state
     /// [`demo`] is in and the reason Save falls through to Save As rather than overwriting
     /// something in `verification/`.
@@ -2591,7 +2592,7 @@ fn open(path: &Path) -> Result<Viewer, Diagnostic> {
 
     Ok(Viewer {
         document: loaded.document,
-        preserved: loaded.preserved,
+        preserved: Arc::new(loaded.preserved),
         path: Some(path.to_path_buf()),
         root: path.parent().unwrap_or(Path::new(".")).to_path_buf(),
         composition,
@@ -2821,7 +2822,7 @@ fn blank(root: PathBuf) -> Viewer {
     project.compositions.push(composition);
     Viewer {
         document: Document::new(project),
-        preserved: Preserved::none(),
+        preserved: Arc::new(Preserved::none()),
         path: None,
         root,
         composition: id,
@@ -3217,25 +3218,30 @@ fn announce(viewer: &Mutex<Viewer>, said: String) {
 /// Selection is not here. Which layer is being worked on is not a fact about the project and does
 /// not belong in the file; it lives in the page, and the page is the only thing that needs it.
 fn state(viewer: &Mutex<Viewer>) -> String {
-    let viewer = &*viewer.lock().expect("the viewer lock was poisoned");
-    let project: serde_json::Value = serde_json::from_str(&persist::to_json(
-        viewer.document.project(),
-        &viewer.preserved,
-    ))
-    .expect("the project text the core just wrote is JSON");
-    serde_json::json!({
-        "project": project,
-        "composition": viewer.composition.as_str(),
-        "revision": viewer.document.revision(),
-        // W-24: which layers are soloed. The window's, not the file's, like the alpha view.
-        "solo": viewer.solo.iter().map(|id| id.as_str()).collect::<Vec<_>>(),
-        // What Undo and Redo would do next, in the words document 26 requires each record to
-        // carry. The buttons say it rather than saying "Undo", because a person who has been
-        // away from the window for a minute cannot otherwise know what is about to be taken back.
-        "undo": viewer.document.undo_labels(),
-        "redo": viewer.document.redo_labels(),
-    })
-    .to_string()
+    // D-1115: copied under the lock (0.3 ms at 200 layers) and written after letting go, so
+    // frames keep coming while the text is made; and the project's text is spliced in as
+    // written rather than read back into a tree and written again. Same JSON values, other
+    // spacing.
+    let (project, preserved, rest) = {
+        let viewer = &*viewer.lock().expect("the viewer lock was poisoned");
+        let rest = serde_json::json!({
+            "composition": viewer.composition.as_str(),
+            "revision": viewer.document.revision(),
+            // W-24: which layers are soloed. The window's, not the file's, like the alpha view.
+            "solo": viewer.solo.iter().map(|id| id.as_str()).collect::<Vec<_>>(),
+            // What Undo and Redo would do next, in the words document 26 requires each record
+            // to carry. The buttons say it rather than saying "Undo", because a person who has
+            // been away from the window for a minute cannot otherwise know what is about to be
+            // taken back.
+            "undo": viewer.document.undo_labels(),
+            "redo": viewer.document.redo_labels(),
+        })
+        .to_string();
+        (viewer.document.project().clone(), viewer.preserved.clone(), rest)
+    };
+    let text = persist::to_json_compact(&project, &preserved);
+    // `rest` is a non-empty object, so it starts with `{"`.
+    format!("{{\"project\":{text},{}", &rest[1..])
 }
 
 /// Apply one command and say what happened, in the history record's own words.
@@ -20376,3 +20382,8 @@ mod w12v;
 #[cfg(test)]
 #[path = "tests/w12x.rs"]
 mod w12x;
+
+/// P-27: D-1115 to D-1120, each answer the same as before, only sooner.
+#[cfg(test)]
+#[path = "tests/p27_speed.rs"]
+mod p27_speed;

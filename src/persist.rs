@@ -316,6 +316,35 @@ fn quote(text: &str) -> String {
     s
 }
 
+/// D-1115: [`write_value`] without the spacing, numbers and order the same.
+fn write_compact(out: &mut String, value: &J) {
+    match value {
+        J::Array(items) => {
+            out.push('[');
+            for (i, item) in items.iter().enumerate() {
+                if i > 0 {
+                    out.push(',');
+                }
+                write_compact(out, item);
+            }
+            out.push(']');
+        }
+        J::Object(map) => {
+            out.push('{');
+            for (i, key) in sorted_keys(map).iter().enumerate() {
+                if i > 0 {
+                    out.push(',');
+                }
+                out.push_str(&quote(key));
+                out.push(':');
+                write_compact(out, &map[key.as_str()]);
+            }
+            out.push('}');
+        }
+        other => write_value(out, other, 0),
+    }
+}
+
 fn write_value(out: &mut String, value: &J, indent: usize) {
     let pad = "  ".repeat(indent);
     let inner = "  ".repeat(indent + 1);
@@ -8448,6 +8477,21 @@ fn parse_sketch(v: &J, pointer: &str) -> Result<crate::model::SketchLayer, Diagn
 
 /// The project as the text that would be written to disk.
 pub fn to_json(project: &Project, preserved: &Preserved) -> String {
+    let mut text = String::new();
+    write_value(&mut text, &root_json(project, preserved), 0);
+    text.push('\n');
+    text
+}
+
+/// D-1115: the same project as [`to_json`] on one line, for the window's `/state`: the tree
+/// written straight out, not written spaced, read back and written again.
+pub fn to_json_compact(project: &Project, preserved: &Preserved) -> String {
+    let mut text = String::new();
+    write_compact(&mut text, &root_json(project, preserved));
+    text
+}
+
+fn root_json(project: &Project, preserved: &Preserved) -> J {
     let base = preserved.root_object().map(|_| &preserved.root);
     let assets: Vec<J> = project
         .assets
@@ -8488,7 +8532,7 @@ pub fn to_json(project: &Project, preserved: &Preserved) -> String {
             }
         }
     }
-    let root = merge(
+    merge(
         base,
         vec![
             ("schema_version", J::from(SCHEMA_VERSION)),
@@ -8497,11 +8541,7 @@ pub fn to_json(project: &Project, preserved: &Preserved) -> String {
             ("assets", J::Array(assets)),
             ("compositions", J::Array(compositions)),
         ],
-    );
-    let mut text = String::new();
-    write_value(&mut text, &root, 0);
-    text.push('\n');
-    text
+    )
 }
 
 // ---------------------------------------------------------------------------------------
