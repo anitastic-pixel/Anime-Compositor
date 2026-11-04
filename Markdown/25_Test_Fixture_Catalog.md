@@ -224939,3 +224939,9 @@ FX-EXPR-021
 | layer-spin rotation | `[1, 2, 3]` | 0 | 0 | 0 | EXPRESSION_TYPE |
 | layer-spin rotation | `value.length` | 0 | 0 | 0 | EXPRESSION_SYNTAX |
 | layer-shake position | `[1, 2, 3][3]` | (960, 540) | (960, 540) | (960, 540) | EXPRESSION_TYPE |
+
+### Freeze Frame on footage (D-1047)
+
+FX-FREEZE-FOOTAGE-001 (`Fixtures/projects/unknown_effect_project.json`, the layer `layer-cel` with its exposures taken off, so footage: in 0, out 5, offset 0, stretch 100, no remap): Freeze Frame at frame 3. Expected: the layer gains a Time Remap whose only key is a hold key with the value 3 at frame 3 (FX-TREMAP-045's rule), its exposures stay empty, and it is one entry to undo; undo takes the Time Remap off. Checked by the app test `d1047_freeze_frame_on_footage_turns_time_remapping_on`. Frames 0.
+
+FX-FREEZE-FOOTAGE-002 (the same file as written, `layer-cel` drawn with two exposures): Freeze Frame at frame 3 still holds drawing 2 over the whole layer by its exposures (D-314) and writes no Time Remap. Frames 0.
