@@ -586,6 +586,10 @@ fn asset_json(base: Option<&J>, asset: &Asset) -> J {
     if asset.label != 0 || base.is_some_and(|b| b.get("label").is_some()) {
         owned.push(("label", J::from(asset.label)));
     }
+    // D-1073: written only when not 1, so every project saved before it is unchanged.
+    if asset.loop_count != 1 || base.is_some_and(|b| b.get("loop").is_some()) {
+        owned.push(("loop", J::from(asset.loop_count)));
+    }
     let mut json = merge(base, owned);
     // The schema makes `path`, `pattern` and `frames` optional rather than nullable, so an
     // absent one is written as absent rather than as null.
@@ -9167,6 +9171,18 @@ fn parse_asset(v: &J, pointer: &str) -> Result<Asset, Diagnostic> {
             None => true,
         },
         label: parse_label(v, pointer)?,
+        loop_count: match v.get("loop") {
+            None => 1,
+            Some(n) => match as_u32(n, &format!("{pointer}/loop"))? {
+                n @ 1..=99 => n,
+                _ => {
+                    return Err(invalid(
+                        &format!("{pointer}/loop"),
+                        "a number of times to loop from 1 to 99",
+                    ))
+                }
+            },
+        },
     })
 }
 
@@ -16962,6 +16978,7 @@ pub fn relink_candidate(
         interpretation,
         redistribute: existing.redistribute,
         label: existing.label,
+        loop_count: existing.loop_count,
     };
 
     Ok(RelinkCandidate {

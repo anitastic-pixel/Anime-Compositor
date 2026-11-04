@@ -307,6 +307,7 @@ fn shot_asset() -> Asset {
         interpretation: Interpretation::default(),
         redistribute: true,
         label: 0,
+        loop_count: 1,
     }
 }
 

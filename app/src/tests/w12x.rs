@@ -255,3 +255,166 @@ fn picture(before: &anime_compositor::WorkingBuffer, after: &anime_compositor::W
     anime_compositor::png_out::write_rgba(&dir.join("crop.png"), ow, oh, OutputDepth::Eight, &[], &out)
         .expect("write the picture");
 }
+
+/// D-1073 / B-953: Interpret Footage's Loop. A sequence set to loop 3 times gives a new layer its
+/// drawings three times over, and New Comp from Selection a composition three times as long.
+#[test]
+fn b953_interpret_loop() {
+    let mut rows: Rows = Vec::new();
+    let viewer = Mutex::new(demo());
+    let (asset, still, depth) = {
+        let held = viewer.lock().expect("lock");
+        let project = held.document.project();
+        let asset = project.assets.iter().filter(|a| a.kind == AssetKind::ImageSequence).max_by_key(|a| a.frames.len()).expect("a sequence").clone();
+        let still = project.assets.iter().find(|a| a.kind == AssetKind::Still).map(|a| a.id.as_str().to_string());
+        (asset, still, held.document.undo_depth())
+    };
+    let n = asset.frames.len();
+    let id = asset.id.as_str().to_string();
+    let ask = |q: &str| {
+        let (what, query) = q.split_once('?').unwrap_or((q, ""));
+        edit_command(&viewer, what, Some(query)).unwrap_or_default()
+    };
+    let loop_of = |which: &str| viewer.lock().expect("lock").document.project().assets.iter().find(|a| a.id.as_str() == which).map_or(0, |a| a.loop_count);
+    let loop_now = || loop_of(&id);
+    let said = |answer: &str| if answer.is_empty() { "silent" } else { "answered" };
+    rows.push((format!("the reference shot's longest sequence ({n} drawings), before: Loop"), "1".into(), loop_now().to_string()));
+    ask(&format!("asset.set_loop?asset={id}&times=3"));
+    rows.push(("after asset.set_loop times=3: Loop".into(), "3".into(), loop_now().to_string()));
+    rows.push(("entries to undo".into(), "1".into(), (viewer.lock().expect("lock").document.undo_depth() - depth).to_string()));
+    let saved = {
+        let held = viewer.lock().expect("lock");
+        persist::to_json(held.document.project(), &Preserved::default())
+    };
+    let json: serde_json::Value = serde_json::from_str(&saved).expect("the saved project is JSON");
+    let list = json["assets"].as_array().expect("assets");
+    let entry = list.iter().find(|a| a["id"] == id.as_str()).expect("the asset");
+    rows.push(("the saved project: the sequence's \"loop\"".into(), "3".into(), entry["loop"].to_string()));
+    let others = list.iter().filter(|a| a["id"] != id.as_str() && a.get("loop").is_some()).count();
+    rows.push(("the saved project: other assets with a \"loop\" written".into(), "0".into(), others.to_string()));
+    let reopened = persist::load_str(&saved).expect("it opens");
+    let back = reopened.document.project().assets.iter().find(|a| a.id == asset.id).map(|a| a.loop_count);
+    rows.push(("saved and opened again: Loop".into(), "Some(3)".into(), format!("{back:?}")));
+    let bad = saved.replace("\"loop\": 3", "\"loop\": 0");
+    rows.push((
+        "a file saying \"loop\": 0 is refused".into(),
+        "true".into(),
+        (bad != saved && persist::load_str(&bad).is_err()).to_string(),
+    ));
+
+    // Refusals: each answers and changes nothing.
+    for (what, q) in [
+        ("0 times", format!("asset.set_loop?asset={id}&times=0")),
+        ("100 times", format!("asset.set_loop?asset={id}&times=100")),
+        ("not a number", format!("asset.set_loop?asset={id}&times=two")),
+        ("an asset not in the project", "asset.set_loop?asset=nothing-here&times=2".to_string()),
+    ] {
+        let answer = ask(&q);
+        rows.push((format!("refused, {what}: Loop stays 3 and the window answers"), "3, answered".into(), format!("{}, {}", loop_now(), said(&answer))));
+    }
+    if let Some(still) = &still {
+        let answer = ask(&format!("asset.set_loop?asset={still}&times=2"));
+        rows.push(("refused, a still: its Loop stays 1 and the window answers".into(), "1, answered".into(), format!("{}, {}", loop_of(still), said(&answer))));
+    }
+    rows.push(("entries to undo after the refusals".into(), "1".into(), (viewer.lock().expect("lock").document.undo_depth() - depth).to_string()));
+
+    // A composition from the sequence, then a layer from it.
+    ask(&format!("composition.create?name=Looped&footage={id}&fps=24/1&drag=1"));
+    ask(&format!("layer.create?asset={id}&name=Run&drag=1"));
+    ask("property.drag_end");
+    let (frames, spans, project, comp, root) = {
+        let held = viewer.lock().expect("lock");
+        let project = held.document.project().clone();
+        let comp = project.composition(&held.composition).expect("the new composition");
+        let layer = comp.layers_in_order().next().expect("the layer").clone();
+        (comp.duration_frames, layer.exposure_spans.clone(), project.clone(), held.composition.clone(), held.root.clone())
+    };
+    rows.push(("New Comp from Selection: its length in frames, 3 times the drawings".into(), (3 * n).to_string(), frames.to_string()));
+    let numbers: Vec<u32> = asset.frames.keys().copied().collect();
+    let want: Vec<String> = numbers.repeat(3).iter().enumerate().map(|(f, d)| format!("{f}:{d}")).collect();
+    let got: Vec<String> = spans.iter().map(|s| format!("{}:{}", s.start_frame, s.drawing_number)).collect();
+    rows.push(("the new layer's sheet: one frame per drawing, the drawings 3 times over".into(), "true".into(), (want == got).to_string()));
+    rows.push(("the sheet's length in frames".into(), (3 * n).to_string(), spans.last().map_or(0, |s| s.end_frame_exclusive).to_string()));
+
+    let draw = |frame: i32| {
+        anime_compositor::compose::render_frame(&project, &comp, frame, &root, DEFAULT_TILE_SIZE, &mut FrameLog::new(0)).expect("the frame draws")
+    };
+    let picks = [0, n / 2, n - 1];
+    let mut grid = Vec::new();
+    for pass in 0..3 {
+        for &p in &picks {
+            grid.push(draw((pass * n + p) as i32));
+        }
+    }
+    for (c, &p) in picks.iter().enumerate() {
+        let mut worst = 0.0f32;
+        for pass in 1..3 {
+            let (a, b) = (&grid[c], &grid[pass * 3 + c]);
+            for y in 0..a.height() {
+                for x in 0..a.width() {
+                    let (pa, pb) = (a.pixel(x, y), b.pixel(x, y));
+                    for k in 0..4 {
+                        worst = worst.max((pa[k] - pb[k]).abs());
+                    }
+                }
+            }
+        }
+        rows.push((format!("frames {p}, {} and {}: the most any pixel differs, 0 to 1", n + p, 2 * n + p), "0".into(), format!("{worst}")));
+    }
+    let differ = {
+        let (a, b) = (&grid[0], &grid[2]);
+        (0..a.height()).any(|y| (0..a.width()).any(|x| a.pixel(x, y) != b.pixel(x, y)))
+    };
+    rows.push(("the first and last drawing differ (so the rows above are a real check)".into(), "true".into(), differ.to_string()));
+    loop_picture(&grid);
+    rows.push(("loop.png: three rows, one per pass, each the first, middle and last drawing".into(), "drawn".into(), "drawn".into()));
+
+    // Undo: the layer and composition, then the Loop.
+    viewer.lock().expect("lock").document.undo();
+    viewer.lock().expect("lock").document.undo();
+    rows.push(("two Ctrl+Z: Loop back to".into(), "1".into(), loop_now().to_string()));
+
+    let page = page();
+    for (what, line) in [
+        ("the Project panel's line for a sequence has Loop", "const lab = el('label', 'pdim', 'Loop ');"),
+        ("only for a sequence", "if (asset.kind === 'image_sequence') {"),
+        ("a change sends asset.set_loop", "times.onchange = () => command('/asset.set_loop?asset=' + encodeURIComponent(asset.id)"),
+    ] {
+        rows.push((what.into(), "true".into(), page.contains(line).to_string()));
+    }
+    table(
+        "B-953_interpret_loop_table.md",
+        "B-953: Interpret Footage Loop (D-1073)",
+        "b953_interpret_loop",
+        "After Effects' Interpret Footage > Loop (nTpT2PELCbA, about 1:30). The requests go to the \
+         window's own command handler on the reference shot, with its longest sequence; the frames \
+         are drawn by the renderer. The picture is `verification/B-953 pictures/loop.png`.",
+        &rows,
+    );
+}
+
+/// Nine frames at an eighth of their size: a row per pass through the drawings.
+fn loop_picture(grid: &[anime_compositor::WorkingBuffer]) {
+    const E: usize = 8;
+    let (tw, th) = (grid[0].width() / E, grid[0].height() / E);
+    let gap = 8;
+    let (ow, oh) = (3 * tw + 4 * gap, 3 * th + 4 * gap);
+    let mut out = vec![90u8; ow * oh * 4];
+    for (i, b) in grid.iter().enumerate() {
+        let v = b.to_srgb8_straight();
+        let (ox, oy) = (gap + (i % 3) * (tw + gap), gap + (i / 3) * (th + gap));
+        for y in 0..th {
+            for x in 0..tw {
+                let s = ((y * E) * b.width() + x * E) * 4;
+                let a = v[s + 3] as u32;
+                let mix = |c: u8| ((c as u32 * a + 90 * (255 - a)) / 255) as u8;
+                let o = ((oy + y) * ow + ox + x) * 4;
+                out[o..o + 4].copy_from_slice(&[mix(v[s]), mix(v[s + 1]), mix(v[s + 2]), 255]);
+            }
+        }
+    }
+    let dir = repo("verification/B-953 pictures");
+    std::fs::create_dir_all(&dir).expect("the folder");
+    anime_compositor::png_out::write_rgba(&dir.join("loop.png"), ow, oh, OutputDepth::Eight, &[], &out)
+        .expect("write the picture");
+}

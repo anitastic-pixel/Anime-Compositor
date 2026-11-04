@@ -97,6 +97,11 @@ pub enum Command {
         asset: Id,
         color_space: crate::ColorSpace,
     },
+    /// Document 24's `asset.set_loop`, D-1073: Interpret Footage's Loop, 1 to 99 times. B-953.
+    SetAssetLoop {
+        asset: Id,
+        times: u32,
+    },
     /// Document 24's `project.set_view`, D-915: the viewer's colour view, with colour management
     /// on. B-794.
     SetColorView {
@@ -652,6 +657,7 @@ impl Command {
             Command::RelinkAsset { .. } => "RELINK_ASSET",
             Command::SetAssetRedistribute { .. } => "SET_ASSET_REDISTRIBUTE",
             Command::SetAssetInterpretation { .. } => "SET_ASSET_INTERPRETATION",
+            Command::SetAssetLoop { .. } => "SET_ASSET_LOOP",
             Command::SetColorView { .. } => "SET_COLOR_VIEW",
             Command::SetColorManagement { .. } => "SET_COLOR_MANAGEMENT",
             Command::SetItemLabel { .. } => "SET_ITEM_LABEL",
@@ -814,6 +820,7 @@ impl Command {
                 "Interpret {asset} as {}",
                 color_space.word().unwrap_or("an unknown colour space")
             ),
+            Command::SetAssetLoop { asset, times } => format!("Loop {asset} {times} times"),
             Command::SetColorView { view } => format!("Show the {} colour view", view.name()),
             Command::SetColorManagement { working } => match working {
                 None => "Turn colour management off".to_string(),
@@ -1080,6 +1087,7 @@ impl Command {
             | Command::RelinkAsset { .. }
             | Command::SetAssetRedistribute { .. }
             | Command::SetAssetInterpretation { .. }
+            | Command::SetAssetLoop { .. }
             | Command::SetColorView { .. }
             | Command::SetColorManagement { .. }
             | Command::SetItemLabel { .. }
@@ -1160,6 +1168,7 @@ impl Command {
             Command::RelinkAsset { asset } => ids.push(asset.id.clone()),
             Command::SetAssetRedistribute { asset, .. } => ids.push(asset.clone()),
             Command::SetAssetInterpretation { asset, .. } => ids.push(asset.clone()),
+            Command::SetAssetLoop { asset, .. } => ids.push(asset.clone()),
             Command::SetItemLabel { item, .. } => ids.push(item.clone()),
             Command::AddComposition { composition } => ids.push(composition.id.clone()),
             Command::RemoveComposition { composition } => ids.push(composition.clone()),
@@ -1329,6 +1338,7 @@ impl Command {
                 | Command::RelinkAsset { .. }
                 | Command::SetAssetRedistribute { .. }
                 | Command::SetAssetInterpretation { .. }
+                | Command::SetAssetLoop { .. }
                 | Command::SetColorView { .. }
                 | Command::SetColorManagement { .. }
                 | Command::SetItemLabel { .. }
@@ -2269,6 +2279,29 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
         return Ok(());
     }
 
+    if let Command::SetAssetLoop { asset, times } = command {
+        let Some(slot) = project.assets.iter_mut().find(|a| a.id == *asset) else {
+            return Err(missing(
+                format!("The asset {asset} is not in this project."),
+                "Loop names an asset record; that ID is not present.".to_string(),
+            ));
+        };
+        if slot.kind != AssetKind::ImageSequence {
+            return Err(reject(
+                &format!("{} has no frames to loop.", slot.name),
+                "D-1073: Loop is for an image sequence.",
+            ));
+        }
+        if !(1..=99).contains(times) {
+            return Err(reject(
+                &format!("{} cannot loop {times} times.", slot.name),
+                "D-1073: Loop is a whole number of times from 1 to 99.",
+            ));
+        }
+        slot.loop_count = *times;
+        return Ok(());
+    }
+
     if let Command::SetColorView { view } = command {
         if project.color_management.is_none() {
             return Err(reject(
@@ -2524,6 +2557,7 @@ fn apply_to(project: &mut Project, command: &Command) -> Result<(), Diagnostic> 
         | Command::RelinkAsset { .. }
         | Command::SetAssetRedistribute { .. }
         | Command::SetAssetInterpretation { .. }
+        | Command::SetAssetLoop { .. }
         | Command::SetColorView { .. }
         | Command::SetColorManagement { .. }
         | Command::SetItemLabel { .. }

@@ -3665,6 +3665,18 @@ function drawProject() {
       lab.append(sel);
       interp.push(lab);
     }
+    // D-1073: Interpret Footage's Loop. Layers made from the sequence after this play it that many times.
+    if (asset.kind === 'image_sequence') {
+      const times = el('input', 'pinterp');
+      Object.assign(times, { type: 'number', min: 1, max: 99, step: 1, value: asset.loop || 1 });
+      times.style.width = '4em';
+      times.title = 'Loop: how many times a layer made from these drawings plays them through';
+      times.onchange = () => command('/asset.set_loop?asset=' + encodeURIComponent(asset.id)
+        + '&times=' + encodeURIComponent(times.value));
+      const lab = el('label', 'pdim', 'Loop ');
+      lab.append(times, ' times');
+      interp.push(lab);
+    }
     $('pinfo').replaceChildren(projTile(asset, false), txt, ...interp);
   } else if (comp) {
     const uses = compUses(comp.id);
@@ -12727,7 +12739,7 @@ const EFFECT_PARAMS = {
     ['sides', 'Sides', 1, 1, '3 to 128, its whole part counted; 64 and up look round'],
     // D-1071: After Effects' Curve Size and Star Depth; Star is a choice below.
     ['curve_size', 'Curve Size', 1, 0.01, '0 to 1, how much of each corner is rounded; 1 is a circle'],
-    ['star_depth', 'Star Depth', 1, 0.01, '-1 to 1, with Star on: where the inner corners sit; 0 is the polygon, -1 the centre'],
+    ['star_depth', 'Star Depth', 1, 0.01, '-1 to 1, with Star on: where the inner corners sit; 0 is the polygon, -1 the centre', '', -0.3],
     ['interval', 'Interval', 1, 1, 'frames between waves, 1 to 1000'],
     ['frequency', 'Frequency', 1, 0.1, 'waves a second, 0 to 1000; above 0 it sets the Interval, 0 keeps it'],
     ['expansion', 'Expansion', 1, 0.1, 'pixels a frame, 0 to 1000, how fast each wave grows'],

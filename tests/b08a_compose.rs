@@ -199,6 +199,7 @@ fn asset_for(layer: u32) -> Asset {
         interpretation: Interpretation::default(),
         redistribute: true,
         label: 0,
+        loop_count: 1,
     }
 }
 

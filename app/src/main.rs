@@ -11172,6 +11172,7 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
 /// `verification/B-12b_command_map_table.md` checks that nothing outside it is answered.
 const ANSWERS: &[&str] = &[
     "asset.set_interpretation",
+    "asset.set_loop",
     "asset.set_redistribute",
     "camera.set_property",
     "composition.create",
@@ -11681,6 +11682,23 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                 Command::SetAssetInterpretation {
                     asset: Id::new(&asset),
                     color_space,
+                },
+            ));
+        }
+        // D-1073: Interpret Footage's Loop, for the sequence chosen in the Project panel.
+        "asset.set_loop" => {
+            let Some(asset) = parameter(query, "asset") else {
+                return Some("Which drawings? Choose them in the Project panel.".to_string());
+            };
+            let Some(times) = parameter(query, "times").and_then(|t| t.trim().parse::<u32>().ok())
+            else {
+                return Some("Loop is a whole number of times from 1 to 99.".to_string());
+            };
+            return Some(edit(
+                viewer,
+                Command::SetAssetLoop {
+                    asset: Id::new(&asset),
+                    times,
                 },
             ));
         }
@@ -12490,9 +12508,10 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                             .and_then(|f| media::decode(&held.root.join(f)).ok())
                     })
                     .map(|image| (image.width() as u32, image.height() as u32));
+                // D-1073: a looped sequence's composition is that many times as long.
                 let count = found
                     .filter(|a| a.kind == AssetKind::ImageSequence)
-                    .map(|a| a.frames.len() as u32)
+                    .map(|a| a.frames.len() as u32 * a.loop_count.max(1))
                     .filter(|n| *n > 0);
                 (found.is_some(), size, count)
             });
@@ -13389,11 +13408,15 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
             // D-292: a sequence's drawings are exposed on ones in number order from the layer's
             // first frame, as After Effects lays footage in; past the last one it is transparent.
             // Before, its sheet was empty and the layer drew nothing until it was filled.
+            // D-1073: Interpret Footage's Loop lays the drawings in that many times over.
             if let Some(numbers) = project
                 .assets
                 .iter()
                 .find(|a| a.id == layer.asset_id && a.kind == AssetKind::ImageSequence)
-                .map(|a| a.frames.keys().copied().collect::<Vec<u32>>())
+                .map(|a| {
+                    let once = a.frames.keys().copied().collect::<Vec<u32>>();
+                    once.repeat(a.loop_count.max(1) as usize)
+                })
                 .filter(|n| !n.is_empty())
             {
                 let spans = anime_compositor::time::ExposureMap::on_twos_style(&numbers, 1)

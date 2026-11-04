@@ -1882,6 +1882,9 @@ pub struct Asset {
     pub redistribute: bool,
     /// D-254: the label colour a layer has (W-24), 1 to 16, 0 for none.
     pub label: u8,
+    /// D-1073: Interpret Footage's Loop, how many times a layer made from a sequence plays its
+    /// drawings through, 1 to 99. Read only when a layer or a composition is made from it.
+    pub loop_count: u32,
 }
 
 impl Asset {
@@ -1898,6 +1901,7 @@ impl Asset {
             frames: BTreeMap::new(),
             redistribute: true,
             label: 0,
+            loop_count: 1,
         }
     }
 
@@ -1914,6 +1918,7 @@ impl Asset {
             frames: BTreeMap::new(),
             redistribute: true,
             label: 0,
+            loop_count: 1,
         }
     }
 

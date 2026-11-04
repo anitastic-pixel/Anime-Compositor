@@ -93,6 +93,7 @@ fn accelerators(page: &str) -> String {
 /// window answers it.
 const SENT: &[&str] = &[
     "asset.set_interpretation",
+    "asset.set_loop",
     "asset.set_redistribute",
     "composition.create",
     "composition.delete",
@@ -348,6 +349,11 @@ const WIRING: &[(&str, &str, &str)] = &[
         "View > Colour view",
         "project.set_view",
         "sel.onchange = () => command('/project.set_view?view=' + encodeURIComponent(sel.value));",
+    ),
+    (
+        "Loop, in the Project panel line for a sequence",
+        "asset.set_loop",
+        "times.onchange = () => command('/asset.set_loop?asset=' + encodeURIComponent(asset.id)",
     ),
     (
         "Can be passed on",
@@ -647,6 +653,8 @@ const REACHED: &[(&str, &str)] = &[
     ("asset.set_redistribute", "a command the window answers"),
     // D-909: Interpret as, in the Project panel's line for a still or a sequence.
     ("asset.set_interpretation", "a command the window answers"),
+    // D-1073: Interpret Footage's Loop, in the Project panel's line for a sequence.
+    ("asset.set_loop", "a command the window answers"),
     // D-915: View > Colour view, with colour management on.
     ("project.set_view", "a command the window answers"),
     // D-916: File > Project Settings, colour management.
@@ -1652,6 +1660,10 @@ fn every_field_the_panels_read_is_in_the_answer_the_window_gives() {
         &viewer,
         &format!("asset.set_redistribute?asset={first_asset}&redistribute=false"),
     );
+    // D-1073: and a sequence's Loop, written only when not 1.
+    let sequence = held(&viewer).document.project().assets.iter()
+        .find(|a| a.kind == AssetKind::ImageSequence).expect("a sequence").id.clone();
+    run(&viewer, &format!("asset.set_loop?asset={sequence}&times=2"));
     for edit in [
         "timeline.set_work_start?frame=1",
         "timeline.set_markers?marker=2|hit",

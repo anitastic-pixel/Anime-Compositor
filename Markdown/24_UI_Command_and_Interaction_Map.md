@@ -30,6 +30,7 @@ Every state-changing UI action invokes a stable command ID through the command l
 | media.relink | Relink missing asset | none | yes |
 | asset.set_redistribute | Mark whether an asset's drawings may be passed on in a package (D-61) | none | yes |
 | asset.set_interpretation | Interpret as: the colour space a still's or a sequence's files are stored in (D-909) | none | yes |
+| asset.set_loop | Interpret Footage > Loop: how many times, 1 to 99, a layer made from a sequence plays its drawings through (D-1073) | none | yes |
 | project.set_view | View > Colour view: ACES 2.0 SDR, Un-tone-mapped or Standard, the viewer's view with colour management on; refused with it off (D-915) | none | yes |
 | project.set_color_management | File > Project Settings: colour management Off, On working in ACEScg, or On working in linear Rec.709; turning it on is refused while a composition is in 8 bpc (AE) or 32 bpc (AE) (D-916) | none | yes |
 | item.set_label | A composition's or a footage item's label colour, 0 for none or 1 to 16 (D-254, D-948) | none | yes |
