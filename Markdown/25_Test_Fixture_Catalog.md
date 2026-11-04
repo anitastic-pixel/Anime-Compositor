@@ -224963,3 +224963,39 @@ FX-MIXNAME-001: the text typed into the Ctrl+Space finder or the Effects panel's
 | `opacity` | no |
 | `mix` | no |
 | `glow` | no |
+
+### CC Composite (D-1049)
+
+CC Composite (`core.cc_composite`, D-1049), after After Effects' CC Composite (B-929). Every case is a composition 16 by 10 holding one drawing the same size, Channel Mixer's swatches (`media/swatches.png`), unmoved unless the case says; where the case says so a Solid Composite (D-312) comes first in the stack. `tools/cc_composite_reference.py` works the expected frames, `Fixtures/cc_composite/expected_cc_composite.json`, tolerance 2e-5; the rule is in document 21.
+
+FX-CCCOMP-001 (`fx_cccomp_001.json`): The settings as they start, opacity 100, in front, RGB only off, as the only effect: the drawing laid over itself: every solid pixel and the empty border as they were, a soft edge thicker (covering a becomes a + a(1 - a)). Frames 0.
+
+FX-CCCOMP-002 (`fx_cccomp_002.json`): After a Solid Composite that leaves only a half-covering blue (#3366cc at opacity 50, source opacity 0): in front, the drawing laid back over the blue: every solid pixel the drawing's, the border the half blue. Frames 0.
+
+FX-CCCOMP-003 (`fx_cccomp_003.json`): The same, behind: the half blue over the drawing: every solid pixel half blue, the border the half blue. Frames 0.
+
+FX-CCCOMP-004 (`fx_cccomp_004.json`): FX-CCCOMP-002 at opacity 50: the drawing at half strength over the half blue. Frames 0.
+
+FX-CCCOMP-005 (`fx_cccomp_005.json`): FX-CCCOMP-002 at opacity 0: nothing laid back: the half blue alone, as the Solid Composite left it. Frames 0.
+
+FX-CCCOMP-006 (`fx_cccomp_006.json`): After a solid blue (#3366cc, source opacity 0), add: every solid pixel the drawing plus the blue, in linear light, held at 1; the border the blue. Frames 0.
+
+FX-CCCOMP-007 (`fx_cccomp_007.json`): After the solid blue, multiply: every solid pixel the drawing times the blue; the border the blue. Frames 0.
+
+FX-CCCOMP-008 (`fx_cccomp_008.json`): After the solid blue, screen: every solid pixel lighter than both; the border the blue. Frames 0.
+
+FX-CCCOMP-009 (`fx_cccomp_009.json`): FX-CCCOMP-002 with RGB only on: the colours of FX-CCCOMP-002 but the Solid Composite's alpha, half covering everywhere. Frames 0.
+
+FX-CCCOMP-010 (`fx_cccomp_010.json`): FX-CCCOMP-001 with RGB only on: the alpha the drawing's own, so a soft edge keeps its covering; every pixel the drawing's. Frames 0.
+
+FX-CCCOMP-011 (`fx_cccomp_011.json`): FX-CCCOMP-002 with opacity keyed from 0 at frame 0 to 100 at frame 4, linear: frame 0 FX-CCCOMP-005, frame 2 FX-CCCOMP-004, frame 4 FX-CCCOMP-002. Frames 0, 2, 4.
+
+FX-CCCOMP-012 (`fx_cccomp_012.json`): FX-CCCOMP-002 moved three pixels right: the same, moved; columns 0 to 2 of the frame stay empty. Frames 0, 3.
+
+FX-CCCOMP-013 (`fx_cccomp_013.json`): Opacity 101: above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CCCOMP-014 (`fx_cccomp_014.json`): Composite original "stencil": this program's CC Composite lays the original in front, behind, or by add, multiply or screen. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CCCOMP-015 (`fx_cccomp_015.json`): RGB only "yes": it is "off" or "on". The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+FX-CCCOMP-016 (`fx_cccomp_016.json`): Opacity keyed to 150 at frame 4. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
