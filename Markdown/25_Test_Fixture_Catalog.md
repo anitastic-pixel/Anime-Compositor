@@ -225034,3 +225034,27 @@ Refused whole, each as `PROJECT_SCHEMA_INVALID`; each is FX-SHP-131's file with 
 - FX-SHP-144 (`fx_shp_144.json`): An offset of two numbers rather than one.
 - FX-SHP-145 (`fx_shp_145.json`): An expression on the dash.
 - FX-SHP-146 (`fx_shp_146.json`): Dashes with no gap.
+
+### Lightning Bolt's Core Opacity and Glow Opacity (D-1051)
+
+From wave 12's tutorial uGxruFKgt6U (B-931). Every case is a project of one composition 16 by 10 at 24 fps, five frames long, in `Fixtures/lightning_opacity/`, holding D-324's `night.png` (the left half a night sky #1e2850, the right half empty) with one Lightning Bolt (`core.lightning_bolt`) on it, D-324's five settings, D-334's `core` and the new numbers `core_opacity` and `glow_opacity` written. **Every number is produced by `tools/lightning_opacity_reference.py`** and is in `Fixtures/lightning_opacity/expected_lightning_opacity.json`. Values are linear premultiplied. Tolerance 2e-5. The line cases are D-334's: along y = 4.5, the middle of row 4, from (-10, 45) to (110, 45) per cent, white in D-190's blue glow, jaggedness 0, no branches. Pixels are given down column 12, on the empty half, rows 1 to 4. B-931 checks them in `verification/B-931_lightning_opacity_table.md`.
+
+FX-LOPAC-001 (`fx_lopac_001.json`): D-334's line at width 6, no glow, core opacity 50: half of D-190's hard core. Rows 2 to 6 are 0.5 0.5 0.5 0.5 and rows 1 and 7 0.25 0.25 0.25 0.25.
+
+FX-LOPAC-002 (`fx_lopac_002.json`): The line at width 2 with glow 3, glow opacity 50: the core as D-190's, row 4 1 1 1 1; the glow round it half as strong, row 2 0.00866258 0.0145695 0.0555556 0.0555556 and row 3 0.517325 0.529139 0.611111 0.611111.
+
+FX-LOPAC-003 (`fx_lopac_003.json`): The same line, core opacity 0: no core, the glow at its full weight on the line in the glow colour, row 4 0.155926 0.262251 1 1, row 3 0.0693007 0.116556 0.444444 0.444444.
+
+FX-LOPAC-004 (`fx_lopac_004.json`): The same line, glow opacity 0: only the core, row 3 0.5 0.5 0.5 0.5 and row 4 1 1 1 1, exactly the frame of the line with glow 0.
+
+FX-LOPAC-005 (`fx_lopac_005.json`): FX-BOLT-001's settings with both written at 100, frames 0 and 2: exactly FX-BOLT-001.
+
+FX-LOPAC-006 (`fx_lopac_006.json`): FX-BOLT-001's settings at the tutorial's core opacity 75 and glow opacity 50, frames 0 and 2: the same bolt, never more covering than FX-BOLT-001. On frame 0, 160 pixels differ from FX-BOLT-001's; the most, at (8, 5), is 0.0683581 0.11291 0.422044 0.422044 where FX-BOLT-001 has 0.13457 0.223585 0.841228 0.841228.
+
+FX-LOPAC-007 (`fx_lopac_007.json`): FX-LOPAC-001 with the soft core (D-334): half of FX-LCORE-001's covering row by row, row 4 0.458333 0.458333 0.458333 0.458333, row 3 0.333333, row 2 0.166667, row 1 0.0208333 in every channel.
+
+FX-LOPAC-008 (`fx_lopac_008.json`): FX-LOPAC-003's line with core opacity keyed from 0 at frame 0 to 100 at frame 4, linear, frames 0, 2 and 4: frame 0 is FX-LOPAC-003's, frame 4 the plain line (D-190's, row 4 1 1 1 1), and frame 2 between, row 4 0.577963 0.631125 1 1.
+
+FX-LOPAC-009 (`fx_lopac_009.json`): A core opacity of 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0 and 4: the night drawing untouched.
+
+FX-LOPAC-010 (`fx_lopac_010.json`): A glow opacity of -1, below 0. As FX-LOPAC-009.
