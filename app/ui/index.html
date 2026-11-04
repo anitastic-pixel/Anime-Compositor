@@ -12197,7 +12197,9 @@ const EFFECT_PARAMS = {
     // D-304: After Effects' Tile Center, Tile Width and Tile Height.
     ['tile_center', 'Tile Center', 2, 1, '% of the width and height, -1000 to 1000', '', [50, 50]],
     ['tile_width', 'Tile Width', 1, 0.5, '% of the drawing, 1 to 1000', '', 100],
-    ['tile_height', 'Tile Height', 1, 0.5, '% of the drawing, 1 to 1000', '', 100]],
+    ['tile_height', 'Tile Height', 1, 0.5, '% of the drawing, 1 to 1000', '', 100],
+    // D-1070: After Effects' Phase; Horizontal Phase Shift is a choice below.
+    ['phase', 'Phase', 1, 1, 'degrees, -3600 to 3600; slides every other column of tiles down (360 is a whole tile), or every other row right with Horizontal Phase Shift on', 'dial', 0]],
   // D-155.
   'core.linear_wipe': [['completion', 'Completion', 1, 1, '% wiped away, 0 to 100'],
     ['angle', 'Angle', 1, 1, 'degrees, -3600 to 3600; 90 wipes from the left', 'dial'],
@@ -14939,7 +14941,8 @@ const EFFECT_WORDS = {
     colours: [['dark_color', 'Dark Colour'], ['light_color', 'Light Colour']],
   },
   // D-154.
-  'core.motion_tile': { choices: [['mirror', 'Mirror', [['off', 'Off'], ['on', 'On']]]] },
+  'core.motion_tile': { choices: [['mirror', 'Mirror', [['off', 'Off'], ['on', 'On']]],
+    ['horizontal_phase_shift', 'Horizontal Phase Shift', [['off', 'Off'], ['on', 'On']]]] },
   // D-156.
   'core.radial_wipe': { choices: [['wipe', 'Wipe', [['clockwise', 'Clockwise'], ['counterclockwise', 'Counterclockwise'], ['both', 'Both']]]] },
   // D-158.

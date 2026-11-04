@@ -4176,17 +4176,19 @@ pub(crate) fn tile_growth(size: (f64, f64), (w, h): (usize, usize)) -> (usize, u
 /// and height, every other tile turned over when `mirror`. Returns how far it grew on the left
 /// and on the top, the same as on the right and the bottom. The settings are already valid.
 /// D-304: `tile`, the tiles' centre in per cent of the buffer and their width and height in per
-/// cent; at (50, 50), 100 and 100 it is D-154's tile, the buffer itself.
+/// cent; at (50, 50), 100 and 100 it is D-154's tile, the buffer itself. D-1070: `phase`, its
+/// Phase in degrees and whether the shift is horizontal; a Phase other than 0 is a sized tile.
 pub(crate) fn motion_tile(
     source: &mut WorkingBuffer,
     size: (f64, f64),
     mirror: bool,
     tile: ([f64; 2], f64, f64),
+    phase: (f64, bool),
 ) -> (usize, usize) {
     let (w, h) = (source.width(), source.height());
     let (gx, gy) = tile_growth(size, (w, h));
-    if tile != (PLAIN_TILE, 100.0, 100.0) {
-        sized_tile(source, (gx, gy), mirror, tile);
+    if tile != (PLAIN_TILE, 100.0, 100.0) || phase.0 != 0.0 {
+        sized_tile(source, (gx, gy), mirror, tile, phase);
         return (gx, gy);
     }
     if (gx, gy) == (0, 0) {
@@ -5000,7 +5002,7 @@ pub(crate) fn tiles(source: &mut WorkingBuffer, scale: f64, center: [f64; 2], bl
         return;
     }
     let original = (blend > 0.0).then(|| source.clone());
-    motion_tile(source, (100.0, 100.0), false, (center, scale, scale));
+    motion_tile(source, (100.0, 100.0), false, (center, scale, scale), (0.0, false));
     if let Some(original) = original {
         let b = (blend / 100.0) as f32;
         source
@@ -6757,17 +6759,27 @@ fn sized_tile(
     (gx, gy): (usize, usize),
     mirror: bool,
     (center, tw, th): ([f64; 2], f64, f64),
+    (phase, across): (f64, bool),
 ) {
     let (w, h) = (source.width(), source.height());
     if w == 0 || h == 0 {
         return;
     }
     let (sx, sy) = (tw / 100.0, th / 100.0);
-    // Where place `p` of the row or column, from the buffer's corner, reads the buffer: tiles
-    // `n s` long, one set round `c`, every other one turned over when `mirror`.
-    let read = |p: f64, n: usize, c: f64, s: f64| {
+    // D-1070: the share of a tile every other column slides down, or every other row right.
+    let slide = phase / 360.0;
+    // Which tile, counted from the one round `c`, place `p` of the row or column is in.
+    let which = |p: f64, n: usize, c: f64, s: f64| {
         let (n, t) = (n as f64, n as f64 * s);
-        let u = p - (c / 100.0 * n - t / 2.0);
+        ((p - (c / 100.0 * n - t / 2.0)) / t).floor()
+    };
+    let odd = |k: f64| if k.rem_euclid(2.0) != 0.0 { slide } else { 0.0 };
+    // Where place `p` of the row or column, from the buffer's corner, reads the buffer: tiles
+    // `n s` long, one set round `c` and slid on by `d` of a tile, every other one turned over
+    // when `mirror`.
+    let read = |p: f64, n: usize, c: f64, s: f64, d: f64| {
+        let (n, t) = (n as f64, n as f64 * s);
+        let u = p - (c / 100.0 * n - t / 2.0) - d * t;
         let k = (u / t).floor();
         let f = u - k * t;
         let f = if mirror && k.rem_euclid(2.0) != 0.0 {
@@ -6791,9 +6803,12 @@ fn sized_tile(
             let (x, y) = ((i % ow) as f64 - gx as f64, (i / ow) as f64 - gy as f64);
             let mut sum = [0.0f32; 4];
             for b in 0..my {
-                let ry = read(y + (b as f64 + 0.5) / my as f64, h, center[1], sy);
+                let py = y + (b as f64 + 0.5) / my as f64;
+                let dx = if across { odd(which(py, h, center[1], sy)) } else { 0.0 };
                 for a in 0..mx {
-                    let rx = read(x + (a as f64 + 0.5) / mx as f64, w, center[0], sx);
+                    let px = x + (a as f64 + 0.5) / mx as f64;
+                    let dy = if across { 0.0 } else { odd(which(px, w, center[0], sx)) };
+                    let (rx, ry) = (read(px, w, center[0], sx, dx), read(py, h, center[1], sy, dy));
                     let p = sample_bilinear(drawing, rx, ry);
                     for c in 0..4 {
                         sum[c] += p[c];

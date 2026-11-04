@@ -2715,6 +2715,8 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             tile_center,
             tile_width,
             tile_height,
+            phase,
+            horizontal_phase_shift,
         } => {
             params.insert("output_width".into(), num(*output_width));
             params.insert("output_height".into(), num(*output_height));
@@ -2729,6 +2731,13 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
                 ),
                 ("tile_width", num(*tile_width), *tile_width == 100.0),
                 ("tile_height", num(*tile_height), *tile_height == 100.0),
+                // D-1070: the same for Phase and Horizontal Phase Shift.
+                ("phase", num(*phase), *phase == 0.0),
+                (
+                    "horizontal_phase_shift",
+                    J::from(horizontal_phase_shift.as_str()),
+                    horizontal_phase_shift == "off",
+                ),
             ] {
                 if !start || instance.tracks.contains_key(key) || params.contains_key(key) {
                     params.insert(key.into(), value);
@@ -10157,6 +10166,8 @@ fn parse_effect(
             },
             tile_width: effect_number_or(params, "tile_width", at, 100.0)?,
             tile_height: effect_number_or(params, "tile_height", at, 100.0)?,
+            phase: effect_number_or(params, "phase", at, 0.0)?,
+            horizontal_phase_shift: effect_word_or(params, "horizontal_phase_shift", at, "off")?,
         }),
         crate::effects::LINEAR_WIPE => Some(crate::effects::Effect::LinearWipe {
             completion: effect_number(params, "completion", at)?,

@@ -1493,8 +1493,9 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
             if sets.iter().any(|s| s[0] == s[1]) || sets[4] != crate::effects::LEVELS_PLAIN)
         // D-304: the card tiles the drawing at its own size, round its middle, only.
         // ponytail: teach the card's tile pass a size and centre if a sized tile is slow here.
-        && !matches!(&instance.effect, crate::effects::Effect::MotionTile { tile_center, tile_width, tile_height, .. }
-            if (*tile_center, *tile_width, *tile_height) != (crate::layer_fx::PLAIN_TILE, 100.0, 100.0))
+        // D-1070: and with no Phase.
+        && !matches!(&instance.effect, crate::effects::Effect::MotionTile { tile_center, tile_width, tile_height, phase, .. }
+            if (*tile_center, *tile_width, *tile_height) != (crate::layer_fx::PLAIN_TILE, 100.0, 100.0) || *phase != 0.0)
         // D-352: a Matte Choker stage with no gray level softness is a threshold, so it stays on
         // the CPU for D-122's reason.
         && !matches!(&instance.effect, crate::effects::Effect::MatteChoker { gray_level_softness_1, gray_level_softness_2, .. }
@@ -1960,11 +1961,13 @@ fn card_effect(
                     tile_center,
                     tile_width,
                     tile_height,
+                    phase,
                     ..
                 } => {
                     crate::layer_fx::tile_growth((*output_width, *output_height), size) == (0, 0)
                         && (*tile_center, *tile_width, *tile_height)
                             == (crate::layer_fx::PLAIN_TILE, 100.0, 100.0)
+                        && *phase == 0.0
                 }
                 // D-464: nothing grown and no blend, as `layer_fx::repeat_tile` returns at once.
                 E::RepeatTile {

@@ -1402,7 +1402,9 @@ pub enum Effect {
     /// D-154: `output_width` and `output_height`, 100 to 1000 per cent of the drawing's width
     /// and height; `mirror`, "off" or "on", every other tile turned over. D-304: `tile_center`,
     /// per cent of the drawing's width and height, -1000 to 1000 each, where a tile sits;
-    /// `tile_width` and `tile_height`, 1 to 1000 per cent, each tile's size.
+    /// `tile_width` and `tile_height`, 1 to 1000 per cent, each tile's size. D-1070: `phase`,
+    /// -3600 to 3600 degrees, how far every other column of tiles slides down (360 a whole
+    /// tile), or every other row right with `horizontal_phase_shift` "on" ("off" or "on").
     MotionTile {
         output_width: f64,
         output_height: f64,
@@ -1410,6 +1412,8 @@ pub enum Effect {
         tile_center: [f64; 2],
         tile_width: f64,
         tile_height: f64,
+        phase: f64,
+        horizontal_phase_shift: String,
     },
     /// D-155: `completion`, 0 to 100 per cent, how far the edge has gone; `angle`, -3600 to 3600
     /// degrees, the way it moves, 90 to the right; `feather`, 0 to 10000 pixels, how soft it is.
@@ -8576,6 +8580,7 @@ impl Effect {
                 tile_center,
                 tile_width,
                 tile_height,
+                phase,
                 ..
             } => vec![
                 ("output_width", vec![output_width], 100.0, 1000.0),
@@ -8588,6 +8593,7 @@ impl Effect {
                 ),
                 ("tile_width", vec![tile_width], 1.0, 1000.0),
                 ("tile_height", vec![tile_height], 1.0, 1000.0),
+                ("phase", vec![phase], -3600.0, 3600.0),
             ],
             Effect::LinearWipe {
                 completion,
@@ -15211,6 +15217,9 @@ impl Effect {
             Effect::MotionTile { mirror, .. } if !["off", "on"].contains(&mirror.as_str()) => Some(format!(
                 "Motion Tile's mirror is \"off\" or \"on\", and this is \"{mirror}\"."
             )),
+            Effect::MotionTile { horizontal_phase_shift: h, .. } if !["off", "on"].contains(&h.as_str()) => Some(format!(
+                "Motion Tile's Horizontal Phase Shift is \"off\" or \"on\", and this is \"{h}\"."
+            )),
             Effect::Distortion { kind, .. } if !DISTORTION_TYPES.contains(&kind.as_str()) => Some(format!(
                 "Distortion's type is one of {}, and this is \"{kind}\".",
                 DISTORTION_TYPES.join(", ")
@@ -19727,6 +19736,8 @@ pub(crate) fn apply_stack_at(
                 tile_center,
                 tile_width,
                 tile_height,
+                phase,
+                horizontal_phase_shift,
             } => {
                 let (gx, gy) = crate::perf::time(crate::perf::Stage::EffectMotionTile, || {
                     crate::layer_fx::motion_tile(
@@ -19734,6 +19745,7 @@ pub(crate) fn apply_stack_at(
                         (*output_width, *output_height),
                         mirror == "on",
                         (*tile_center, *tile_width, *tile_height),
+                        (*phase, horizontal_phase_shift == "on"),
                     )
                 });
                 ox += gx;

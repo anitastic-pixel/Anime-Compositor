@@ -674,6 +674,8 @@ fn cases() -> Vec<(&'static str, Effect)> {
                 tile_center: [50.0, 50.0],
                 tile_width: 100.0,
                 tile_height: 100.0,
+                phase: 0.0,
+                horizontal_phase_shift: "off".to_string(),
             },
         ),
         (

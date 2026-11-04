@@ -2522,7 +2522,7 @@ const EFFECT_KINDS: &[(&str, &[(&str, &str)])] = &[
     // D-153: the centre and the angle.
     ("core.mirror", &[("center", "40,60"), ("angle", "90")]),
     // D-154: the two sizes and the choice.
-    ("core.motion_tile", &[("output_width", "300"), ("output_height", "200"), ("mirror", "on"), ("tile_center", "40, 60"), ("tile_width", "28"), ("tile_height", "50")]),
+    ("core.motion_tile", &[("output_width", "300"), ("output_height", "200"), ("mirror", "on"), ("tile_center", "40, 60"), ("tile_width", "28"), ("tile_height", "50"), ("phase", "90"), ("horizontal_phase_shift", "on")]),
     // D-155: the three numbers.
     ("core.linear_wipe", &[("completion", "40"), ("angle", "135"), ("feather", "12")]),
     // D-156: the numbers, the centre and the choice.

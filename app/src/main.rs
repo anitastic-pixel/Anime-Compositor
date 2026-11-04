@@ -4940,6 +4940,8 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             tile_center: [50.0, 50.0],
             tile_width: 100.0,
             tile_height: 100.0,
+            phase: 0.0,
+            horizontal_phase_shift: "off".to_string(),
         }),
         // D-155: nothing wiped yet, the edge to come from the left, hard.
         LINEAR_WIPE => Some(Effect::LinearWipe {
@@ -8455,6 +8457,9 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             tile_center: if parameter(query, "tile_center").is_some() { pair("tile_center")? } else { [50.0, 50.0] },
             tile_width: if parameter(query, "tile_width").is_some() { number("tile_width")? } else { 100.0 },
             tile_height: if parameter(query, "tile_height").is_some() { number("tile_height")? } else { 100.0 },
+            // D-1070.
+            phase: number_or("phase", 0.0)?,
+            horizontal_phase_shift: word("horizontal_phase_shift").unwrap_or_else(|_| "off".to_string()),
         }),
         LINEAR_WIPE => Ok(Effect::LinearWipe {
             completion: number("completion")?,
