@@ -99,7 +99,7 @@ fn b906_drawing_keys() {
         &[
             (
                 "the rectangle, rounded rectangle and ellipse drag read the keys",
-                "const box = kind === 'polygon' || kind === 'star' ? [lx, ly, mx, my] : dragCorners(lx, ly, mx, my, m);",
+                "const box = kind === 'polygon' || kind === 'star' ? [ox, oy, mx, my] : dragCorners(ox, oy, mx, my, m);",
             ),
             ("the shape's settings come from those corners", "settings = shapeSettings(kind, ...box);"),
             ("the mask's outline comes from those corners", "shapePoints(kind, ...box)"),

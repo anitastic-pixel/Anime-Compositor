@@ -81,11 +81,12 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | `layer.time_stretch` is in the answer | present | present | pass |
 | `layer.timesheet` is in the answer | present | present | pass |
 | `layer.transform` is in the answer | present | present | pass |
-| the panels read 6 fields out of one sequence in the media bin | true | true | pass |
+| the panels read 7 fields out of one sequence in the media bin | true | true | pass |
 | `asset.frames` is in the answer | present | present | pass |
 | `asset.id` is in the answer | present | present | pass |
 | `asset.interpretation` is in the answer | present | present | pass |
 | `asset.kind` is in the answer | present | present | pass |
+| `asset.loop` is in the answer | present | present | pass |
 | `asset.name` is in the answer | present | present | pass |
 | `asset.redistribute` is in the answer | present | present | pass |
 | the panels read 3 fields out of one exposure on a layer | true | true | pass |
@@ -216,7 +217,7 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | the panel's `core.diffusion` is an effect this build has | added | added | pass |
 | and the settings it sends for it - radius, amount, blend, second_blend, second_amount - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.wave_warp` is an effect this build has | added | added | pass |
-| and the settings it sends for it - shape, height, width, direction, speed, phase, edges, pinning - are the ones the command reads | accepted | accepted | pass |
+| and the settings it sends for it - shape, height, width, direction, speed, phase, edges, pinning, rule - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.ripple` is an effect this build has | added | added | pass |
 | and the settings it sends for it - center, amplitude, wavelength, speed, phase, fade - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.twirl` is an effect this build has | added | added | pass |
@@ -226,7 +227,7 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | the panel's `core.mirror` is an effect this build has | added | added | pass |
 | and the settings it sends for it - center, angle - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.motion_tile` is an effect this build has | added | added | pass |
-| and the settings it sends for it - output_width, output_height, mirror, tile_center, tile_width, tile_height - are the ones the command reads | accepted | accepted | pass |
+| and the settings it sends for it - output_width, output_height, mirror, tile_center, tile_width, tile_height, phase, horizontal_phase_shift - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.linear_wipe` is an effect this build has | added | added | pass |
 | and the settings it sends for it - completion, angle, feather - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.radial_wipe` is an effect this build has | added | added | pass |
@@ -312,7 +313,7 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | the panel's `core.light_sweep` is an effect this build has | added | added | pass |
 | and the settings it sends for it - center, direction, shape, width, sweep_intensity, edge_intensity, edge_thickness, light_color, light_reception - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.radio_waves` is an effect this build has | added | added | pass |
-| and the settings it sends for it - producer_point, sides, interval, expansion, orientation, direction, velocity, spin, lifespan, opacity, fade_in_time, fade_out_time, start_width, end_width, profile, color - are the ones the command reads | accepted | accepted | pass |
+| and the settings it sends for it - producer_point, sides, interval, expansion, orientation, direction, velocity, spin, lifespan, opacity, fade_in_time, fade_out_time, start_width, end_width, profile, color, curve_size, star, star_depth, frequency - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.polar_coordinates` is an effect this build has | added | added | pass |
 | and the settings it sends for it - interpolation, conversion - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.median` is an effect this build has | added | added | pass |
@@ -372,7 +373,7 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | the panel's `core.polygon_shards` is an effect this build has | added | added | pass |
 | and the settings it sends for it - force, gravity, spinning, force_center_x, force_center_y, direction_randomness, speed_randomness, grid_spacing, start_time, object, depth_sort - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.mercury` is an effect this build has | added | added | pass |
-| and the settings it sends for it - birth_rate, longevity, producer_x, producer_y, radius_x, radius_y, direction, velocity, extra, gravity, resistance, blob_influence, birth_size, death_size, light_intensity, light_height, light_position_x, light_position_y, light_direction, ambient, diffuse, specular, roughness, metal, animation, influence_map, light_type, light_color - are the ones the command reads | accepted | accepted | pass |
+| and the settings it sends for it - birth_rate, longevity, producer_x, producer_y, radius_x, radius_y, direction, velocity, extra, gravity, resistance, blob_influence, birth_size, death_size, light_intensity, light_height, light_position_x, light_position_y, light_direction, ambient, diffuse, specular, roughness, metal, animation, influence_map, light_type, rule, light_color - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.hair` is an effect this build has | added | added | pass |
 | and the settings it sends for it - length, thickness, weight, density, color_inheritance, opacity, light_intensity, light_direction, ambient, diffuse, specular, roughness, metal, constant_mass, hair_color - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.drizzle` is an effect this build has | added | added | pass |
@@ -656,7 +657,7 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | the panel's `core.fog_3d` is an effect this build has | added | added | pass |
 | and the settings it sends for it - fog_color, fog_start_depth, fog_end_depth, fog_opacity, scattering_density, foggy_background, map_layer, layer_contribution - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.text_animator` is an effect this build has | added | added | pass |
-| and the settings it sends for it - position, scale, rotation, opacity, fill, color, tracking, start, end, offset, amount, based_on, shape, smoothness, ease_high, ease_low - are the ones the command reads | accepted | accepted | pass |
+| and the settings it sends for it - position, scale, rotation, opacity, fill, color, tracking, start, end, offset, amount, based_on, shape, smoothness, ease_high, ease_low, wiggly, wiggly_mode, wiggly_max, wiggly_min, wiggly_rate, wiggly_correlation, wiggly_temporal_phase, wiggly_spatial_phase, wiggly_seed, expression_selector, expression_amount - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.text_path` is an effect this build has | added | added | pass |
 | and the settings it sends for it - path, reverse, perpendicular, force_alignment, first_margin, last_margin - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.stretch_levels` is an effect this build has | added | added | pass |
@@ -684,4 +685,4 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | the panel's `core.compressor` is an effect this build has | added | added | pass |
 | and the settings it sends for it - threshold, ratio, knee, attack, release, makeup, output_limit, auto_release - are the ones the command reads | accepted | accepted | pass |
 
-**663 of 663 checks pass.**
+**664 of 664 checks pass.**

@@ -591,7 +591,7 @@ fn b956_space_moves_while_drawing() {
     for (what, line) in [
         ("Space during the drag is the drag's, so it does not play", "if (k.type === 'keydown') { k.preventDefault(); k.stopPropagation(); }"),
         ("every step of the drag goes through it", "from = spaceMove(from, last, [mx, my], space);"),
-        ("the shape is drawn from where it was moved to", "settings = shapeSettings(kind, ox, oy, mx, my);"),
+        ("the shape is drawn from where it was moved to", "const box = kind === 'polygon' || kind === 'star' ? [ox, oy, mx, my] : dragCorners(ox, oy, mx, my, m);"),
         ("the keys are let go of when the drag ends", "window.removeEventListener('keyup', spaceKey, true);"),
     ] {
         rows.push((what.into(), "true".into(), page.contains(line).to_string()));
