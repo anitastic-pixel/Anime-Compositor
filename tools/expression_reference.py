@@ -149,6 +149,39 @@ def show_arg(v):
     return f"\"{v}\"" if isinstance(v, str) else f"{v:g}"
 
 
+def js_string(v):
+    """D-1088: a value as JavaScript's String() writes it, which is what After Effects' Source
+    Text shows: a number in its shortest round-trip digits, plain from 1e-6 up to 1e21 and in
+    exponent form outside it, -0 as 0; a list as its numbers joined by commas; a text as it is."""
+    if isinstance(v, str):
+        return v
+    if isinstance(v, list):
+        return ",".join(js_string(x) for x in v)
+    x = float(v)
+    if math.isnan(x):
+        return "NaN"
+    if math.isinf(x):
+        return "Infinity" if x > 0 else "-Infinity"
+    if x == 0:
+        return "0"
+    if x < 0:
+        return "-" + js_string(-x)
+    import decimal
+    d = decimal.Decimal(repr(x)).normalize().as_tuple()
+    s = "".join(str(c) for c in d.digits)
+    k = len(s)
+    n = d.exponent + k
+    if k <= n <= 21:
+        return s + "0" * (n - k)
+    if 0 < n <= 21:
+        return s[:n] + "." + s[n:]
+    if -6 < n <= 0:
+        return "0." + "0" * -n + s
+    e = n - 1
+    m = s if k == 1 else s[0] + "." + s[1:]
+    return f"{m}e{'+' if e >= 0 else '-'}{abs(e)}"
+
+
 # --- reading -----------------------------------------------------------------------------------
 
 def tokens(text):
@@ -479,6 +512,9 @@ class Project:
     def dims(self, target, prop):
         if isinstance(prop, tuple):
             return 1
+        if prop == "source_text":
+            # D-1088: words, not numbers; Scope.outcome turns what it ends on into text.
+            return 0
         return (CAMERA_PROPS if target == "camera" else LAYER_PROPS)[prop]
 
     # Opacity is 0 to 1 in the file and 0 to 100 in the window and in an expression. Every
@@ -490,6 +526,9 @@ class Project:
         return v / 100 if prop == "opacity" else v
 
     def pre(self, target, prop, frame):
+        if prop == "source_text":
+            # D-1088: Source Text's own `value` is the words the layer holds.
+            return self.layers[target]["source_text"]["text"]
         return self.to_expr(prop, key_value(self.property(target, prop), frame))
 
     def frame_of(self, seconds):
@@ -619,7 +658,9 @@ class Scope:
             if stmt[0] == "let":
                 # D-1033: a name may also hold a layer, `var L = thisComp.layer(1)`.
                 v = self.eval(stmt[2])
-                self.locals[stmt[1]] = v if isinstance(v, LayerRef) else self.number_or_array(v)
+                # D-1088: or a text, `s = "Score "`.
+                self.locals[stmt[1]] = v if isinstance(v, (LayerRef, str)) \
+                    else self.number_or_array(v)
             elif stmt[0] == "if":
                 self.step()
                 cond = self.number(self.eval(stmt[1]), "an if's condition")
@@ -632,6 +673,11 @@ class Scope:
         result = self.plain(self.statements(Reader(text).program()))
         if result is None:
             raise type_error("the expression ends without a value")
+        if self.prop == "source_text":
+            # D-1088: a text, a number or a list, written as JavaScript writes it.
+            if not isinstance(result, (str, float, int, list)):
+                raise type_error("the expression ends on something that is not words or a number")
+            return js_string(result)
         if isinstance(result, str):
             raise type_error("the expression ends on a text, not a number")
         if not isinstance(result, (float, int, list)):
@@ -706,6 +752,8 @@ class Scope:
             if name == "value":
                 return self.p.pre(self.target, self.prop, self.frame)
             if name == "thisProperty":
+                if self.prop == "source_text":
+                    raise syntax("on Source Text, use value for the layer's own words")
                 if isinstance(self.prop, tuple):
                     raise syntax("on an effect's setting, use value for the setting's own number")
                 return PropRef(self.target, self.prop, own=True)
@@ -767,6 +815,12 @@ class Scope:
         raise AssertionError(kind)
 
     def arith(self, op, a, b):
+        a, b = self.plain(a), self.plain(b)
+        # D-1088: "+" with a text on either side joins the two as JavaScript writes them.
+        if op == "+" and (isinstance(a, str) or isinstance(b, str)):
+            if not all(isinstance(v, (str, float, int, list)) for v in (a, b)):
+                raise type_error("only a number, a list or a text can be joined to a text")
+            return js_string(a) + js_string(b)
         a, b = self.number_or_array(a), self.number_or_array(b)
         la, lb = isinstance(a, list), isinstance(b, list)
         if not la and not lb:
@@ -1103,6 +1157,19 @@ def evaluate(project, target, prop, frame):
         return key_value(project.property(target, prop), frame), e.code, e.message
 
 
+def source_text(project, target, frame):
+    """D-1088: (the words a text layer shows at a frame, error code or None). With no expression
+    switched on, or one that fails, they are the words the layer holds."""
+    words = project.layers[target]["source_text"]
+    expr = words.get("expression")
+    if not expr or not expr["enabled"]:
+        return words["text"], None
+    try:
+        return Scope(Run(project), target, "source_text", frame).outcome(expr["text"]), None
+    except ExprError as e:
+        return words["text"], e.code
+
+
 # --- the fixture project -----------------------------------------------------------------------
 
 def prop(base, keys=(), expression=None, enabled=True):
@@ -1223,6 +1290,69 @@ def controls_project():
     return data
 
 
+# D-1088: tutorial pArivwQxgVY at 4:54, Source Text alt-clicked and pick-whipped to a slider.
+TUTORIAL_SOURCE_TEXT = 'thisComp.layer("Controls").effect("Slider Control")("Slider")'
+
+
+def source_text_project():
+    """D-1088: the Expression Controls composition with a text layer on top whose Source Text
+    reads the Controls layer's slider, 0 at frame 0 to 100 at frame 48, as the tutorial's does."""
+    data = controls_project()
+    comp = data["compositions"][0]
+    words = layer("layer-words", "Words", position=(0, 0))
+    for k in ("asset_id", "source_offset_frames", "exposure_spans", "mask"):
+        del words[k]
+    words.update(kind="text", masks=[], source_text={
+        "text": "25%", "font": "MPLUSRounded1c-Regular.ttf", "size": 200,
+        "color": [1, 1, 1], "at": [960, 600], "align": "center",
+        "expression": {"text": TUTORIAL_SOURCE_TEXT, "enabled": True}})
+    comp["layers"].insert(0, words)
+    comp["layer_order"].insert(0, "layer-words")
+    data["project_id"] = "proj-source-text-expression"
+    return data
+
+
+SOURCE_TEXT_CASES = [
+    TUTORIAL_SOURCE_TEXT,
+    f"Math.round({TUTORIAL_SOURCE_TEXT})",
+    f'Math.round({TUTORIAL_SOURCE_TEXT}) + "%"',
+    '"Frame " + time * 24',
+    'value + " at " + Math.floor(time) + "s"',
+    'thisComp.layer("Target").position',
+    '1 + 2 + "a" + 1 + 2',
+    's = "Score "; s + 10',
+    "time / 1e7",
+    "time * 1e21",
+    "-time * 1.5",
+    "time / 0",
+    '"x" - 1',
+    'thisComp.layer("Nobody").position',
+    'thisComp.layer("Controls")',
+    "thisProperty",
+]
+
+
+def source_text_table(data):
+    """D-1088: FX-EXPR-022, the words layer-words shows at four frames for each expression on
+    its Source Text, and once with the tutorial's expression switched off."""
+    frames = [0, 7, 12, 48]
+
+    def cell(d, f):
+        words, code = source_text(Project(d), "layer-words", f)
+        return f'"{words}"' + (f", {code}" if code else "")
+
+    def on(text, enabled=True):
+        d = copy.deepcopy(data)
+        Project(d).layers["layer-words"]["source_text"]["expression"] = {
+            "text": text, "enabled": enabled}
+        return d
+
+    rows = [[f"`{t}`"] + [cell(on(t), f) for f in frames] for t in SOURCE_TEXT_CASES]
+    rows.append(["the tutorial's, switched off"] +
+                [cell(on(TUTORIAL_SOURCE_TEXT, False), f) for f in frames])
+    table("FX-EXPR-022", ["Words Source Text expression"] + [f"frame {f}" for f in frames], rows)
+
+
 # --- printing ----------------------------------------------------------------------------------
 
 def show(v):
@@ -1262,7 +1392,8 @@ def main():
     controls = controls_project()
     here = Path(__file__).resolve().parent.parent
     for name, d in [("expression_project.json", data),
-                    ("expression_controls_project.json", controls)]:
+                    ("expression_controls_project.json", controls),
+                    ("source_text_expression_project.json", source_text_project())]:
         out = here / "Fixtures" / "projects" / name
         text = json.dumps(d, indent=2, ensure_ascii=False) + "\n"
         if "--check" in sys.argv:
@@ -1430,6 +1561,7 @@ def main():
 
     controls_tables(controls)
     layer_reference_table(data)
+    source_text_table(source_text_project())
 
 
 def layer_reference_table(data):

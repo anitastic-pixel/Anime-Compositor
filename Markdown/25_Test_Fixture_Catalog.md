@@ -225095,6 +225095,34 @@ FX-CW-081 (`fx_cw_081.json`): Y rot jitter amount 361, above 360. The file is re
 
 No new cases. FX-LOPAC-001 to 010 (D-1051, above) are drawn on the graphics card and on the processor at Full and Draft, every frame each case lists; the two must agree within 1 level of 255 (the card's tolerance, as B-107's), with the same warnings. FX-LOPAC-009 and 010 are left out on both, with the same `EFFECT_PARAMETER_INVALID` warning.
 
+### Source Text expressions (D-1088)
+
+After After Effects' Source Text expression (wave 12, lane w12y, gap G11; tutorial pArivwQxgVY at 4:54, the Source Text stopwatch alt-clicked and pick-whipped to a slider, the text then reading the slider's number). Printed by `tools/expression_reference.py`, which leaves FX-EXPR-001 to 021 and their project files as they were. It writes `Fixtures/projects/source_text_expression_project.json`: the Expression Controls composition (FX-EXPR-019; Controls' Slider Control runs from 0 at frame 0 to 100 at frame 48, Target is at (300, 400)) with a text layer Words on top, whose words are "25%" and whose Source Text carries the tutorial's expression.
+
+A number is written as JavaScript's `String()` writes it (shortest digits that read back the same number; an exponent from 1e21 up and below 1e-6; `NaN`, `Infinity`); a list as its numbers joined by commas; a text as it is. `+` with a text on either side joins the two, so `1 + 2 + "a" + 1 + 2` is "3a12". `value` is the layer's own words. A failed expression leaves the layer's own words, with the diagnostic.
+
+FX-EXPR-022: each row is Words' Source Text expression; each cell is the words drawn at that frame, and the diagnostic if there is one.
+
+| Words Source Text expression | frame 0 | frame 7 | frame 12 | frame 48 |
+| --- | --- | --- | --- | --- |
+| `thisComp.layer("Controls").effect("Slider Control")("Slider")` | "0" | "14.583333333333334" | "25" | "100" |
+| `Math.round(thisComp.layer("Controls").effect("Slider Control")("Slider"))` | "0" | "15" | "25" | "100" |
+| `Math.round(thisComp.layer("Controls").effect("Slider Control")("Slider")) + "%"` | "0%" | "15%" | "25%" | "100%" |
+| `"Frame " + time * 24` | "Frame 0" | "Frame 7" | "Frame 12" | "Frame 48" |
+| `value + " at " + Math.floor(time) + "s"` | "25% at 0s" | "25% at 0s" | "25% at 0s" | "25% at 2s" |
+| `thisComp.layer("Target").position` | "300,400" | "300,400" | "300,400" | "300,400" |
+| `1 + 2 + "a" + 1 + 2` | "3a12" | "3a12" | "3a12" | "3a12" |
+| `s = "Score "; s + 10` | "Score 10" | "Score 10" | "Score 10" | "Score 10" |
+| `time / 1e7` | "0" | "2.916666666666667e-8" | "5e-8" | "2e-7" |
+| `time * 1e21` | "0" | "291666666666666700000" | "500000000000000000000" | "2e+21" |
+| `-time * 1.5` | "0" | "-0.4375" | "-0.75" | "-3" |
+| `time / 0` | "NaN" | "Infinity" | "Infinity" | "Infinity" |
+| `"x" - 1` | "25%", EXPRESSION_TYPE | "25%", EXPRESSION_TYPE | "25%", EXPRESSION_TYPE | "25%", EXPRESSION_TYPE |
+| `thisComp.layer("Nobody").position` | "25%", EXPRESSION_REFERENCE_MISSING | "25%", EXPRESSION_REFERENCE_MISSING | "25%", EXPRESSION_REFERENCE_MISSING | "25%", EXPRESSION_REFERENCE_MISSING |
+| `thisComp.layer("Controls")` | "25%", EXPRESSION_TYPE | "25%", EXPRESSION_TYPE | "25%", EXPRESSION_TYPE | "25%", EXPRESSION_TYPE |
+| `thisProperty` | "25%", EXPRESSION_SYNTAX | "25%", EXPRESSION_SYNTAX | "25%", EXPRESSION_SYNTAX | "25%", EXPRESSION_SYNTAX |
+| the tutorial's, switched off | "25%" | "25%" | "25%" | "25%" |
+
 ### Text on a path (D-1085)
 
 After After Effects' Path Options (B-965; wave 12, lane w12y, gap G3). The rule is D-1085's in `tools/text_path_reference.py`, which reads the bundled M PLUS Rounded 1c's advances with fontTools and measures curved masks by sampling their Bezier curves finely, never by the build's pieces. For every character of every case, `Fixtures/text_path/expected_text_path.json` gives where its anchor lands and its turn, within 0.02 pixel and 0.02 degree on straight masks and 0.1 pixel and 0.3 degree on the circle.
