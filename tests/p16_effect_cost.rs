@@ -386,6 +386,7 @@ fn cases() -> Vec<(&'static str, Effect)> {
                 seed: 0.0,
                 animate: "on".into(),
                 frame: 0,
+                clip: "on".into(),
             },
         ),
         (

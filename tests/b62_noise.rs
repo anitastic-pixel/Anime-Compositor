@@ -20,6 +20,19 @@ fn noise(amount: f64, mode: &str, seed: f64, animate: &str) -> Effect {
         seed,
         animate: animate.into(),
         frame: 0,
+        clip: "on".into(),
+    }
+}
+
+/// D-1078: the defaults with Clip Result Values `clip`.
+fn noise_clip(clip: &str) -> Effect {
+    Effect::Noise {
+        amount: 10.0,
+        mode: "mono".into(),
+        seed: 0.0,
+        animate: "on".into(),
+        frame: 0,
+        clip: clip.into(),
     }
 }
 
@@ -30,11 +43,12 @@ fn b62_noise() {
         "# B-62: noise\n\nD-119, accepted by the owner on 2026-09-26 in the batch of ten. \
          Every expected pixel is `Fixtures/noise/expected_noise.json`, written by \
          `tools/noise_reference.py` before this code existed and printed in document 25 as \
-         FX-NOISE-001 to 018. The build's frame is compared sample by sample; the answer is the \
-         largest difference over all of them, against the catalogue's tolerance of 2e-5.\n",
+         FX-NOISE-001 to 018, and FX-NOISE-019 to 022 for D-1078's Clip Result Values. The build's \
+         frame is compared sample by sample; the answer is the largest difference over all of \
+         them, against the catalogue's tolerance of 2e-5.\n",
     );
 
-    t.heading("FX-NOISE-001 to 018 (document 25)");
+    t.heading("FX-NOISE-001 to 022 (document 25)");
     t.fixtures("expected_noise.json");
 
     t.heading("How far it reaches");
@@ -89,7 +103,23 @@ fn b62_noise() {
         "fx_noise_016.json",
         "fx_noise_017.json",
         "fx_noise_018.json",
+        "fx_noise_019.json",
+        "fx_noise_020.json",
+        "fx_noise_021.json",
+        "fx_noise_022.json",
     ]);
+    // D-1078: a Noise made with Clip on is saved without the word, as before it.
+    let mut made = t.load("fx_noise_001.json");
+    let taken = made.document.apply(set(noise_clip("on"))).is_ok();
+    let clip_written = effect_table::saved(&made).to_string().contains("\"clip\"");
+    t.row(
+        "a Noise set to Clip on and saved writes no clip word, as one saved before D-1078",
+        if clip_written { "written" } else { "not written" },
+        taken && !clip_written,
+    );
+    let taken = made.document.apply(set(noise_clip("off"))).is_ok();
+    let written = effect_table::saved(&made)["compositions"][0]["layers"][0]["effects"][0]["parameters"]["clip"].clone();
+    t.row("set to Clip off and saved, it writes \"clip\": \"off\"", &written.to_string(), taken && written == "off");
     t.shape_refused(
         "fx_noise_001.json",
         "no `animate` at all",
@@ -112,6 +142,7 @@ fn b62_noise() {
             ("seed 100001", set(noise(10.0, "mono", 100001.0, "on"))),
             ("mode \"Mono\"", set(noise(10.0, "Mono", 0.0, "on"))),
             ("animate \"yes\"", set(noise(10.0, "mono", 0.0, "yes"))),
+            ("clip \"wrap\" (D-1078)", set(noise_clip("wrap"))),
             (
                 "amount keyed to 150",
                 keys("amount", &[(0, &[10.0]), (4, &[150.0])]),

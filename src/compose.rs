@@ -1577,6 +1577,9 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
         // D-395: as an Arbitrary Map whose file's alpha table is asked for.
         && !matches!(&instance.effect, crate::effects::Effect::ArbitraryMap { apply_to_alpha, table: Some(t), .. }
             if apply_to_alpha == "on" && t.0.alpha(0.0).is_some())
+        // D-1078: the card holds Noise inside 0..1; one that wraps is drawn here.
+        // ponytail: wrap on the card's grade mode 4 if a wrapping Noise is slow here.
+        && !matches!(&instance.effect, crate::effects::Effect::Noise { clip, .. } if clip == "off")
         // B-222 (D-341): a Colorama whose phase adds a layer's reads a pixel not its own;
         // D-381: as one with a mask layer does.
         && !matches!(&instance.effect, crate::effects::Effect::Colorama { layer, map, mask_layer, mask_map, .. }

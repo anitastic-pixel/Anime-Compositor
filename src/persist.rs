@@ -2139,12 +2139,17 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             mode,
             seed,
             animate,
+            clip,
             ..
         } => {
             params.insert("amount".into(), num(*amount));
             params.insert("mode".into(), J::from(mode.as_str()));
             params.insert("seed".into(), num(*seed));
             params.insert("animate".into(), J::from(animate.as_str()));
+            // D-1078: written only when it is not D-119's clipping, so older files save the same.
+            if clip != "on" {
+                params.insert("clip".into(), J::from(clip.as_str()));
+            }
         }
         Effect::ChromaticAberration { amount, center } => {
             params.insert("amount".into(), num(*amount));
@@ -9910,6 +9915,7 @@ fn parse_effect(
             seed: effect_number(params, "seed", at)?,
             animate: effect_word(params, "animate", at)?,
             frame: 0,
+            clip: effect_word_or(params, "clip", at, "on")?,
         }),
         // D-409: the new form carries its mode; a file without one is D-120's form, drawn as before.
         crate::effects::CHROMATIC_ABERRATION if params.is_some_and(|p| p.get("mode").is_some()) => {

@@ -998,13 +998,15 @@ pub enum Effect {
     /// part counted; and `animate`, "on" or "off". The words are kept as written, so a wrong
     /// one is reported. `frame` is not a setting and is never saved: it is the composition frame
     /// the settings were resolved at, or 0 when the grain does not move, so the grain and the
-    /// effect cache's key both change with it.
+    /// effect cache's key both change with it. D-1078: `clip`, "on" (held inside 0..1, as
+    /// before) or "off" (wrapped round, After Effects' 8-bit Noise); a file without it is "on".
     Noise {
         amount: f64,
         mode: String,
         seed: f64,
         animate: String,
         frame: i32,
+        clip: String,
     },
     /// D-120: `amount`, 0 to 100 pixels, how far red and blue each move at the drawing's
     /// corner; and `center`, per cent of the drawing's width and height, -1000 to 1000.
@@ -14481,6 +14483,9 @@ impl Effect {
             Effect::Noise { animate, .. } if animate != "on" && animate != "off" => Some(format!(
                 "Noise's animate is \"on\" or \"off\", and this is \"{animate}\"."
             )),
+            Effect::Noise { clip, .. } if clip != "on" && clip != "off" => Some(format!(
+                "Noise's clip is \"on\" or \"off\", and this is \"{clip}\"."
+            )),
             Effect::DistanceGradation { invert, .. } if invert != "off" && invert != "on" => {
                 Some(format!(
                     "Distance Gradation's invert is \"off\" or \"on\", and this is \"{invert}\"."
@@ -17483,9 +17488,11 @@ pub(crate) fn apply_stack_at(
                 mode,
                 seed,
                 frame,
+                clip,
                 ..
             } => crate::perf::time(crate::perf::Stage::EffectNoise, || {
-                crate::grade::noise(source, *amount, mode == "color", *seed, *frame, (ox, oy))
+                let wrap = clip == "off";
+                crate::grade::noise(source, *amount, mode == "color", *seed, *frame, (ox, oy), wrap)
             }),
             Effect::ChromaticAberration { amount, center } => {
                 crate::perf::time(crate::perf::Stage::EffectChromaticAberration, || {

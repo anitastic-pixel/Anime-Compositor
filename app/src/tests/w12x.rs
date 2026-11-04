@@ -650,3 +650,48 @@ fn b957_output_templates() {
         &rows,
     );
 }
+
+/// D-1078 / B-958: Noise's Clip Result Values, chosen in Effect Controls and sent with the others.
+#[test]
+fn b958_noise_clip_control() {
+    let mut rows: Rows = Vec::new();
+    let clip = |q: &str| match effect_parameters("core.noise", Some(q)) {
+        Ok(e @ Effect::Noise { .. }) => {
+            let valid = e.is_valid();
+            match e {
+                Effect::Noise { clip, .. } => format!("{clip}, {}", if valid { "drawn" } else { "refused" }),
+                _ => unreachable!(),
+            }
+        }
+        other => format!("{other:?}"),
+    };
+    let base = "amount=40&mode=mono&seed=0&animate=off";
+    for (what, q, want) in [
+        ("a window from before D-1078 sends no clip: Clip on", base.to_string(), "on, drawn"),
+        ("Clip Result Values On", format!("{base}&clip=on"), "on, drawn"),
+        ("Clip Result Values Off", format!("{base}&clip=off"), "off, drawn"),
+        ("a word that is not a choice", format!("{base}&clip=wrap"), "wrap, refused"),
+    ] {
+        rows.push((what.into(), want.into(), clip(&q)));
+    }
+    let made = match new_effect("core.noise") {
+        Some(Effect::Noise { clip, .. }) => clip,
+        other => format!("{other:?}"),
+    };
+    rows.push(("a Noise just added: Clip Result Values".into(), "on".into(), made));
+    let page = page();
+    rows.push((
+        "Effect Controls shows Clip Result Values, On first (a file without it reads On)".into(),
+        "true".into(),
+        page.contains("['clip', 'Clip Result Values', [['on', 'On'], ['off', 'Off']]]]").to_string(),
+    ));
+    table(
+        "B-958_noise_clip_control_table.md",
+        "B-958: Noise, Clip Result Values in Effect Controls (D-1078)",
+        "b958_noise_clip_control",
+        "After Effects' Noise > Clip Result Values (lHQvi94dpvM about 4:20 on, f80 about 4:00 off). \
+         The window's own reading of what Effect Controls sends; the drawing itself is \
+         `verification/B-958_noise_clip_table.md`.",
+        &rows,
+    );
+}

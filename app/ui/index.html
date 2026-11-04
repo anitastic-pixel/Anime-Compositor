@@ -14101,7 +14101,9 @@ const EFFECT_WORDS = {
   // D-119.
   'core.noise': {
     choices: [['mode', 'Mode', [['mono', 'Mono'], ['color', 'Colour']]],
-      ['animate', 'Animate', [['on', 'On'], ['off', 'Off']]]],
+      ['animate', 'Animate', [['on', 'On'], ['off', 'Off']]],
+      // D-1078: After Effects' Clip Result Values; Off wraps past white or black round.
+      ['clip', 'Clip Result Values', [['on', 'On'], ['off', 'Off']]]],
   },
   // D-443: After Effects’ words; Off, Film and On as it is added.
   'core.add_grain': {

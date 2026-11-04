@@ -681,7 +681,9 @@ pub(crate) fn mix(z: u64) -> u64 {
 /// way through the sRGB curve, by a number in -1..1 fixed by the seed's whole part, the pixel's
 /// place in the drawing's own space (its corner at `(ox, oy)` in `source` after the effects
 /// above grew it), `frame` and the channel, or channel 0 for all three unless `color`. The
-/// settings are already valid; amount 0 changes nothing.
+/// settings are already valid; amount 0 changes nothing. D-1078: with `wrap` (Clip Result
+/// Values off) a channel past white comes round from black and one below black from white,
+/// one turn, as the grain is at most 0.5; without it `grade_pixels` holds it inside 0..1.
 pub(crate) fn noise(
     source: &mut WorkingBuffer,
     amount: f64,
@@ -689,6 +691,7 @@ pub(crate) fn noise(
     seed: f64,
     frame: i32,
     (ox, oy): (usize, usize),
+    wrap: bool,
 ) {
     if amount == 0.0 {
         return;
@@ -700,7 +703,13 @@ pub(crate) fn noise(
         let h = mix(mix(mix(base ^ x as u64) ^ y as u64) ^ frame as i64 as u64);
         std::array::from_fn(|c| {
             let n = (mix(h ^ if color { c as u64 } else { 0 }) >> 11) as f64;
-            e[c] + k * (n / (1u64 << 53) as f64 * 2.0 - 1.0)
+            let v = e[c] + k * (n / (1u64 << 53) as f64 * 2.0 - 1.0);
+            match v {
+                _ if !wrap => v,
+                _ if v > 1.0 => v - 1.0,
+                _ if v < 0.0 => v + 1.0,
+                _ => v,
+            }
         })
     });
 }

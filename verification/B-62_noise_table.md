@@ -1,8 +1,8 @@
 # B-62: noise
 
-D-119, accepted by the owner on 2026-09-26 in the batch of ten. Every expected pixel is `Fixtures/noise/expected_noise.json`, written by `tools/noise_reference.py` before this code existed and printed in document 25 as FX-NOISE-001 to 018. The build's frame is compared sample by sample; the answer is the largest difference over all of them, against the catalogue's tolerance of 2e-5.
+D-119, accepted by the owner on 2026-09-26 in the batch of ten. Every expected pixel is `Fixtures/noise/expected_noise.json`, written by `tools/noise_reference.py` before this code existed and printed in document 25 as FX-NOISE-001 to 018, and FX-NOISE-019 to 022 for D-1078's Clip Result Values. The build's frame is compared sample by sample; the answer is the largest difference over all of them, against the catalogue's tolerance of 2e-5.
 
-## FX-NOISE-001 to 018 (document 25)
+## FX-NOISE-001 to 022 (document 25)
 
 | Check | The build's answer | Matches |
 | --- | --- | --- |
@@ -58,13 +58,22 @@ D-119, accepted by the owner on 2026-09-26 in the batch of ten. Every expected p
 | FX-NOISE-018 frame 0: Animate "yes", which is not a choice. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-NOISE-018 frame 4: Animate "yes", which is not a choice. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-NOISE-018: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
+| FX-NOISE-019 frame 0: D-1078, Clip Result Values off, amount 100, color: where the grain would lighten the white patch past white the channel wraps round to dark, and where it would darken the black patch past black it wraps round to light; a channel the grain keeps inside 0..1 is FX-NOISE-009's. | largest difference 2.0e-7 | yes |
+| FX-NOISE-019: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-NOISE-020 frame 0: D-1078, Clip Result Values on, written in the file: FX-NOISE-009, which has no clip word. | largest difference 2.0e-7 | yes |
+| FX-NOISE-020: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-NOISE-021 frame 0: D-1078, Clip Result Values off at the defaults, amount 10, mono: only a channel within 0.05 of white or black can wrap. | largest difference 2.1e-7 | yes |
+| FX-NOISE-021: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
+| FX-NOISE-022 frame 0: D-1078: clip "wrap", which is not a choice. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
+| FX-NOISE-022 frame 4: D-1078: clip "wrap", which is not a choice. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
+| FX-NOISE-022: what opening it warns of, and what frame 4 warns of | ["EFFECT_PARAMETER_INVALID"] and ["EFFECT_PARAMETER_INVALID"] | yes |
 
 ## How far it reaches
 
 | Check | The build's answer | Matches |
 | --- | --- | --- |
 | it grows the drawing's bounds by nothing: only pixels that show change | 0 | yes |
-| a half-size draft preview changes none of its settings: the grain is a pixel wide | Noise { amount: 100.0, mode: "color", seed: 7.0, animate: "on", frame: 0 } | yes |
+| a half-size draft preview changes none of its settings: the grain is a pixel wide | Noise { amount: 100.0, mode: "color", seed: 7.0, animate: "on", frame: 0, clip: "on" } | yes |
 
 ## The grain's frame
 
@@ -89,6 +98,12 @@ D-119, accepted by the owner on 2026-09-26 in the batch of ten. Every expected p
 | fx_noise_016.json opened and saved holds what it held, out-of-range values, wrong words and keys included | the same | yes |
 | fx_noise_017.json opened and saved holds what it held, out-of-range values, wrong words and keys included | the same | yes |
 | fx_noise_018.json opened and saved holds what it held, out-of-range values, wrong words and keys included | the same | yes |
+| fx_noise_019.json opened and saved holds what it held, out-of-range values, wrong words and keys included | the same | yes |
+| fx_noise_020.json opened and saved holds what it held, out-of-range values, wrong words and keys included | the same | yes |
+| fx_noise_021.json opened and saved holds what it held, out-of-range values, wrong words and keys included | the same | yes |
+| fx_noise_022.json opened and saved holds what it held, out-of-range values, wrong words and keys included | the same | yes |
+| a Noise set to Clip on and saved writes no clip word, as one saved before D-1078 | not written | yes |
+| set to Clip off and saved, it writes "clip": "off" | "off" | yes |
 | a file with no `animate` at all is refused as a fault in its shape | This project file cannot be opened, because part of it does not match the project format. | yes |
 | a file with an amount written as a word is refused as a fault in its shape | This project file cannot be opened, because part of it does not match the project format. | yes |
 
@@ -102,6 +117,7 @@ D-119, accepted by the owner on 2026-09-26 in the batch of ten. Every expected p
 | seed 100001 is refused with a sentence, and nothing changes | Noise's seed runs from 0 to 100000, and this is 100001. | yes |
 | mode "Mono" is refused with a sentence, and nothing changes | Noise's mode is "mono" or "color", and this is "Mono". | yes |
 | animate "yes" is refused with a sentence, and nothing changes | Noise's animate is "on" or "off", and this is "yes". | yes |
+| clip "wrap" (D-1078) is refused with a sentence, and nothing changes | Noise's clip is "on" or "off", and this is "wrap". | yes |
 | amount keyed to 150 is refused with a sentence, and nothing changes | Noise's amount runs from 0 to 100, and this is 150. | yes |
 | amount 100 and seed 100000, the tops, in colour and still, is taken | taken | yes |
 | amount 0 and seed 0, the bottoms, is taken | taken | yes |
@@ -117,4 +133,4 @@ D-119, accepted by the owner on 2026-09-26 in the batch of ten. Every expected p
 
 ## Result
 
-83 of 83 checks pass.
+99 of 99 checks pass.

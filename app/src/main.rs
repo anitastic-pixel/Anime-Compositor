@@ -4664,6 +4664,7 @@ fn new_effect(type_id: &str) -> Option<Effect> {
             seed: 0.0,
             animate: "on".to_string(),
             frame: 0,
+            clip: "on".to_string(),
         }),
         // D-120: a slight split about the middle; D-409's form, which draws D-120's split
         // until a new setting is moved.
@@ -8185,6 +8186,8 @@ fn effect_parameters(type_id: &str, query: Option<&str>) -> Result<Effect, Strin
             seed: number("seed")?,
             animate: word("animate")?,
             frame: 0,
+            // D-1078: a request without it keeps D-119's clipping.
+            clip: if parameter(query, "clip").is_some() { word("clip")? } else { "on".to_string() },
         }),
         // D-409: without a mode, D-120's form, as an older project holds it.
         CHROMATIC_ABERRATION if parameter(query, "mode").is_none() => Ok(Effect::ChromaticAberration {
