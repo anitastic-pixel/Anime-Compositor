@@ -15850,7 +15850,8 @@ pub const STARTER_ABOUT: [&str; 9] = [
 pub const STARTER_ANIMATIONS: &str = include_str!("../Fixtures/starter_presets/animation.fxpreset");
 
 /// D-739: the sentence the Effects panel shows for each starter animation preset, in order.
-pub const STARTER_ANIMATIONS_ABOUT: [&str; 12] = [
+/// D-1087: the last four are After Effects' Text > Animate In presets, by name.
+pub const STARTER_ANIMATIONS_ABOUT: [&str; 16] = [
     "The layer fades up from nothing over half a second.",
     "The layer fades away over half a second, from the playhead.",
     "The layer grows from nothing, overshoots a little and settles at full size.",
@@ -15863,6 +15864,10 @@ pub const STARTER_ANIMATIONS_ABOUT: [&str; 12] = [
     "The letters appear one by one over a second. For a text layer.",
     "Each line draws itself along its path over a second. For a shape layer.",
     "The layer is wiped on from the left over half a second.",
+    "The letters drop in from above one after another, fading up as they fall, over a second and a quarter. For a text layer.",
+    "The letters slide in from the right one after another, fading up, over a second and a quarter. For a text layer.",
+    "The letters fade up one after another over a second and a quarter. For a text layer.",
+    "The words fade up one after another over a second and a quarter. For a text layer.",
 ];
 
 /// D-180: one preset read from a preset file.

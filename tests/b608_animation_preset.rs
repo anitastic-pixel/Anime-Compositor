@@ -252,8 +252,9 @@ fn b608_animation_preset() {
     row(
         "starters",
         "how many",
-        starters.len() == 12,
-        "12".into(),
+        // D-1087: D-739's twelve and four Animate In presets for text.
+        starters.len() == 16,
+        "16".into(),
         starters.len().to_string(),
     );
     let list: J =
@@ -265,9 +266,9 @@ fn b608_animation_preset() {
         "starters",
         "Export presets, then Import presets",
         back.as_ref().is_ok_and(|b| *b == starters),
-        "the same twelve".into(),
+        "the same sixteen".into(),
         match &back {
-            Ok(b) if *b == starters => "the same twelve".into(),
+            Ok(b) if *b == starters => "the same sixteen".into(),
             Ok(b) => format!("{} different", b.len()),
             Err(said) => format!("refused: {said}"),
         },

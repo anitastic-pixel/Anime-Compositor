@@ -99,6 +99,42 @@ Written by `tests/b608_animation_preset.rs` from `Fixtures/animation_preset/`, a
 | FX-ANP-S12 | steps to undo | 1 | 1 | yes |
 | FX-ANP-S12 | effects: length | 1 | 1 | yes |
 | FX-ANP-S12 | effects/-1/parameters/completion: keys | [[10,100],[22,0]] | [[10,100],[22,0]] | yes |
+| FX-ANP-S13 | steps to undo | 1 | 1 | yes |
+| FX-ANP-S13 | effects: length | 1 | 1 | yes |
+| FX-ANP-S13 | effects/-1/parameters/offset: keys | [[10,-100],[40,100]] | [[10,-100],[40,100]] | yes |
+| FX-ANP-S13 | effects/-1/parameters/position: equals | [0,-240] | [0,-240] | yes |
+| FX-ANP-S13 | effects/-1/parameters/opacity: equals | 0 | 0 | yes |
+| FX-ANP-S13 | effects/-1/parameters/start: equals | 0 | 0 | yes |
+| FX-ANP-S13 | effects/-1/parameters/end: equals | 100 | 100 | yes |
+| FX-ANP-S13 | effects/-1/parameters/based_on: equals | "characters" | "characters" | yes |
+| FX-ANP-S13 | effects/-1/parameters/shape: equals | "ramp_up" | "ramp_up" | yes |
+| FX-ANP-S14 | steps to undo | 1 | 1 | yes |
+| FX-ANP-S14 | effects: length | 1 | 1 | yes |
+| FX-ANP-S14 | effects/-1/parameters/offset: keys | [[10,-100],[40,100]] | [[10,-100],[40,100]] | yes |
+| FX-ANP-S14 | effects/-1/parameters/position: equals | [300,0] | [300,0] | yes |
+| FX-ANP-S14 | effects/-1/parameters/opacity: equals | 0 | 0 | yes |
+| FX-ANP-S14 | effects/-1/parameters/start: equals | 0 | 0 | yes |
+| FX-ANP-S14 | effects/-1/parameters/end: equals | 100 | 100 | yes |
+| FX-ANP-S14 | effects/-1/parameters/based_on: equals | "characters" | "characters" | yes |
+| FX-ANP-S14 | effects/-1/parameters/shape: equals | "ramp_up" | "ramp_up" | yes |
+| FX-ANP-S15 | steps to undo | 1 | 1 | yes |
+| FX-ANP-S15 | effects: length | 1 | 1 | yes |
+| FX-ANP-S15 | effects/-1/parameters/offset: keys | [[10,-100],[40,100]] | [[10,-100],[40,100]] | yes |
+| FX-ANP-S15 | effects/-1/parameters/position: equals | [0,0] | [0,0] | yes |
+| FX-ANP-S15 | effects/-1/parameters/opacity: equals | 0 | 0 | yes |
+| FX-ANP-S15 | effects/-1/parameters/start: equals | 0 | 0 | yes |
+| FX-ANP-S15 | effects/-1/parameters/end: equals | 100 | 100 | yes |
+| FX-ANP-S15 | effects/-1/parameters/based_on: equals | "characters" | "characters" | yes |
+| FX-ANP-S15 | effects/-1/parameters/shape: equals | "ramp_up" | "ramp_up" | yes |
+| FX-ANP-S16 | steps to undo | 1 | 1 | yes |
+| FX-ANP-S16 | effects: length | 1 | 1 | yes |
+| FX-ANP-S16 | effects/-1/parameters/offset: keys | [[10,-100],[40,100]] | [[10,-100],[40,100]] | yes |
+| FX-ANP-S16 | effects/-1/parameters/position: equals | [0,0] | [0,0] | yes |
+| FX-ANP-S16 | effects/-1/parameters/opacity: equals | 0 | 0 | yes |
+| FX-ANP-S16 | effects/-1/parameters/start: equals | 0 | 0 | yes |
+| FX-ANP-S16 | effects/-1/parameters/end: equals | 100 | 100 | yes |
+| FX-ANP-S16 | effects/-1/parameters/based_on: equals | "words" | "words" | yes |
+| FX-ANP-S16 | effects/-1/parameters/shape: equals | "ramp_up" | "ramp_up" | yes |
 | starters | the build carries the fixture file | the same text | the same text | yes |
 | FX-ANP-S01 | the sentence the panel shows | The layer fades up from nothing over half a second. | The layer fades up from nothing over half a second. | yes |
 | FX-ANP-S02 | the sentence the panel shows | The layer fades away over half a second, from the playhead. | The layer fades away over half a second, from the playhead. | yes |
@@ -112,7 +148,11 @@ Written by `tests/b608_animation_preset.rs` from `Fixtures/animation_preset/`, a
 | FX-ANP-S10 | the sentence the panel shows | The letters appear one by one over a second. For a text layer. | The letters appear one by one over a second. For a text layer. | yes |
 | FX-ANP-S11 | the sentence the panel shows | Each line draws itself along its path over a second. For a shape layer. | Each line draws itself along its path over a second. For a shape layer. | yes |
 | FX-ANP-S12 | the sentence the panel shows | The layer is wiped on from the left over half a second. | The layer is wiped on from the left over half a second. | yes |
-| starters | how many | 12 | 12 | yes |
-| starters | Export presets, then Import presets | the same twelve | the same twelve | yes |
+| FX-ANP-S13 | the sentence the panel shows | The letters drop in from above one after another, fading up as they fall, over a second and a quarter. For a text layer. | The letters drop in from above one after another, fading up as they fall, over a second and a quarter. For a text layer. | yes |
+| FX-ANP-S14 | the sentence the panel shows | The letters slide in from the right one after another, fading up, over a second and a quarter. For a text layer. | The letters slide in from the right one after another, fading up, over a second and a quarter. For a text layer. | yes |
+| FX-ANP-S15 | the sentence the panel shows | The letters fade up one after another over a second and a quarter. For a text layer. | The letters fade up one after another over a second and a quarter. For a text layer. | yes |
+| FX-ANP-S16 | the sentence the panel shows | The words fade up one after another over a second and a quarter. For a text layer. | The words fade up one after another over a second and a quarter. For a text layer. | yes |
+| starters | how many | 16 | 16 | yes |
+| starters | Export presets, then Import presets | the same sixteen | the same sixteen | yes |
 
-B-608: 110 of 110 checks pass.
+B-608: 150 of 150 checks pass.
