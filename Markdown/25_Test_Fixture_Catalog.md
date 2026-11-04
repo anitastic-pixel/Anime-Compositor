@@ -224945,3 +224945,21 @@ FX-EXPR-021
 FX-FREEZE-FOOTAGE-001 (`Fixtures/projects/unknown_effect_project.json`, the layer `layer-cel` with its exposures taken off, so footage: in 0, out 5, offset 0, stretch 100, no remap): Freeze Frame at frame 3. Expected: the layer gains a Time Remap whose only key is a hold key with the value 3 at frame 3 (FX-TREMAP-045's rule), its exposures stay empty, and it is one entry to undo; undo takes the Time Remap off. Checked by the app test `d1047_freeze_frame_on_footage_turns_time_remapping_on`. Frames 0.
 
 FX-FREEZE-FOOTAGE-002 (the same file as written, `layer-cel` drawn with two exposures): Freeze Frame at frame 3 still holds drawing 2 over the whole layer by its exposures (D-314) and writes no Time Remap. Frames 0.
+
+### After Effects' names for Mix in the effect search (D-1048)
+
+FX-MIXNAME-001: the text typed into the Ctrl+Space finder or the Effects panel's search, and whether the line "Effect Opacity is called Mix here: the last row of every effect card, 0 to 100 per cent, keyable." is shown above the results. Checked by the app test `d1048_effect_search_names_mix_for_after_effects_words`, which pins the rule in the page and works it on each row. Frames 0.
+
+| typed | line shown |
+| --- | --- |
+| `effect opacity` | yes |
+| `Effect Opacity` | yes |
+| `effect  opac` | yes |
+| `compositing options` | yes |
+| `composit` | yes |
+| `Blend With Original` | yes |
+| `blend with` | yes |
+| `effect` | no |
+| `opacity` | no |
+| `mix` | no |
+| `glow` | no |
