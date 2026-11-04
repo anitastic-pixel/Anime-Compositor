@@ -14383,7 +14383,12 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                 // D-314: After Effects' Freeze Frame, for a drawn layer: the drawing on the
                 // playhead held for the whole layer, as one entry to undo. D-323: a composition
                 // layer, or one with a Time Remap, is frozen by one hold key on its Time Remap.
-                "layer.freeze_frame" if layer.composition_id.is_some() || layer.time_remap.is_some() => {
+                // D-1047: so is footage (no drawings), Time Remapping turned on by itself.
+                "layer.freeze_frame"
+                    if layer.composition_id.is_some()
+                        || layer.time_remap.is_some()
+                        || matches!(layer.kind, LayerKind::Raster) && layer.exposure_spans.is_empty() =>
+                {
                     match frame_parameter(query, "frame") {
                         Ok(frame) => Command::SetTimeRemap {
                             composition,

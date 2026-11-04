@@ -1369,6 +1369,49 @@ fn d314_chosen_keys_reverse_and_a_drawing_freezes() {
     );
 }
 
+/// D-1047: Freeze Frame on footage turns Time Remapping on with one hold key
+/// (FX-FREEZE-FOOTAGE-001); a drawn layer keeps D-314's freeze (FX-FREEZE-FOOTAGE-002).
+#[test]
+fn d1047_freeze_frame_on_footage_turns_time_remapping_on() {
+    let source = repo("Fixtures/projects/unknown_effect_project.json");
+    let text = std::fs::read_to_string(&source).expect("the fixture");
+    let mut data: serde_json::Value = serde_json::from_str(&text).expect("JSON");
+    data["compositions"][0]["layers"][0]["exposure_spans"] = serde_json::json!([]);
+    let at = std::env::temp_dir().join(format!("d1047_footage_{}.json", std::process::id()));
+    std::fs::write(&at, data.to_string()).expect("write the footage project");
+    let layer = |viewer: &Mutex<Viewer>| {
+        let answer: serde_json::Value =
+            serde_json::from_str(&state(viewer)).expect("the state answer is JSON");
+        answer["project"]["compositions"][0]["layers"][0].clone()
+    };
+
+    let viewer = Mutex::new(open(&at).unwrap_or_else(|d| panic!("open: {}", d.message)));
+    assert!(layer(&viewer)["time_remap"].is_null(), "no remap to start with");
+    let depth = held(&viewer).document.undo_depth();
+    run(&viewer, "layer.freeze_frame?layer=layer-cel&frame=3");
+    let now = layer(&viewer);
+    let keys = &now["time_remap"]["keyframes"];
+    assert_eq!(keys.as_array().map(Vec::len), Some(1), "one key: {now}");
+    assert_eq!(keys[0]["frame"], 3, "at the playhead");
+    assert_eq!(keys[0]["value"], 3.0, "holding source frame 3");
+    assert_eq!(keys[0]["interp"], "hold", "a hold key: {keys}");
+    assert_eq!(now["exposure_spans"], serde_json::json!([]), "no exposures written");
+    assert_eq!(held(&viewer).document.undo_depth() - depth, 1, "one entry to undo");
+    undo(&viewer);
+    assert!(layer(&viewer)["time_remap"].is_null(), "undo takes the remap off");
+    let _ = std::fs::remove_file(&at);
+
+    // The file as written: a drawn layer, frozen by its exposures, no remap.
+    let viewer = Mutex::new(open(&source).unwrap_or_else(|d| panic!("open: {}", d.message)));
+    run(&viewer, "layer.freeze_frame?layer=layer-cel&frame=3");
+    let now = layer(&viewer);
+    assert!(now["time_remap"].is_null(), "a drawn layer gets no remap: {now}");
+    assert_eq!(
+        now["exposure_spans"],
+        serde_json::json!([{"start_frame": 0, "end_frame_exclusive": 5, "drawing_number": 2}]),
+    );
+}
+
 #[test]
 fn the_inspector_changes_a_transform_and_a_drag_is_one_history_entry() {
     let mut report = Report { rows: Vec::new() };

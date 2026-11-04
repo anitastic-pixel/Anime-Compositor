@@ -6277,8 +6277,9 @@ function layerMenu(x, y, first = []) {
     ['Split at playhead', 'Ctrl+Shift+D', splitLayers],
     ['Pre-compose', 'Ctrl+Shift+C', precompose],
     ['Sequence layers', '', sequenceLayers, selection.length > 1],
-    ['Freeze frame', '', freezeFrame, selected() && ((selected().exposure_spans || []).length > 0
-      || selected().kind === 'composition' || !!selected().time_remap)],
+    // D-1047: footage too, Time Remapping turned on by itself, as After Effects does.
+    ['Freeze frame', '', freezeFrame, selected() && (['raster', 'composition'].includes(selected().kind)
+      || !!selected().time_remap)],
     ['Enable time remapping', 'Ctrl+Alt+T', timeRemap, selected() && ['raster', 'composition'].includes(selected().kind)],
     // B-24c: a mask over the whole layer, which is what After Effects' double-clicked shape tool
     // makes and what anyone without a mouse needs: the pen and the shape tools are drawn with a
@@ -6326,6 +6327,7 @@ function reverseKeys() {
 
 // D-314: After Effects' Freeze Frame: the chosen drawn layer holds the drawing on the playhead.
 // D-323: a composition layer, or one with a Time Remap, holds it by one hold key on its remap.
+// D-1047: so does footage without drawings, its Time Remapping turned on by itself.
 function freezeFrame() {
   const layer = selected();
   if (layer) command('/layer.freeze_frame?layer=' + encodeURIComponent(layer.id) + '&frame=' + frame);
