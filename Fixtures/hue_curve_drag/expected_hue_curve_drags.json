@@ -1,0 +1,483 @@
+{
+ "rule": "D-1011",
+ "at": [
+  {
+   "says": "The top left: hue 0, saturation 200.",
+   "u": 0,
+   "v": 0,
+   "to": {
+    "hue": 0,
+    "saturation": 200
+   }
+  },
+  {
+   "says": "The middle: hue 180, saturation 100.",
+   "u": 0.5,
+   "v": 0.5,
+   "to": {
+    "hue": 180,
+    "saturation": 100
+   }
+  },
+  {
+   "says": "The bottom right: held to hue 359, saturation 0.",
+   "u": 1,
+   "v": 1,
+   "to": {
+    "hue": 359,
+    "saturation": 0
+   }
+  },
+  {
+   "says": "A third across, a quarter down: hue 120, saturation 150.",
+   "u": 0.3333333333333333,
+   "v": 0.25,
+   "to": {
+    "hue": 120,
+    "saturation": 150
+   }
+  },
+  {
+   "says": "Outside the graph: held to 0 and 200.",
+   "u": -0.2,
+   "v": -0.3,
+   "to": {
+    "hue": 0,
+    "saturation": 200
+   }
+  },
+  {
+   "says": "Hue 0.4 of a step past 90 rounds down.",
+   "u": 0.2511111111111111,
+   "v": 0.5,
+   "to": {
+    "hue": 90,
+    "saturation": 100
+   }
+  }
+ ],
+ "value": [
+  {
+   "says": "No points: 100 at every hue.",
+   "points": [],
+   "hue": 77,
+   "to": 100.0
+  },
+  {
+   "says": "One point: its saturation at every hue.",
+   "points": [
+    [
+     120,
+     40
+    ]
+   ],
+   "hue": 300,
+   "to": 40.0
+  },
+  {
+   "says": "Two points, on the first.",
+   "points": [
+    [
+     0,
+     100
+    ],
+    [
+     180,
+     0
+    ]
+   ],
+   "hue": 0,
+   "to": 100.0
+  },
+  {
+   "says": "Two points, half way: the easing's middle, 50.",
+   "points": [
+    [
+     0,
+     100
+    ],
+    [
+     180,
+     0
+    ]
+   ],
+   "hue": 90,
+   "to": 50.0
+  },
+  {
+   "says": "Two points, a quarter of the way: 100 - 100 x 0.15625 = 84.375.",
+   "points": [
+    [
+     0,
+     100
+    ],
+    [
+     180,
+     0
+    ]
+   ],
+   "hue": 45,
+   "to": 84.375
+  },
+  {
+   "says": "Past the last point, round the circle to the first: half way from 180 to 360, 50.",
+   "points": [
+    [
+     0,
+     100
+    ],
+    [
+     180,
+     0
+    ]
+   ],
+   "hue": 270,
+   "to": 50.0
+  },
+  {
+   "says": "Before the first point, through 360: half way from 300 to 420 (60).",
+   "points": [
+    [
+     60,
+     200
+    ],
+    [
+     300,
+     0
+    ]
+   ],
+   "hue": 0,
+   "to": 100.0
+  }
+ ],
+ "add": [
+  {
+   "says": "Into no points: on the flat line, 100.",
+   "points": [],
+   "hue": 200,
+   "to": {
+    "points": [
+     [
+      200,
+      100
+     ]
+    ],
+    "index": 0
+   }
+  },
+  {
+   "says": "Between two: on the line at 90, 50.",
+   "points": [
+    [
+     0,
+     100
+    ],
+    [
+     180,
+     0
+    ]
+   ],
+   "hue": 90,
+   "to": {
+    "points": [
+     [
+      0,
+      100
+     ],
+     [
+      90,
+      50
+     ],
+     [
+      180,
+      0
+     ]
+    ],
+    "index": 1
+   }
+  },
+  {
+   "says": "After the last, round the circle: at 270, 50.",
+   "points": [
+    [
+     0,
+     100
+    ],
+    [
+     180,
+     0
+    ]
+   ],
+   "hue": 270,
+   "to": {
+    "points": [
+     [
+      0,
+      100
+     ],
+     [
+      180,
+      0
+     ],
+     [
+      270,
+      50
+     ]
+    ],
+    "index": 2
+   }
+  },
+  {
+   "says": "On a hue a point already has: nothing added.",
+   "points": [
+    [
+     0,
+     100
+    ],
+    [
+     180,
+     0
+    ]
+   ],
+   "hue": 180,
+   "to": null
+  },
+  {
+   "says": "A 17th point: refused.",
+   "points": [
+    [
+     0,
+     100
+    ],
+    [
+     20,
+     100
+    ],
+    [
+     40,
+     100
+    ],
+    [
+     60,
+     100
+    ],
+    [
+     80,
+     100
+    ],
+    [
+     100,
+     100
+    ],
+    [
+     120,
+     100
+    ],
+    [
+     140,
+     100
+    ],
+    [
+     160,
+     100
+    ],
+    [
+     180,
+     100
+    ],
+    [
+     200,
+     100
+    ],
+    [
+     220,
+     100
+    ],
+    [
+     240,
+     100
+    ],
+    [
+     260,
+     100
+    ],
+    [
+     280,
+     100
+    ],
+    [
+     300,
+     100
+    ]
+   ],
+   "hue": 330,
+   "to": null
+  }
+ ],
+ "move": [
+  {
+   "says": "A lone point dragged anywhere.",
+   "points": [
+    [
+     120,
+     100
+    ]
+   ],
+   "index": 0,
+   "hue": 300,
+   "saturation": 20,
+   "to": [
+    [
+     300,
+     20
+    ]
+   ]
+  },
+  {
+   "says": "Dragged past its right neighbour: held one below it.",
+   "points": [
+    [
+     0,
+     100
+    ],
+    [
+     100,
+     50
+    ],
+    [
+     200,
+     80
+    ]
+   ],
+   "index": 1,
+   "hue": 250,
+   "saturation": 60,
+   "to": [
+    [
+     0,
+     100
+    ],
+    [
+     199,
+     60
+    ],
+    [
+     200,
+     80
+    ]
+   ]
+  },
+  {
+   "says": "Dragged past its left neighbour: held one above it.",
+   "points": [
+    [
+     0,
+     100
+    ],
+    [
+     100,
+     50
+    ],
+    [
+     200,
+     80
+    ]
+   ],
+   "index": 1,
+   "hue": -40,
+   "saturation": 60,
+   "to": [
+    [
+     0,
+     100
+    ],
+    [
+     1,
+     60
+    ],
+    [
+     200,
+     80
+    ]
+   ]
+  },
+  {
+   "says": "The last point dragged past 359: held to 359.",
+   "points": [
+    [
+     0,
+     100
+    ],
+    [
+     200,
+     80
+    ]
+   ],
+   "index": 1,
+   "hue": 400,
+   "saturation": 80,
+   "to": [
+    [
+     0,
+     100
+    ],
+    [
+     359,
+     80
+    ]
+   ]
+  },
+  {
+   "says": "Dragged above 200 and below 0: held.",
+   "points": [
+    [
+     0,
+     100
+    ],
+    [
+     200,
+     80
+    ]
+   ],
+   "index": 0,
+   "hue": 0,
+   "saturation": 260,
+   "to": [
+    [
+     0,
+     200
+    ],
+    [
+     200,
+     80
+    ]
+   ]
+  },
+  {
+   "says": "Dragged below 0.",
+   "points": [
+    [
+     0,
+     100
+    ],
+    [
+     200,
+     80
+    ]
+   ],
+   "index": 1,
+   "hue": 200,
+   "saturation": -5,
+   "to": [
+    [
+     0,
+     100
+    ],
+    [
+     200,
+     0
+    ]
+   ]
+  }
+ ]
+}

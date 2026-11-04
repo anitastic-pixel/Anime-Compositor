@@ -220953,6 +220953,58 @@ FX-GRADE7-009 (`fx_grade7_009.json`): A D-1009 file without the setting, the red
 
 FX-GRADE7-010 (`fx_grade7_010.json`): Secondary sharpen 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning.
 
+### Hue vs Saturation curve you can draw (D-1011)
+
+Color Grade's Hue vs Saturation graph in the page (B-891). `tools/hue_curve_drag_reference.py` writes `Fixtures/hue_curve_drag/expected_hue_curve_drags.json` and checks each case's claim. B-891's page check runs every case through the page's own `hueCurveAt`, `hueCurveValue`, `hueCurveAdd` and `hueCurveMove`; the value cases follow `grade::hue_curve` exactly (within 1e-6).
+
+HUECURVE-001 (press): The top left: hue 0, saturation 200.
+
+HUECURVE-002 (press): The middle: hue 180, saturation 100.
+
+HUECURVE-003 (press): The bottom right: held to hue 359, saturation 0.
+
+HUECURVE-004 (press): A third across, a quarter down: hue 120, saturation 150.
+
+HUECURVE-005 (press): Outside the graph: held to 0 and 200.
+
+HUECURVE-006 (press): Hue 0.4 of a step past 90 rounds down.
+
+HUECURVE-007 (curve value): No points: 100 at every hue.
+
+HUECURVE-008 (curve value): One point: its saturation at every hue.
+
+HUECURVE-009 (curve value): Two points, on the first.
+
+HUECURVE-010 (curve value): Two points, half way: the easing's middle, 50.
+
+HUECURVE-011 (curve value): Two points, a quarter of the way: 100 - 100 x 0.15625 = 84.375.
+
+HUECURVE-012 (curve value): Past the last point, round the circle to the first: half way from 180 to 360, 50.
+
+HUECURVE-013 (curve value): Before the first point, through 360: half way from 300 to 420 (60).
+
+HUECURVE-014 (add): Into no points: on the flat line, 100.
+
+HUECURVE-015 (add): Between two: on the line at 90, 50.
+
+HUECURVE-016 (add): After the last, round the circle: at 270, 50.
+
+HUECURVE-017 (add): On a hue a point already has: nothing added.
+
+HUECURVE-018 (add): A 17th point: refused.
+
+HUECURVE-019 (drag): A lone point dragged anywhere.
+
+HUECURVE-020 (drag): Dragged past its right neighbour: held one below it.
+
+HUECURVE-021 (drag): Dragged past its left neighbour: held one above it.
+
+HUECURVE-022 (drag): The last point dragged past 359: held to 359.
+
+HUECURVE-023 (drag): Dragged above 200 and below 0: held.
+
+HUECURVE-024 (drag): Dragged below 0.
+
 ### CC Force Motion Blur (D-581)
 
 CC Force Motion Blur (`core.force_motion_blur`), after CycoreFX's CC Force Motion Blur (B-470), the rule ours. Each case is a project whose composition `comp-main` is 20 by 1, five frames, in `Fixtures/force_motion_blur/`; the holder shows `comp-in`, also 20 by 1, where a bar four pixels wide runs 16 pixels a frame, its left edge at 6 on frame 1. `tools/force_motion_blur_reference.py` works the expected frames, `Fixtures/force_motion_blur/expected_force_motion_blur.json`, tolerance 2e-5, through `tools/motion_blur_reference.py`'s slide and resampling, reading each key at the moment's time directly; the rule is in document 21.
