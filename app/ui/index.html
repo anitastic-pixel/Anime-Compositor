@@ -11071,6 +11071,7 @@ const EFFECT_NAMES = {
   'core.block_dissolve': 'Block Dissolve',
   'core.shift_channels': 'Shift Channels',
   'core.solid_composite': 'Solid Composite',
+  'core.cc_composite': 'CC Composite',
   'core.channel_blur': 'Channel Blur',
   'core.fast_box_blur': 'Fast Box Blur',
   'core.fast_blur_legacy': 'Fast Blur (Legacy)',
@@ -11114,7 +11115,7 @@ const EFFECT_GROUPS = [
   ['Color Correction', ['core.brightness_contrast', 'core.curves', 'core.levels', 'core.levels_individual', 'core.exposure',
     'core.hue_saturation', 'core.vibrance', 'core.color_balance', 'core.channel_mixer',
     'core.black_white', 'core.tint', 'core.gradient_map', 'core.leave_color', 'core.change_to_color',
-    'core.invert', 'core.color_lookup', 'core.arbitrary_map', 'core.shift_channels', 'core.solid_composite', 'core.colorama',
+    'core.invert', 'core.color_lookup', 'core.arbitrary_map', 'core.shift_channels', 'core.solid_composite', 'core.cc_composite', 'core.colorama',
     'core.stretch_levels', 'core.stretch_contrast', 'core.stretch_color', 'core.spread_tones',
     'core.broadcast_safe', 'core.color_neutralizer', 'core.color_offset', 'core.kernel', 'core.toner',
     'core.change_color', 'core.color_balance_hls', 'core.color_link', 'core.color_stabilizer',
@@ -11381,6 +11382,7 @@ const EFFECT_SEARCH = {
   'core.block_dissolve': 'block dissolve random squares pixels break up vanish appear reveal transition',
   'core.shift_channels': 'shift channels swap red green blue alpha luminance take from channel matte',
   'core.solid_composite': 'solid composite colour color background fill behind under channel',
+  'core.cc_composite': 'cc composite original in front behind rgb only blend with original logo back on top channel',
   'core.channel_blur': 'channel blur red green blue alpha separate per channel soften',
   'core.fast_box_blur': 'fast box blur radius iterations soften quick',
   'core.fast_blur_legacy': 'fast blur legacy obsolete old blurriness soften quick repeat edge pixels',
@@ -11689,6 +11691,7 @@ const EFFECT_ABOUT = {
   'core.block_dissolve': 'Makes the layer vanish or appear in random blocks.',
   'core.shift_channels': 'Takes each of red, green, blue and alpha from another channel, or from the brightness, hue or saturation.',
   'core.solid_composite': 'Lays the layer on a solid colour, each at its own opacity, with a blend.',
+  'core.cc_composite': 'Lays the layer as it was before its effects back in front of or behind what they made.',
   'core.channel_blur': 'Blurs red, green, blue and alpha each by its own amount.',
   'core.fast_box_blur': 'A box blur laid on several times, ending hard at radius times iterations.',
   'core.fast_blur_legacy': 'After Effects\' old Fast Blur, kept for old projects: Fast Box Blur laid on three times, its Blurriness 100 a radius of 37.',
@@ -12162,6 +12165,8 @@ const EFFECT_PARAMS = {
   // D-312.
   'core.solid_composite': [['source_opacity', 'Source Opacity', 1, 1, '% of the layer, 0 to 100'],
     ['opacity', 'Opacity', 1, 1, '% of the colour, 0 to 100']],
+  // D-1049.
+  'core.cc_composite': [['opacity', 'Opacity', 1, 1, '% of the original, 0 to 100']],
   // D-313: blurriness as Blur's radius; D-380, in Blur's units.
   'core.channel_blur': [['red_blurriness', 'Red Blurriness', 1, 0.1, '0 to 500 source pixels'],
     ['green_blurriness', 'Green Blurriness', 1, 0.1, '0 to 500 source pixels'],
@@ -14632,6 +14637,12 @@ const EFFECT_WORDS = {
   'core.solid_composite': {
     choices: [['blend', 'Blending Mode', [['normal', 'Normal'], ['add', 'Add'], ['screen', 'Screen'], ['multiply', 'Multiply']]]],
     colours: [['color', 'Color']],
+  },
+  // D-1049, After Effects' own words.
+  'core.cc_composite': {
+    choices: [['composite_original', 'Composite Original', [['in_front', 'In Front'], ['behind', 'Behind'],
+      ['add', 'Add'], ['multiply', 'Multiply'], ['screen', 'Screen']]],
+      ['rgb_only', 'RGB Only', [['off', 'Off'], ['on', 'On']]]],
   },
   // D-348, After Effects' own words.
   'core.pass_extract': {

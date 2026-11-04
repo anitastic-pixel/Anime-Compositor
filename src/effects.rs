@@ -2527,6 +2527,14 @@ pub enum Effect {
         opacity: f64,
         blend: String,
     },
+    /// D-1049: After Effects' CC Composite. The layer as it was before its first effect laid back
+    /// on what the effects made: `opacity`, 0 to 100; `composite_original`, "in_front",
+    /// "behind", "add", "multiply" or "screen"; `rgb_only`, "off" or "on".
+    CcComposite {
+        opacity: f64,
+        composite_original: String,
+        rgb_only: String,
+    },
     /// D-313: After Effects' Channel Blur. Each channel's blur, 0 to 500, sigma in pixels as
     /// Blur's is; `edges` and `dimensions` as Blur's. D-380: `units` as Gaussian Blur's (D-321),
     /// "sigma" or "blurriness" ([`blur_reach`] of each number).
@@ -5364,6 +5372,7 @@ pub const BEVEL_EDGES: &str = "core.bevel_edges";
 pub const BLOCK_DISSOLVE: &str = "core.block_dissolve";
 pub const SHIFT_CHANNELS: &str = "core.shift_channels";
 pub const SOLID_COMPOSITE: &str = "core.solid_composite";
+pub const CC_COMPOSITE: &str = "core.cc_composite";
 pub const CHANNEL_BLUR: &str = "core.channel_blur";
 pub const FAST_BOX_BLUR: &str = "core.fast_box_blur";
 pub const FAST_BLUR_LEGACY: &str = "core.fast_blur_legacy";
@@ -8564,6 +8573,7 @@ impl Effect {
                 ("source_opacity", vec![source_opacity], 0.0, 100.0),
                 ("opacity", vec![opacity], 0.0, 100.0),
             ],
+            Effect::CcComposite { opacity, .. } => vec![("opacity", vec![opacity], 0.0, 100.0)],
             Effect::ChannelBlur {
                 red_blurriness,
                 green_blurriness,
@@ -12427,6 +12437,7 @@ impl Effect {
             Effect::BlockDissolve { .. } => "Block Dissolve",
             Effect::ShiftChannels { .. } => "Shift Channels",
             Effect::SolidComposite { .. } => "Solid Composite",
+            Effect::CcComposite { .. } => "CC Composite",
             Effect::ChannelBlur { .. } => "Channel Blur",
             Effect::FastBoxBlur { .. } => "Fast Box Blur",
             Effect::FastBlurLegacy { .. } => "Fast Blur (Legacy)",
@@ -12721,6 +12732,7 @@ impl Effect {
             Effect::BlockDissolve { .. } => BLOCK_DISSOLVE,
             Effect::ShiftChannels { .. } => SHIFT_CHANNELS,
             Effect::SolidComposite { .. } => SOLID_COMPOSITE,
+            Effect::CcComposite { .. } => CC_COMPOSITE,
             Effect::ChannelBlur { .. } => CHANNEL_BLUR,
             Effect::FastBoxBlur { .. } => FAST_BOX_BLUR,
             Effect::FastBlurLegacy { .. } => FAST_BLUR_LEGACY,
@@ -14711,6 +14723,22 @@ impl Effect {
                 ))
             }
             Effect::SolidComposite { color, .. } => hex_fault("Solid Composite", "colour", color),
+            Effect::CcComposite {
+                composite_original,
+                rgb_only,
+                ..
+            } => {
+                if !["in_front", "behind", "add", "multiply", "screen"].contains(&composite_original.as_str()) {
+                    Some(format!(
+                        "CC Composite's composite original is \"in_front\", \"behind\", \"add\", \
+                         \"multiply\" or \"screen\", and this is \"{composite_original}\"."
+                    ))
+                } else if !["off", "on"].contains(&rgb_only.as_str()) {
+                    Some(format!("CC Composite's RGB only is \"off\" or \"on\", and this is \"{rgb_only}\"."))
+                } else {
+                    None
+                }
+            }
             // D-380: as D-321's.
             Effect::ChannelBlur { units, .. } if !["sigma", "blurriness"].contains(&units.as_str()) => {
                 Some(format!("{name}'s units are \"sigma\" or \"blurriness\", and this is \"{units}\"."))
@@ -16646,6 +16674,12 @@ pub(crate) fn apply_stack_at(
         i.enabled && i.is_valid() && matches!(&i.effect, Effect::LinearColorKey { key_operation, .. } if key_operation == "keep")
     });
     let mut run: Option<WorkingBuffer> = None;
+    // D-1049: the layer as it was before its first effect, kept only when a CC Composite will
+    // lay it back. No CC Composite goes to the card, so whatever is above it runs here too.
+    let original = stack
+        .iter()
+        .any(|i| i.enabled && i.is_valid() && matches!(i.effect, Effect::CcComposite { .. }))
+        .then(|| (source.clone(), ox, oy));
     // The position is reported alongside the instance because P-11's effect cache replays a
     // bypass on a hit, and a position is the one thing about an instance that survives being
     // written down and read back next frame.
@@ -19244,6 +19278,16 @@ pub(crate) fn apply_stack_at(
                     display,
                 )
             }),
+            Effect::CcComposite {
+                opacity,
+                composite_original,
+                rgb_only,
+            } => {
+                let (g, gx, gy) = original.as_ref().expect("kept above for a valid CC Composite");
+                crate::perf::time(crate::perf::Stage::EffectCcComposite, || {
+                    cc_composite(source, g, (ox - gx, oy - gy), *opacity, composite_original, rgb_only == "on")
+                })
+            }
             Effect::ChannelBlur {
                 red_blurriness,
                 green_blurriness,
@@ -22330,6 +22374,57 @@ fn solid_composite(
         let src = [px[0] * k, px[1] * k, px[2] * k, px[3] * k];
         px.copy_from_slice(&crate::composite::blend_pixel(mode, src, solid));
     });
+}
+
+/// D-1049: `original` at `opacity` % laid back on what the effects made, its corner at `at`
+/// (transparent outside it): in front, behind, or by Solid Composite's add, multiply or screen.
+/// With `rgb_only` the alpha is the effects' and the colour the blend's straight colour.
+fn cc_composite(
+    source: &mut WorkingBuffer,
+    original: &WorkingBuffer,
+    (dx, dy): (usize, usize),
+    opacity: f64,
+    mode: &str,
+    rgb_only: bool,
+) {
+    use crate::model::BlendMode;
+    let blend = match mode {
+        "add" => BlendMode::Add,
+        "screen" => BlendMode::Screen,
+        "multiply" => BlendMode::Multiply,
+        _ => BlendMode::Normal,
+    };
+    let (o, w, bw, bh) = ((opacity / 100.0) as f32, source.width(), original.width(), original.height());
+    let b = original.data();
+    source
+        .data_mut()
+        .par_chunks_mut(w * 4)
+        .enumerate()
+        .for_each(|(y, row)| {
+            for (x, px) in row.chunks_exact_mut(4).enumerate() {
+                let g = if x >= dx && y >= dy && x - dx < bw && y - dy < bh {
+                    let i = ((y - dy) * bw + x - dx) * 4;
+                    [b[i] * o, b[i + 1] * o, b[i + 2] * o, b[i + 3] * o]
+                } else {
+                    [0.0; 4]
+                };
+                let r = [px[0], px[1], px[2], px[3]];
+                let p = if mode == "behind" {
+                    crate::composite::blend_pixel(BlendMode::Normal, r, g)
+                } else {
+                    crate::composite::blend_pixel(blend, g, r)
+                };
+                let p = match (rgb_only, p[3] > 0.0) {
+                    (false, _) => p,
+                    (true, true) => {
+                        let k = r[3] / p[3];
+                        [p[0] * k, p[1] * k, p[2] * k, r[3]]
+                    }
+                    (true, false) => [0.0; 4],
+                };
+                px.copy_from_slice(&p);
+            }
+        });
 }
 
 /// D-313: red, green, blue and alpha each blurred as Blur blurs, by their own sigma. A colour

@@ -5740,6 +5740,15 @@ fn effect_json(base: Option<&J>, instance: &crate::effects::EffectInstance) -> J
             params.insert("opacity".into(), num(*opacity));
             params.insert("blend".into(), J::from(blend.as_str()));
         }
+        Effect::CcComposite {
+            opacity,
+            composite_original,
+            rgb_only,
+        } => {
+            params.insert("opacity".into(), num(*opacity));
+            params.insert("composite_original".into(), J::from(composite_original.as_str()));
+            params.insert("rgb_only".into(), J::from(rgb_only.as_str()));
+        }
         Effect::ChannelBlur {
             red_blurriness,
             green_blurriness,
@@ -9243,6 +9252,7 @@ fn parse_effect(
         crate::effects::BLOCK_DISSOLVE,
         crate::effects::SHIFT_CHANNELS,
         crate::effects::SOLID_COMPOSITE,
+        crate::effects::CC_COMPOSITE,
         crate::effects::CHANNEL_BLUR,
         crate::effects::FAST_BOX_BLUR,
         crate::effects::FAST_BLUR_LEGACY,
@@ -12088,6 +12098,11 @@ fn parse_effect(
             color: effect_word(params, "color", at)?.to_ascii_lowercase(),
             opacity: effect_number(params, "opacity", at)?,
             blend: effect_word(params, "blend", at)?,
+        }),
+        crate::effects::CC_COMPOSITE => Some(crate::effects::Effect::CcComposite {
+            opacity: effect_number(params, "opacity", at)?,
+            composite_original: effect_word(params, "composite_original", at)?,
+            rgb_only: effect_word(params, "rgb_only", at)?,
         }),
         crate::effects::CHANNEL_BLUR => Some(crate::effects::Effect::ChannelBlur {
             red_blurriness: effect_number(params, "red_blurriness", at)?,

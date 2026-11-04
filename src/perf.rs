@@ -241,6 +241,7 @@ pub enum Stage {
     EffectBlockDissolve,
     EffectShiftChannels,
     EffectSolidComposite,
+    EffectCcComposite,
     EffectChannelBlur,
     EffectFastBoxBlur,
     EffectColorama,
@@ -547,7 +548,7 @@ pub enum Stage {
 }
 
 impl Stage {
-    pub const ALL: [Stage; 269] = [
+    pub const ALL: [Stage; 270] = [
         Stage::LockWait,
         Stage::Prewarm,
         Stage::FileRead,
@@ -655,6 +656,7 @@ impl Stage {
         Stage::EffectBlockDissolve,
         Stage::EffectShiftChannels,
         Stage::EffectSolidComposite,
+        Stage::EffectCcComposite,
         Stage::EffectChannelBlur,
         Stage::EffectFastBoxBlur,
         Stage::EffectColorama,
@@ -929,6 +931,7 @@ impl Stage {
             Stage::EffectBlockDissolve => "effect: block dissolve",
             Stage::EffectShiftChannels => "effect: shift channels",
             Stage::EffectSolidComposite => "effect: solid composite",
+            Stage::EffectCcComposite => "effect: cc composite",
             Stage::EffectChannelBlur => "effect: channel blur",
             Stage::EffectFastBoxBlur => "effect: fast box blur",
             Stage::EffectColorama => "effect: colorama",

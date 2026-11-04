@@ -4448,6 +4448,11 @@ const EFFECT_KINDS: &[(&str, &[(&str, &str)])] = &[
         "core.solid_composite",
         &[("source_opacity", "80"), ("color", "%23203040"), ("opacity", "60"), ("blend", "screen")],
     ),
+    // D-1049.
+    (
+        "core.cc_composite",
+        &[("opacity", "70"), ("composite_original", "behind"), ("rgb_only", "on")],
+    ),
     (
         "core.channel_blur",
         &[

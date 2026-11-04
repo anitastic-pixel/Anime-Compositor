@@ -13435,6 +13435,7 @@ macro_rules! not_fx {
             | crate::effects::Effect::Caustics { .. }
             | crate::effects::Effect::CcRainfall { .. }
             | crate::effects::Effect::CcWideTime { .. }
+            | crate::effects::Effect::CcComposite { .. }
             | crate::effects::Effect::ColorStabilizer { .. }
             | crate::effects::Effect::Compressor { .. }
             | crate::effects::Effect::DepthOfField { .. }

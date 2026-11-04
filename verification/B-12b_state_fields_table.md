@@ -510,6 +510,8 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | and the settings it sends for it - take_alpha, take_red, take_green, take_blue - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.solid_composite` is an effect this build has | added | added | pass |
 | and the settings it sends for it - source_opacity, color, opacity, blend - are the ones the command reads | accepted | accepted | pass |
+| the panel's `core.cc_composite` is an effect this build has | added | added | pass |
+| and the settings it sends for it - opacity, composite_original, rgb_only - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.channel_blur` is an effect this build has | added | added | pass |
 | and the settings it sends for it - red_blurriness, green_blurriness, blue_blurriness, alpha_blurriness, edges, dimensions - are the ones the command reads | accepted | accepted | pass |
 | the panel's `core.fast_box_blur` is an effect this build has | added | added | pass |
@@ -678,3 +680,5 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | and the settings it sends for it - threshold, ratio, knee, attack, release, makeup, output_limit, auto_release - are the ones the command reads | accepted | accepted | pass |
 
 **656 of 656 checks pass.**
+
+**654 of 654 checks pass.**
