@@ -1923,7 +1923,11 @@
     <button data-run="New composition"></button>
     <button data-run="New comp from selection"></button>
     <button data-run="Composition settings"></button>
+<<<<<<< HEAD
     <button data-run="Trim comp to work area"></button>
+=======
+    <button data-run="Crop comp to region of interest"></button>
+>>>>>>> 799b581f (B-952: Crop comp to region of interest (D-1072))
     <button data-run="Pre-compose"></button>
     <button data-run="Map of compositions"></button>
     <hr>
@@ -5878,6 +5882,7 @@ function paletteLines() {
     ['Grid over the picture', '', () => $('gridbtn').click()],
     ['Field guide and safe areas', '', () => $('guidebtn').click()],
     ['Region of interest', '', () => $('regionbtn').click()],
+    ['Crop comp to region of interest', '', () => cropToRegion()],
     ['Profiler: where this frame\'s time went', '', () => $('profilerbtn').click()],
     ['Cut slate above the picture', '', () => $('slatebtn').click()],
     ['Sheet strip under the picture', '', () => $('stripbtn').click()],
@@ -18863,6 +18868,49 @@ function drawRegion() {
     const [l, t, r, b] = regionBox;
     Object.assign(roi.firstElementChild.style, { left: l * 100 + '%', top: t * 100 + '%', width: (r - l) * 100 + '%', height: (b - t) * 100 + '%' });
   }
+}
+// ---- B-952 begin
+// D-1072: After Effects' Crop Comp to Region of Interest. The box, in parts of the picture, is
+// rounded to whole pixels; the composition takes its size, and the Position of every layer
+// without a parent, each key with it, moves by the box's top-left corner, so nothing moves in
+// the picture. The moves are one drag, one entry to undo, and the new size is sent after them.
+// A locked layer cannot be moved and a camera is not moved, so either refuses it: `why` says so.
+function cropSteps(comp, box) {
+  const top = (comp.layers || []).filter((l) => !l.parent);
+  const locked = top.filter((l) => l.locked).map((l) => l.name);
+  if (comp.camera) return { why: 'This composition has a camera, which a crop does not move, so it is not cropped.' };
+  if (locked.length) return { why: 'Unlock ' + locked.join(', ') + ' first: a locked layer cannot be moved, so nothing is cropped.' };
+  const x0 = Math.round(box[0] * comp.width), y0 = Math.round(box[1] * comp.height);
+  const width = Math.max(1, Math.round(box[2] * comp.width) - x0);
+  const height = Math.max(1, Math.round(box[3] * comp.height) - y0);
+  const steps = [];
+  const move = (layer, prop, record, by) => {
+    const less = (v) => encodeURIComponent([].concat(v).map((n, i) => n - (by[i] || 0)).join(','));
+    const q = '/property.set_base?layer=' + encodeURIComponent(layer.id) + '&prop=' + prop + '&drag=1';
+    const keys = record.keyframes || [];
+    if (keys.length) for (const k of keys) steps.push(q + '&frame=' + k.frame + '&value=' + less(k.value));
+    else steps.push(q + '&value=' + less(record.base));
+  };
+  if (x0 || y0) {
+    for (const layer of top) {
+      const p = (layer.transform || {}).position || { base: [0, 0] };
+      if (p.x) { move(layer, 'position_x', p.x, [x0]); move(layer, 'position_y', p.y, [y0]); }
+      else move(layer, 'position', p, [x0, y0]);
+    }
+  }
+  if (steps.length) steps.push('/property.drag_end');
+  steps.push('/composition.set_settings?width=' + width + '&height=' + height);
+  return { steps, width, height };
+}
+// ---- B-952 end
+async function cropToRegion() {
+  const comp = composition();
+  if (!comp || !regionBox) { $('status').textContent = 'Draw a region of interest first: the Region of interest button in the viewer's bar, then a box on the picture.'; return; }
+  const { why, steps, width, height } = cropSteps(comp, regionBox);
+  if (why) { $('status').textContent = why; return; }
+  setRegion(null);
+  for (const request of steps) await command(request);
+  $('status').textContent = 'Cropped to ' + width + ' by ' + height + '. Ctrl+Z ' + (steps.length > 1 ? 'twice puts' : 'puts') + ' it back.';
 }
 // D-901: the profiler. 0 off; 2 asks the next frame drawn fresh, not from memory; 1 every frame after.
 function showProfile(p) {
