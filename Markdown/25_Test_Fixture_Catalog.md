@@ -225086,3 +225086,7 @@ FX-CW-079 (`fx_cw_079.json`): X jitter amount -1, below 0. The file is read, the
 FX-CW-080 (`fx_cw_080.json`): Z jitter speed 11, above 10. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
 
 FX-CW-081 (`fx_cw_081.json`): Y rot jitter amount 361, above 360. The file is read, the effect is kept as written and left out of every frame, with a warning. Warning `EFFECT_PARAMETER_INVALID`. Frames 0, 4.
+
+### Lightning Bolt's Core Opacity and Glow Opacity on the graphics card (D-1106)
+
+No new cases. FX-LOPAC-001 to 010 (D-1051, above) are drawn on the graphics card and on the processor at Full and Draft, every frame each case lists; the two must agree within 1 level of 255 (the card's tolerance, as B-107's), with the same warnings. FX-LOPAC-009 and 010 are left out on both, with the same `EFFECT_PARAMETER_INVALID` warning.
