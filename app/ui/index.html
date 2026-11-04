@@ -18993,7 +18993,7 @@ function cropSteps(comp, box) {
 // ---- B-952 end
 async function cropToRegion() {
   const comp = composition();
-  if (!comp || !regionBox) { $('status').textContent = 'Draw a region of interest first: the Region of interest button in the viewer's bar, then a box on the picture.'; return; }
+  if (!comp || !regionBox) { $('status').textContent = 'Draw a region of interest first: the Region of interest button in the viewer’s bar, then a box on the picture.'; return; }
   const { why, steps, width, height } = cropSteps(comp, regionBox);
   if (why) { $('status').textContent = why; return; }
   setRegion(null);
