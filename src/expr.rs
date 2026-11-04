@@ -1334,8 +1334,11 @@ impl Scope<'_, '_> {
         for stmt in stmts {
             match stmt {
                 Stmt::Let(name, node) => {
-                    let v = self.eval(node)?;
-                    let v = self.number_or_list(v)?;
+                    // D-1033: a value may also hold a layer, `var L = thisComp.layer(1)`.
+                    let v = match self.eval(node)? {
+                        v @ V::Layer(_) => v,
+                        v => self.number_or_list(v)?,
+                    };
                     self.locals.insert(name.clone(), v);
                 }
                 Stmt::Do(node) => result = self.eval(node)?,
@@ -1778,11 +1781,37 @@ impl Scope<'_, '_> {
             args.push(self.eval(n)?);
         }
         if name == "layer" {
-            let [V::Text(id)] = &args[..] else {
-                return Err(type_error("thisComp.layer takes a layer's id, in quotes"));
+            // D-1033: a layer's id or, failing that, its name (the topmost of that name), in
+            // quotes; or its number, 1 at the top as the timeline counts.
+            let comp = self.run.comp;
+            let id = match &args[..] {
+                [V::Text(t)] if comp.layer(&Id::new(t.clone())).is_some() => Id::new(t.clone()),
+                [V::Text(t)] => match comp
+                    .layer_order()
+                    .iter()
+                    .rev()
+                    .find(|id| comp.layer(id).is_some_and(|l| l.name == *t))
+                {
+                    Some(id) => id.clone(),
+                    None => return Err(missing(format!("There is no layer named \"{t}\""))),
+                },
+                [V::Num(n)] => {
+                    let count = comp.layer_order().len();
+                    if n.fract() != 0.0 || *n < 1.0 || *n > count as f64 {
+                        return Err(missing(format!(
+                            "There is no layer number {n}; this composition has {count}"
+                        )));
+                    }
+                    comp.layer_order()[count - *n as usize].clone()
+                }
+                _ => {
+                    return Err(type_error(
+                        "thisComp.layer takes a layer's name in quotes, or its number",
+                    ))
+                }
             };
-            let target = Target::Layer(Id::new(id.clone()));
-            property(self.run.comp, &target, Prop::Position)?;
+            let target = Target::Layer(id);
+            property(comp, &target, Prop::Position)?;
             return Ok(V::Layer(target));
         }
         if name != "loopOut" && args.iter().any(|a| matches!(a, V::Text(_))) {
