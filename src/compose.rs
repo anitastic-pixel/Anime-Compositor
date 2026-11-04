@@ -1528,10 +1528,6 @@ fn card_can(instance: &crate::effects::EffectInstance, pre: f64, pixels: usize) 
         // ponytail: processor only; a card pass when a timing asks for it.
         && !matches!(&instance.effect, crate::effects::Effect::IrisWipe { points, outer_radius, .. }
             if *points >= 6.0 || *outer_radius > 0.0)
-        // D-1051: the card's bolt is at full core and glow; Core and Glow Opacity are here.
-        // ponytail: processor only; two numbers in the card's bolt pass when a timing asks.
-        && !matches!(&instance.effect, crate::effects::Effect::LightningBolt { core_opacity, glow_opacity, .. }
-            if *core_opacity != 100.0 || *glow_opacity != 100.0)
         // D-937: Add Grain's Preview, and Match Grain's, is drawn here.
         // ponytail: processor only; a card box when a timing asks for it.
         && !matches!(&instance.effect, crate::effects::Effect::AddGrain { viewing_mode, .. } if viewing_mode == "preview")

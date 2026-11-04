@@ -9992,7 +9992,8 @@ fn rise(u: f64, half: f64) -> f64 {
 
 // B-225, layer_fx::lightning_bolt: k the width, the glow, 1 soft, the opacity as a share, the core
 // and glow colours in linear light, 1 to clear the layer first (Composite on Original off), the
-// segments' count, then from 12 each segment as `bolt_list` gives it and its box.
+// segments' count, then from 12 each segment as `bolt_list` gives it and its box, then D-1106's
+// core and glow opacity as shares.
 @compute @workgroup_size(16, 16)
 fn bolt(@builtin(global_invocation_id) id: vec3<u32>) {
     let size = textureDimensions(input);
@@ -10049,6 +10050,8 @@ fn bolt(@builtin(global_invocation_id) id: vec3<u32>) {
         textureStore(output, id.xy, px);
         return;
     }
+    c = k[12u + 10u * n] * c;
+    g = k[13u + 10u * n] * g;
     var out = px;
     for (var j = 0u; j < 3u; j++) {
         out[j] = f32(f64(px[j]) + k[3] * (c * k[4u + j] + (1.0lf - c) * g * k[7u + j]));
@@ -23232,7 +23235,8 @@ impl Gpu {
                 core,
                 forks,
                 frame,
-                // D-1051: compose keeps a bolt with either below 100 off the card.
+                core_opacity,
+                glow_opacity,
                 ..
             } => {
                 // D-324: Alpha Obstacle reads the drawing it is given; compose has a bolt with
@@ -23292,6 +23296,8 @@ impl Gpu {
                         s[1].max(s[3]) + e,
                     ]);
                 }
+                // D-1106: after the segments, as `lightning_bolt` scales each pixel's core and glow.
+                k.extend([core_opacity / 100.0, glow_opacity / 100.0]);
                 same(steps, &passes.bolt, FxParams::default(), &k, None)
             }
             // B-235 (D-356): Path Stroke's runs, worked out here as the CPU works them, from the

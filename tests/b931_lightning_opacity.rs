@@ -10,13 +10,15 @@ mod effect_table;
 
 use std::fs;
 
-use effect_table::{changed, keys, set, Table, MAIN};
+use effect_table::{both, changed, keys, on_card, set, Table, MAIN};
 use serde_json::{json, Value as J};
 
 use anime_compositor::compose::{card_takes, render_frame};
 use anime_compositor::diagnostics::FrameLog;
 use anime_compositor::effects::Effect;
+use anime_compositor::gpu::Gpu;
 use anime_compositor::model::Id;
+use anime_compositor::preview::PreviewQuality;
 use anime_compositor::{persist, png_out, OutputDepth};
 
 const SIZE: (usize, usize) = (480, 270);
@@ -174,10 +176,11 @@ fn b931_lightning_opacity() {
     );
 
     t.heading("The graphics card");
+    // D-1106 (B-986): the card draws both opacities, so every bolt is handed to it.
     for (file, takes) in [
         ("fx_lopac_005.json", true),
-        ("fx_lopac_006.json", false),
-        ("fx_lopac_008.json", false),
+        ("fx_lopac_006.json", true),
+        ("fx_lopac_008.json", true),
     ] {
         let d = t.load(file).document;
         let instance = &d
@@ -191,14 +194,47 @@ fn b931_lightning_opacity() {
         t.row(
             &format!(
                 "{file}: {}",
-                if takes {
+                if file == "fx_lopac_005.json" {
                     "both at 100, handed to the card as before"
                 } else {
-                    "an opacity below 100, kept on the processor"
+                    "an opacity below 100, handed to the card too (D-1106)"
                 }
             ),
             &format!("handed: {got}"),
             got == takes,
+        );
+    }
+
+    t.heading("The card against the processor (D-1106): FX-LOPAC-001 to 010, every frame, Full and Draft");
+    let mut gpu = Gpu::new().expect("a graphics card");
+    let comp = Id::new(MAIN);
+    for file in &files {
+        let project = persist::load(&t.root.join(file))
+            .unwrap()
+            .document
+            .project()
+            .clone();
+        let c = project.composition(&comp).unwrap();
+        let frames = c.start_frame..c.start_frame + c.duration_frames as i32;
+        let (mut largest, mut refused, mut agree, mut card, mut count) = (0, false, true, 0, 0);
+        for quality in [PreviewQuality::Full, PreviewQuality::Draft] {
+            for frame in frames.clone() {
+                let (d, r, a, b) = both(&mut gpu, &project, &comp, &t.root, frame, quality);
+                largest = largest.max(d.0);
+                refused |= r;
+                agree &= a == b;
+                card += on_card(&project, &comp, &t.root, frame, quality, |e| {
+                    matches!(e, Effect::LightningBolt { .. })
+                });
+                count += 1;
+            }
+        }
+        // 009 and 010 are left out with a warning, so nothing of theirs is on the card.
+        let drawn = !matches!(file.as_str(), "fx_lopac_009.json" | "fx_lopac_010.json");
+        t.row(
+            &format!("{file}, {count} frames"),
+            &format!("largest difference {largest} of 255; bolt on the card in {card} of {count}; refused by the card: {refused}; the same warnings: {agree}"),
+            largest <= 1 && !refused && agree && card == if drawn { count } else { 0 },
         );
     }
 

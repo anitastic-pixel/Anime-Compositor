@@ -65,8 +65,23 @@ D-1051, from wave 12's tutorial uGxruFKgt6U. Every expected pixel is `Fixtures/l
 | Check | The build's answer | Matches |
 | --- | --- | --- |
 | fx_lopac_005.json: both at 100, handed to the card as before | handed: true | yes |
-| fx_lopac_006.json: an opacity below 100, kept on the processor | handed: false | yes |
-| fx_lopac_008.json: an opacity below 100, kept on the processor | handed: false | yes |
+| fx_lopac_006.json: an opacity below 100, handed to the card too (D-1106) | handed: true | yes |
+| fx_lopac_008.json: an opacity below 100, handed to the card too (D-1106) | handed: true | yes |
+
+## The card against the processor (D-1106): FX-LOPAC-001 to 010, every frame, Full and Draft
+
+| Check | The build's answer | Matches |
+| --- | --- | --- |
+| fx_lopac_001.json, 10 frames | largest difference 0 of 255; bolt on the card in 10 of 10; refused by the card: false; the same warnings: true | yes |
+| fx_lopac_002.json, 10 frames | largest difference 0 of 255; bolt on the card in 10 of 10; refused by the card: false; the same warnings: true | yes |
+| fx_lopac_003.json, 10 frames | largest difference 0 of 255; bolt on the card in 10 of 10; refused by the card: false; the same warnings: true | yes |
+| fx_lopac_004.json, 10 frames | largest difference 0 of 255; bolt on the card in 10 of 10; refused by the card: false; the same warnings: true | yes |
+| fx_lopac_005.json, 10 frames | largest difference 0 of 255; bolt on the card in 10 of 10; refused by the card: false; the same warnings: true | yes |
+| fx_lopac_006.json, 10 frames | largest difference 0 of 255; bolt on the card in 10 of 10; refused by the card: false; the same warnings: true | yes |
+| fx_lopac_007.json, 10 frames | largest difference 0 of 255; bolt on the card in 10 of 10; refused by the card: false; the same warnings: true | yes |
+| fx_lopac_008.json, 10 frames | largest difference 0 of 255; bolt on the card in 10 of 10; refused by the card: false; the same warnings: true | yes |
+| fx_lopac_009.json, 10 frames | largest difference 0 of 255; bolt on the card in 0 of 10; refused by the card: false; the same warnings: true | yes |
+| fx_lopac_010.json, 10 frames | largest difference 0 of 255; bolt on the card in 0 of 10; refused by the card: false; the same warnings: true | yes |
 
 ## The frame does not depend on how it is cut up
 
@@ -86,4 +101,4 @@ D-1051, from wave 12's tutorial uGxruFKgt6U. Every expected pixel is `Fixtures/l
 
 ## Result
 
-52 of 52 checks pass.
+62 of 62 checks pass.
