@@ -220887,6 +220887,48 @@ WHEEL-013: Hue 257, amount 30: to the right. Hue 257, amount 30: the dot at (0.3
 
 WHEEL-014: Amount 0: the middle. Hue 200, amount 0: the dot at (0.0, -0.0).
 
+### Color Grade, sixth unit (D-1009)
+
+Color Grade's sixth unit (B-889): a switch per section and the white balance eyedropper. The drawing and look file are FX-GRADE's (`media/colours.png`, `luts/look.cube`). `tools/color_grade_6_reference.py` writes the projects and `expected_color_grade_6.json` in `Fixtures/color_grade_6/`; every pixel is linear premultiplied, tolerance as FX-GRADE-001. The tool checks each case's claim: a section off is D-1007's picture with that section's settings at their start, all off is the drawing, and a file with no switches is every section on. It also writes `expected_white_balance.json`, checked by B-889's page check in the page's own code; the tool checks each pick makes its colour grey under D-397's gains. Checked by `tests/b889_color_grade_sections.rs`.
+
+FX-GRADE6-001 (`fx_grade6_001.json`): A whole grade, every section on and written: D-1007's own picture. Frames 0.
+
+FX-GRADE6-002 (`fx_grade6_002.json`): The same with Basic Correction off: no white balance, tone or saturation; the rest as FX-GRADE6-001. Frames 0.
+
+FX-GRADE6-003 (`fx_grade6_003.json`): Creative off: no look, faded film, sharpen, vibrance or tints. Frames 0.
+
+FX-GRADE6-004 (`fx_grade6_004.json`): Curves off: the S curve and the hue-versus-hue curve not drawn. Frames 0.
+
+FX-GRADE6-005 (`fx_grade6_005.json`): Color Wheels off: the shadows' blue push and the midtones' darkening not drawn. Frames 0.
+
+FX-GRADE6-006 (`fx_grade6_006.json`): HSL Secondary off: the reds keep their colour. Frames 0.
+
+FX-GRADE6-007 (`fx_grade6_007.json`): Vignette off: the corners no darker. Frames 0.
+
+FX-GRADE6-008 (`fx_grade6_008.json`): Every section off: the drawing exactly as it is. Frames 0.
+
+FX-GRADE6-009 (`fx_grade6_009.json`): Show Key Color/Gray with HSL Secondary off: the view goes with the section, and the vignette is drawn again. Frames 0.
+
+FX-GRADE6-010 (`fx_grade6_010.json`): A D-1007 file with no switches: every section on, FX-GRADE6-001's picture. Frames 0.
+
+FX-GRADE6-011 (`fx_grade6_011.json`): Curves' switch "yes", not "on" or "off". The file is read, the effect is kept as written and left out of every frame, with a warning.
+
+WBPICK-001: A grey: nothing to correct. #808080 from temperature 0, tint 0: temperature 0, tint 0.
+
+WBPICK-002: A warm white (a tungsten-lit wall): cooler, temperature down. #ffe0c0 from temperature 0, tint 0: temperature -92, tint 8.
+
+WBPICK-003: A cold white (shade under a blue sky): warmer, temperature up. #c8d8ff from temperature 0, tint 0: temperature 79, tint -29.
+
+WBPICK-004: A greenish grey (fluorescent light): tint towards magenta, up. #90a890 from temperature 0, tint 0: temperature 0, tint 98.
+
+WBPICK-005: A magenta grey: tint down. #a890a8 from temperature 0, tint 0: temperature 0, tint -98.
+
+WBPICK-006: The warm white picked again after the first pick (temperature -20, tint -6 already set, the picture showing them): the change adds to them. #f8f0e8 from temperature -20, tint -6: temperature -42, tint -6.
+
+WBPICK-007: A strong orange: held to -100. #ff6010 from temperature 0, tint 0: temperature -100, tint 100.
+
+WBPICK-008: A colour with no blue: nothing changes. #ff8000 from temperature 10, tint 5: temperature 10, tint 5.
+
 ### CC Force Motion Blur (D-581)
 
 CC Force Motion Blur (`core.force_motion_blur`), after CycoreFX's CC Force Motion Blur (B-470), the rule ours. Each case is a project whose composition `comp-main` is 20 by 1, five frames, in `Fixtures/force_motion_blur/`; the holder shows `comp-in`, also 20 by 1, where a bar four pixels wide runs 16 pixels a frame, its left edge at 6 on frame 1. `tools/force_motion_blur_reference.py` works the expected frames, `Fixtures/force_motion_blur/expected_force_motion_blur.json`, tolerance 2e-5, through `tools/motion_blur_reference.py`'s slide and resampling, reading each key at the moment's time directly; the rule is in document 21.

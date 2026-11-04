@@ -1,0 +1,101 @@
+{
+ "rule": "D-1009",
+ "cases": [
+  {
+   "says": "A grey: nothing to correct.",
+   "picked": "#808080",
+   "from": {
+    "temperature": 0,
+    "tint": 0
+   },
+   "to": {
+    "temperature": 0,
+    "tint": 0
+   }
+  },
+  {
+   "says": "A warm white (a tungsten-lit wall): cooler, temperature down.",
+   "picked": "#ffe0c0",
+   "from": {
+    "temperature": 0,
+    "tint": 0
+   },
+   "to": {
+    "temperature": -92,
+    "tint": 8
+   }
+  },
+  {
+   "says": "A cold white (shade under a blue sky): warmer, temperature up.",
+   "picked": "#c8d8ff",
+   "from": {
+    "temperature": 0,
+    "tint": 0
+   },
+   "to": {
+    "temperature": 79,
+    "tint": -29
+   }
+  },
+  {
+   "says": "A greenish grey (fluorescent light): tint towards magenta, up.",
+   "picked": "#90a890",
+   "from": {
+    "temperature": 0,
+    "tint": 0
+   },
+   "to": {
+    "temperature": 0,
+    "tint": 98
+   }
+  },
+  {
+   "says": "A magenta grey: tint down.",
+   "picked": "#a890a8",
+   "from": {
+    "temperature": 0,
+    "tint": 0
+   },
+   "to": {
+    "temperature": 0,
+    "tint": -98
+   }
+  },
+  {
+   "says": "The warm white picked again after the first pick (temperature -20, tint -6 already set, the picture showing them): the change adds to them.",
+   "picked": "#f8f0e8",
+   "from": {
+    "temperature": -20,
+    "tint": -6
+   },
+   "to": {
+    "temperature": -42,
+    "tint": -6
+   }
+  },
+  {
+   "says": "A strong orange: held to -100.",
+   "picked": "#ff6010",
+   "from": {
+    "temperature": 0,
+    "tint": 0
+   },
+   "to": {
+    "temperature": -100,
+    "tint": 100
+   }
+  },
+  {
+   "says": "A colour with no blue: nothing changes.",
+   "picked": "#ff8000",
+   "from": {
+    "temperature": 10,
+    "tint": 5
+   },
+   "to": {
+    "temperature": 10,
+    "tint": 5
+   }
+  }
+ ]
+}
