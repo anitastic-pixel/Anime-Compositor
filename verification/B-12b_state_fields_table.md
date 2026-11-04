@@ -684,10 +684,4 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | the panel's `core.compressor` is an effect this build has | added | added | pass |
 | and the settings it sends for it - threshold, ratio, knee, attack, release, makeup, output_limit, auto_release - are the ones the command reads | accepted | accepted | pass |
 
-**658 of 658 checks pass.**
-
-**654 of 654 checks pass.**
-
-**655 of 655 checks pass.**
-
-**657 of 657 checks pass.**
+**663 of 663 checks pass.**

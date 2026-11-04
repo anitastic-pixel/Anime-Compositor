@@ -1062,7 +1062,7 @@ fn the_shortcut_window_changes_keys_on_this_computer_only() {
     let keyed: Vec<&(String, String)> = lines.iter().filter(|(_, k)| !k.is_empty()).collect();
     report.check(
         "command finder lines the window lists",
-        "147 lines, 98 with keys of their own",
+        "148 lines, 98 with keys of their own",
         format!(
             "{} lines, {} with keys of their own",
             lines.len(),
@@ -1390,6 +1390,8 @@ fn d1048_effect_search_names_mix_for_after_effects_words() {
     };
     let doc = std::fs::read_to_string(repo("Markdown/25_Test_Fixture_Catalog.md")).expect("doc 25");
     let section = doc.split("FX-MIXNAME-001").nth(1).expect("the FX-MIXNAME-001 section");
+    // Only its own table: later sections of document 25 follow it.
+    let section = section.split("### ").next().unwrap_or(section);
     let mut rows = 0;
     for line in section.lines().filter(|l| l.starts_with("| `")) {
         let cells: Vec<&str> = line.trim_matches('|').split('|').map(str::trim).collect();
