@@ -79,26 +79,27 @@ The click starts at sample 96000 of sfx_impact.wav = 2.000 s = frame 48 (2000 sa
 | window's playback mix, from 47, 1 frames | None | silent |
 | window's playback mix, from 48, 1 frames | 0 | 96000 from the start = frame 48.000 |
 | window's playback mix, from 24, 24 frames | None | silent |
-| exported WAV | - | no WAV in the PNG export folder |
+| exported p28_shot.wav | 96000 | 2.0000 s = frame 48.000 (240000 samples long) |
+| exported p28_shot.mp4 | 96000 | 2.0000 s = frame 48.000 (240640 samples long) |
 
 ## 5. Viewer against export (written by `tools/p28_media.py report`)
 
 | export | how it went | files |
 |---|---|---|
-| format=png&wav=on | dialog filler: box: Search Box id=SearchEditBox; chosen; export started: False | 0 |
-| format=mp4&quality=high | dialog filler: box: Search Box id=SearchEditBox; chosen; export started: False | 0 |
+| format=png&wav=on | into= (D-1140), 7.1 s; the window answered: Exporting 120 frames with its sound as a WAV beside it, into <repo>\target\p28\export_png. The window stays usable while it writes.; export started: True | 121 |
+| format=mp4&quality=high | into= (D-1140), 14.4 s; the window answered: Exporting 120 frames as one MP4 at High quality, over black, with the composition's sound, into <repo>\target\p28\export_mp4. The window stays usable while it writes.; export started: True | 1 |
 
-0 PNG frames, 0 MP4 frames decoded.
+120 PNG frames, 120 MP4 frames decoded.
 
 | frame | PNG = viewer | PNG largest difference | MP4 largest difference | MP4 mean difference |
 |---|---|---|---|---|
-| 0 | - | - | - | - |
-| 48 | - | - | - | - |
-| 50 | - | - | - | - |
-| 90 | - | - | - | - |
-| 119 | - | - | - | - |
+| 0 | yes, exactly | 0 | 139 | 2.09 |
+| 48 | yes, exactly | 0 | 63 | 1.05 |
+| 50 | yes, exactly | 0 | 63 | 1.07 |
+| 90 | yes, exactly | 0 | 111 | 1.49 |
+| 119 | yes, exactly | 0 | 116 | 1.47 |
 
-**Not measured:** nothing was exported, so there is no side-by-side picture.
+Side by side (viewer, PNG, MP4) at frames 0, 48, 50, 90, 119: `P-28_viewer_vs_export.png`.
 
 Contact sheet of the ten frames: `P-28_contact_sheet.png`.
 

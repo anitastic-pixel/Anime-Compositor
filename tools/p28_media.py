@@ -290,7 +290,7 @@ class App:
         shutil.copy2(project, self.work / Path(project).name)
         env = dict(os.environ, WEBVIEW2_USER_DATA_FOLDER=str(self.work / "webview"),
                    WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=f"--remote-debugging-port={port}",
-                   ANIME_COMPOSITOR_BACKGROUND="1")
+                   ANIME_COMPOSITOR_BACKGROUND="1", ANIME_COMPOSITOR_TEST_EXPORT="1")
         self.proc = subprocess.Popen([str(self.work / Path(exe).name), str(self.work / Path(project).name)],
                                      cwd=self.work, env=env)
         self.page = app_snapshot.open_page(port, 60)
@@ -353,49 +353,12 @@ def stats(ms):
     return {"n": len(ms), "median": ms[len(ms) // 2], "min": ms[0], "max": ms[-1]}
 
 
-# Fill the system's folder dialog by UI Automation (no mouse, no keys): the folder, then Select Folder.
-PICK = r"""
-param($title, $folder, $procid)
-Add-Type -AssemblyName UIAutomationClient, UIAutomationTypes
-$A = [System.Windows.Automation.AutomationElement]
-$scope = [System.Windows.Automation.TreeScope]
-$until = (Get-Date).AddSeconds(30)
-do {
-  $c = New-Object System.Windows.Automation.AndCondition(
-    (New-Object System.Windows.Automation.PropertyCondition($A::NameProperty, $title)),
-    (New-Object System.Windows.Automation.PropertyCondition($A::ProcessIdProperty, [int]$procid)))
-  $d = $A::RootElement.FindFirst($scope::Children, $c)
-  if (-not $d) { Start-Sleep -Milliseconds 200 }
-} until ($d -or (Get-Date) -gt $until)
-if (-not $d) { 'no dialog'; exit 2 }
-$all = $d.FindAll($scope::Descendants, [System.Windows.Automation.Condition]::TrueCondition)
-$edits = @($all | Where-Object { $_.Current.ControlType -eq [System.Windows.Automation.ControlType]::Edit -and $_.GetSupportedPatterns() -contains [System.Windows.Automation.ValuePattern]::Pattern })
-$box = @($edits | Where-Object { $_.Current.Name -match 'Folder' })[0]
-if (-not $box) { $box = $edits[-1] }
-if (-not $box) {
-  $all | ForEach-Object { "$($_.Current.ControlType.ProgrammaticName) id=$($_.Current.AutomationId) name=$($_.Current.Name)" }
-  exit 3
-}
-'box: ' + $box.Current.Name + ' id=' + $box.Current.AutomationId
-$box.GetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern).SetValue($folder)
-$ok = $d.FindFirst($scope::Descendants, (New-Object System.Windows.Automation.PropertyCondition($A::AutomationIdProperty, '1')))
-$ok.GetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern).Invoke()
-'chosen'
-"""
-
-
 def export(app, query, into):
-    """Export through the window's own Export, the folder dialog answered by UI Automation."""
-    import subprocess, time
+    """Export through `/export?...&into=` (D-1140): the window is started for testing, so it takes
+    the folder from the request instead of the folder dialog. The folder must be absent or empty."""
+    import time
     shutil.rmtree(into, ignore_errors=True)
-    into.mkdir(parents=True)
-    script = RUNS / "pick_folder.ps1"
-    script.write_text(PICK, encoding="utf-8")
-    said = app.get(f"PROJECT + '/export?{query}'")
-    pid = app.proc.pid
-    picked = subprocess.run(["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(script),
-                             "Export the frames into a folder", str(into), str(pid)],
-                            capture_output=True, text=True, timeout=60)
+    said = app.get(f"PROJECT + '/export?{query}&into=' + encodeURIComponent({json.dumps(str(into))})")
     t0 = time.perf_counter()
     seen_running = False
     while time.perf_counter() - t0 < 1800:
@@ -408,8 +371,8 @@ def export(app, query, into):
         time.sleep(0.5)
     took = time.perf_counter() - t0
     status = app.eval("document.getElementById('status').textContent + ' | ' + document.getElementById('report').textContent")
-    return {"query": query, "said": said, "dialog": (picked.stdout + picked.stderr).strip(), "ran": seen_running,
-            "seconds": round(took, 1), "status": status, "files": sorted(p.name for p in into.iterdir())}
+    return {"query": query, "said": said, "ran": seen_running, "seconds": round(took, 1), "status": status,
+            "files": sorted(p.name for p in into.iterdir()) if into.is_dir() else []}
 
 
 def measure():
@@ -718,7 +681,7 @@ def report():
     mp4s = sorted(mp4dir.glob("*.mp4"))
     for f in wavs + mp4s:
         fl, total = first_loud(f)
-        row(f"exported {f.name}", fl, "silent" if fl is None else f"{fl / RATE:.4f} s ({total} samples long)")
+        row(f"exported {f.name}", fl, "silent" if fl is None else f"{fl / RATE:.4f} s = frame {fl * FPS / RATE:.3f} ({total} samples long)")
     if not wavs:
         row("exported WAV", "-", "no WAV in the PNG export folder")
     md.append("")
@@ -728,7 +691,11 @@ def report():
     md += ["## 5. Viewer against export (written by `tools/p28_media.py report`)", "",
            "| export | how it went | files |", "|---|---|---|"]
     for e in m["exports"]:
-        row(e["query"], "dialog filler: " + e["dialog"].replace("\n", "; ") + f"; export started: {e['ran']}", len(e["files"]))
+        if "dialog" in e:  # a run from before D-1140, through the folder dialog
+            how = "dialog filler: " + e["dialog"].replace("\n", "; ")
+        else:
+            how = f"into= (D-1140), {e['seconds']} s; the window answered: " + e["said"].replace(str(ROOT), "<repo>")
+        row(e["query"], how + f"; export started: {e['ran']}", len(e["files"]))
     mp4px, mp4n = mp4_frames(mp4s[0], set(FIVE)) if mp4s else ({}, 0)
     md += ["", f"{len(pngs)} PNG frames, {mp4n} MP4 frames decoded.", "",
            "| frame | PNG = viewer | PNG largest difference | MP4 largest difference | MP4 mean difference |", "|---|---|---|---|---|"]
@@ -738,9 +705,11 @@ def report():
         d.text((10 + i * 490, 8), t, fill="black")
     for r, n in enumerate(FIVE):
         v = get("sequence_cpu", n)
-        p = np.asarray(Image.open(pngs[n]).convert("RGBA")) if n < len(pngs) else None
+        named = [f for f in pngs if f.stem.endswith(f"_{n:04d}")]
+        p = np.asarray(Image.open(named[0]).convert("RGBA")) if named else None
         q = mp4px.get(n)
-        dp = "-" if p is None else int(np.abs(p[..., :3].astype(int) - v[..., :3].astype(int)).max())
+        # The PNG on all four channels, alpha too; the MP4 has no alpha, so colour only.
+        dp = "-" if p is None else int(np.abs(p.astype(int) - v.astype(int)).max())
         dq = None if q is None else np.abs(q[..., :3].astype(int) - v[..., :3].astype(int))
         row(n, "-" if p is None else ("yes, exactly" if dp == 0 else "NO"), dp, "-" if dq is None else dq.max(),
             "-" if dq is None else f"{dq.mean():.2f}")
@@ -768,7 +737,7 @@ def report():
 
 
 def exports_again():
-    """Only step 6 of measure(), into the same measured.json (the export dialog is the fragile part)."""
+    """Only step 6 of measure(), into the same measured.json, compared against the frames measure() kept."""
     exe = Path(sys.argv[2])
     f = OUT / "measured.json"
     facts = json.loads(f.read_text(encoding="utf-8"))

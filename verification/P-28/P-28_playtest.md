@@ -11,10 +11,10 @@ A 5-second shot (120 frames, 24 fps, 1920x1080) built from scratch by a script a
 | Blend modes and alpha | **Pass** | The subject's soft edge matches a mix in linear light to within 1 step of 255 (no dark fringe: a fringe would miss by up to 35). The Screen glow matches Screen in linear light (mean miss 0.20, largest 6); in sRGB it would miss by 7.18 on average. The Add flash was not checked by number, only by eye. |
 | Effects | **Partial** | Blur, tint, fill, mask wipe, overshoot, particles and motion blur all draw. The red/blue split leaves a band along the frame's edge with no blue (10 px at the sides, 5 px top and bottom) on frames 48-54: bug 1. |
 | Camera and shake | **Partial** | The shake is seen on the contact sheet (frames 50 and 54 are pushed off centre and settled by 55). Its size was not measured as a number. |
-| Sound sync | **Partial** | In playback the click lands on sample 96000, which is frame 48.000 exactly. The exported sound could not be checked, because nothing could be exported (bug 2). |
+| Sound sync | **Pass** | In playback the click lands on sample 96000, which is frame 48.000 exactly. Exported (D-1140, added 2026-11-21): the WAV beside the PNG frames and the MP4's sound both start the click on sample 96000 = 2.000 s = frame 48.000. |
 | Processor against card | **Pass** | Largest difference 2 steps of 255; no pixel off by more than 2, at all ten frames. |
 | Draft against Full | **Pass** | Draft is a 480x270 picture drawn in 39.4 ms (median) against 74.6 ms for Full on the processor, and 0.8 ms against 2.5 ms on the card. The Draft pictures were kept but not compared with Full pixel by pixel. |
-| Viewer against export | **Not measured** | The export starts only through the system's folder dialog. The test tool could not fill that dialog in three tries (bug 2). |
+| Viewer against export | **Pass** | Measured after D-1140 (added 2026-11-21), exported through `into=` by the release build of this unit: the PNG frames 0, 48, 50, 90 and 119 are byte for byte the viewer's Full frames (largest difference 0, alpha included). The MP4 at High is the same picture with the codec's loss: mean difference 1.05 to 2.09, largest 139 (frame 0), on sharp coloured edges; recorded as the codec's, not a failure. |
 | Speed | **Partial** | The card plays three loops from memory with 0 frames passed over. The processor passes over 87 frames in three loops, although every frame is already in memory (bug 3). |
 
 ## What was built (Phase 1: can the app do each beat?)
@@ -39,7 +39,7 @@ Nothing had to be faked. The shake moves a null rather than a camera, which is t
 
 - `P-28_contact_sheet.png`: frames 0, 24, 47, 48, 49, 50, 54, 55, 90 and 119. On 48, 49, 50 and 54, look at the frame's edge: that is bug 1.
 - `P-28_edge_4x.png`: the subject's soft edge at 4x. Left is the app, middle is a correct mix, right is what a dark fringe would look like. Left and middle should look the same.
-- The side-by-side of viewer and export was not made, because nothing was exported.
+- `P-28_viewer_vs_export.png` (added 2026-11-21, after D-1140): viewer, PNG export and MP4 export side by side at frames 0, 48, 50, 90 and 119. All three columns should look the same.
 
 ## Bugs and friction
 
@@ -50,15 +50,14 @@ Nothing had to be faked. The shake moves a null rather than a camera, which is t
 | 3 | Played at Full on the processor, the shot stutters even once all 120 frames are in memory. | Play the shot at Full on the processor; let it loop three times. | frames passed over are counted at `app/src/main.rs:1701-1705`; cause not found | The window's own time for a frame from memory is 1.7 ms (median), yet only 274 frames were asked for in 15.04 s (about 18 a second) and 87 were passed over. On the card: 0 passed over. So the time is lost between the window and the page. Sending a whole 8 MB frame to the page and painting it there is the likely place, but this was not measured. The window was off the screens, which may matter. |
 | 4 (friction) | The session log's "frames" counts every request, including the card's repaints (2156 rows in 15 s of playback, 30 rows for 10 frames). It is not the number of frames shown. | Read `/session-log` after playing on the card. | `app/src/main.rs:18934` | The log has one row per frame answer, and the card asks again when it paints. Folded into D-1141. |
 
-Proposed fixes, each fixture first, are D-1139, D-1140 and D-1141 in `Markdown/14_Decisions_Risks.md`. All are PROPOSED; none was built.
+Proposed fixes, each fixture first, are D-1139, D-1140 and D-1141 in `Markdown/14_Decisions_Risks.md`. D-1140 was accepted and built on 2026-11-21 (B-1003), and the export checks above were then run; D-1139 and D-1141 are PROPOSED.
 
 ## Machine and build
 
-AMD Ryzen 9 9900X 12-Core Processor, 12 cores 24 threads, 61.5 GB, Windows 11 Education 10.0.26300; NVIDIA GeForce RTX 4070 Ti SUPER, driver 610.88, Vulkan. Release build of e47d4bd9 at `target/lanes/p28/release/anime_compositor_app.exe` (measured from checkout 89fec3d2, which adds only the P-28 script and project). Every window was a copy with its own web view profile, placed off the screens (`ANIME_COMPOSITOR_BACKGROUND=1`). Other programs the owner had open were not recorded.
+AMD Ryzen 9 9900X 12-Core Processor, 12 cores 24 threads, 61.5 GB, Windows 11 Education 10.0.26300; NVIDIA GeForce RTX 4070 Ti SUPER, driver 610.88, Vulkan. Release build of e47d4bd9 at `target/lanes/p28/release/anime_compositor_app.exe` (measured from checkout 89fec3d2, which adds only the P-28 script and project). Every window was a copy with its own web view profile, placed off the screens (`ANIME_COMPOSITOR_BACKGROUND=1`). Other programs the owner had open were not recorded. The two exports (added 2026-11-21) were made by the release build of B-1003 at `target/lanes/d1140/release/anime_compositor_app.exe`, started with `ANIME_COMPOSITOR_TEST_EXPORT=1`, and compared with the viewer frames kept from the first run; B-1003 changes only how the folder is named, not drawing.
 
 ## Not measured, and why
 
-- Viewer against export (PNG and MP4) and the exported sound: nothing could be exported (bug 2).
 - The Add flash by number: no variant without the flash was rendered. It was judged by eye only.
 - The size of the shake: judged by eye only.
 - Sound heard through the speakers: the check reads the window's own playback mix (`/mix`), which the page plays at the frame it names. Nothing listened at the speaker.
@@ -70,7 +69,7 @@ AMD Ryzen 9 9900X 12-Core Processor, 12 cores 24 threads, 61.5 GB, Windows 11 Ed
 python tools/p28_media.py media
 python tools/p28_media.py project
 python tools/p28_media.py measure <path to a release anime_compositor_app.exe>
-python tools/p28_media.py exports <same exe>    (only the export step)
+python tools/p28_media.py exports <same exe>    (only the export step; through into=, D-1140)
 python tools/p28_media.py report
 ```
 
