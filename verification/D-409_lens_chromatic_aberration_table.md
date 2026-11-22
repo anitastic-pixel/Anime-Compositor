@@ -6,7 +6,7 @@ B-288: `core.chromatic_aberration`'s new form, PLUGINS.md's pick #3 with its RGB
 
 | Check | The build's answer | Matches |
 | --- | --- | --- |
-| FX-LENSCA-001 frame 0: The new form's settings as they start (radial, amount 3, falloff 0, red 100, green 0, blue -100, no blur): the same picture as D-120's FX-CHROMA-001, red fringing outward, blue inward. | largest difference 2.5e-7 | yes |
+| FX-LENSCA-001 frame 0: The new form's settings as they start (radial, amount 3, falloff 0, red 100, green 0, blue -100, no blur): the same picture as D-120's FX-CHROMA-001, red fringing outward, blue inward; the white block's left column keeps its blue, whose sample falls past the layer's edge and reads the edge pixel (D-1139). | largest difference 2.5e-7 | yes |
 | FX-LENSCA-001: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-LENSCA-002 frame 0: Amount 0: the drawing, untouched. | largest difference 1.9e-7 | yes |
 | FX-LENSCA-002: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
@@ -22,7 +22,7 @@ B-288: `core.chromatic_aberration`'s new form, PLUGINS.md's pick #3 with its RGB
 | FX-LENSCA-007: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-LENSCA-008 frame 0: Fringe blur 100 at amount 6 with falloff 100: the smear over the whole shift, strongest at the edges. | largest difference 2.5e-7 | yes |
 | FX-LENSCA-008: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-LENSCA-009 frame 0: Offset mode, amount 2, angle 90: red moved exactly two pixels right, blue two left, green kept, the same at every pixel. | largest difference 1.9e-7 | yes |
+| FX-LENSCA-009 frame 0: Offset mode, amount 2, angle 90: red moved exactly two pixels right, blue two left, green kept, the same at every pixel; the two left columns' red samples fall past the layer's edge and read its left column (D-1139), so the white block's two left columns keep their red. | largest difference 1.9e-7 | yes |
 | FX-LENSCA-009: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-LENSCA-010 frame 0: Offset mode, amount 1.5, angle 0: red moved a pixel and a half up, blue as far down, each a blend of two rows. | largest difference 1.9e-7 | yes |
 | FX-LENSCA-010: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
@@ -36,8 +36,8 @@ B-288: `core.chromatic_aberration`'s new form, PLUGINS.md's pick #3 with its RGB
 | FX-LENSCA-013 frame 2: Falloff keyed from 0 at frame 0 to 100 at frame 4 at amount 6: frame 0 D-120's split at 6, frame 4 FX-LENSCA-003. | largest difference 2.5e-7 | yes |
 | FX-LENSCA-013 frame 4: Falloff keyed from 0 at frame 0 to 100 at frame 4 at amount 6: frame 0 D-120's split at 6, frame 4 FX-LENSCA-003. | largest difference 2.5e-7 | yes |
 | FX-LENSCA-013: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-LENSCA-014 frame 0: FX-LENSCA-009 moved three pixels right: the same, moved; the three columns left of the drawing stay empty, as the layer does not grow. | largest difference 1.9e-7 | yes |
-| FX-LENSCA-014 frame 3: FX-LENSCA-009 moved three pixels right: the same, moved; the three columns left of the drawing stay empty, as the layer does not grow. | largest difference 1.9e-7 | yes |
+| FX-LENSCA-014 frame 0: FX-LENSCA-009 moved three pixels right: the same, moved; the three columns left of the drawing stay empty, as the layer does not grow and the edge rule reads the layer's own edge, not the frame's. | largest difference 1.9e-7 | yes |
+| FX-LENSCA-014 frame 3: FX-LENSCA-009 moved three pixels right: the same, moved; the three columns left of the drawing stay empty, as the layer does not grow and the edge rule reads the layer's own edge, not the frame's. | largest difference 1.9e-7 | yes |
 | FX-LENSCA-014: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-LENSCA-015 frame 0: Radial about 0, 50 with falloff 100 at amount 6: weak by the left edge's middle, strong at the right edge. | largest difference 1.3e-7 | yes |
 | FX-LENSCA-015: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
@@ -203,24 +203,24 @@ B-288: `core.chromatic_aberration`'s new form, PLUGINS.md's pick #3 with its RGB
 | fx_lensca_024.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 0 of 10 frames; refused by the card: false; the same warnings: true | yes |
 | fx_lensca_025.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 0 of 10 frames; refused by the card: false; the same warnings: true | yes |
 | fx_lensca_026.json, frames 0 to 4 at Full and Draft | largest difference 0 of 255; on the card in 0 of 10 frames; refused by the card: false; the same warnings: true | yes |
-| the reference shot, Chromatic Aberration radial, amount 20, falloff 100: the processor's frame 100 differs from the shot without it, so the comparisons below test the effect | 1410825 pixels changed | yes |
-| the reference shot, Chromatic Aberration radial, amount 20, falloff 100 on three layers, frame 0, Full | largest difference 1 of 255, 3225 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Chromatic Aberration radial, amount 20, falloff 100 on three layers, frame 100, Full | largest difference 1 of 255, 2121 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Chromatic Aberration radial, amount 20, falloff 100 on three layers, frame 239, Full | largest difference 1 of 255, 1947 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Chromatic Aberration radial, amount 20, falloff 100: the processor's frame 100 differs from the shot without it, so the comparisons below test the effect | 1403001 pixels changed | yes |
+| the reference shot, Chromatic Aberration radial, amount 20, falloff 100 on three layers, frame 0, Full | largest difference 1 of 255, 3223 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Chromatic Aberration radial, amount 20, falloff 100 on three layers, frame 100, Full | largest difference 1 of 255, 2119 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Chromatic Aberration radial, amount 20, falloff 100 on three layers, frame 239, Full | largest difference 1 of 255, 1945 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Chromatic Aberration radial, amount 20, falloff 100 on three layers, frame 0, Draft | largest difference 1 of 255, 104 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Chromatic Aberration radial, amount 20, falloff 100 on three layers, frame 100, Draft | largest difference 1 of 255, 50 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Chromatic Aberration radial, amount 20, falloff 100 on three layers, frame 239, Draft | largest difference 1 of 255, 61 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Chromatic Aberration radial about (30, 60), amount 20, falloff 60, red 150, green 40, fringe blur 50: the processor's frame 100 differs from the shot without it, so the comparisons below test the effect | 1690978 pixels changed | yes |
-| the reference shot, Chromatic Aberration radial about (30, 60), amount 20, falloff 60, red 150, green 40, fringe blur 50 on three layers, frame 0, Full | largest difference 1 of 255, 1537 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Chromatic Aberration radial about (30, 60), amount 20, falloff 60, red 150, green 40, fringe blur 50 on three layers, frame 100, Full | largest difference 1 of 255, 934 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Chromatic Aberration radial about (30, 60), amount 20, falloff 60, red 150, green 40, fringe blur 50 on three layers, frame 239, Full | largest difference 1 of 255, 786 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Chromatic Aberration radial about (30, 60), amount 20, falloff 60, red 150, green 40, fringe blur 50: the processor's frame 100 differs from the shot without it, so the comparisons below test the effect | 1687640 pixels changed | yes |
+| the reference shot, Chromatic Aberration radial about (30, 60), amount 20, falloff 60, red 150, green 40, fringe blur 50 on three layers, frame 0, Full | largest difference 1 of 255, 1538 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Chromatic Aberration radial about (30, 60), amount 20, falloff 60, red 150, green 40, fringe blur 50 on three layers, frame 100, Full | largest difference 1 of 255, 935 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Chromatic Aberration radial about (30, 60), amount 20, falloff 60, red 150, green 40, fringe blur 50 on three layers, frame 239, Full | largest difference 1 of 255, 787 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Chromatic Aberration radial about (30, 60), amount 20, falloff 60, red 150, green 40, fringe blur 50 on three layers, frame 0, Draft | largest difference 1 of 255, 62 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Chromatic Aberration radial about (30, 60), amount 20, falloff 60, red 150, green 40, fringe blur 50 on three layers, frame 100, Draft | largest difference 1 of 255, 62 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Chromatic Aberration radial about (30, 60), amount 20, falloff 60, red 150, green 40, fringe blur 50 on three layers, frame 239, Draft | largest difference 1 of 255, 45 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Chromatic Aberration offset at 30 degrees, amount 8, fringe blur 100: the processor's frame 100 differs from the shot without it, so the comparisons below test the effect | 1785144 pixels changed | yes |
-| the reference shot, Chromatic Aberration offset at 30 degrees, amount 8, fringe blur 100 on three layers, frame 0, Full | largest difference 1 of 255, 2142 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Chromatic Aberration offset at 30 degrees, amount 8, fringe blur 100 on three layers, frame 100, Full | largest difference 1 of 255, 2078 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
-| the reference shot, Chromatic Aberration offset at 30 degrees, amount 8, fringe blur 100 on three layers, frame 239, Full | largest difference 1 of 255, 1729 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Chromatic Aberration offset at 30 degrees, amount 8, fringe blur 100: the processor's frame 100 differs from the shot without it, so the comparisons below test the effect | 1778412 pixels changed | yes |
+| the reference shot, Chromatic Aberration offset at 30 degrees, amount 8, fringe blur 100 on three layers, frame 0, Full | largest difference 1 of 255, 2141 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Chromatic Aberration offset at 30 degrees, amount 8, fringe blur 100 on three layers, frame 100, Full | largest difference 1 of 255, 2077 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
+| the reference shot, Chromatic Aberration offset at 30 degrees, amount 8, fringe blur 100 on three layers, frame 239, Full | largest difference 1 of 255, 1728 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Chromatic Aberration offset at 30 degrees, amount 8, fringe blur 100 on three layers, frame 0, Draft | largest difference 1 of 255, 63 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Chromatic Aberration offset at 30 degrees, amount 8, fringe blur 100 on three layers, frame 100, Draft | largest difference 1 of 255, 69 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
 | the reference shot, Chromatic Aberration offset at 30 degrees, amount 8, fringe blur 100 on three layers, frame 239, Draft | largest difference 1 of 255, 61 pixels differ; 3 of 3 on the card; warnings CPU [] GPU [] | yes |
@@ -230,9 +230,9 @@ B-288: `core.chromatic_aberration`'s new form, PLUGINS.md's pick #3 with its RGB
 | Check | The build's answer | Matches |
 | --- | --- | --- |
 | 1_before.png, the street with no effect; draws cleanly | [] | yes |
-| 2_no_falloff.png and 3_lens_falloff_100.png, amount 12: with falloff 100 the middle of the street barely splits while the corners still do; both draw cleanly | [] []; the middle moved 96083 without falloff, 3014 with; the top left corner 220889 and 182943 | yes |
+| 2_no_falloff.png and 3_lens_falloff_100.png, amount 12: with falloff 100 the middle of the street barely splits while the corners still do; both draw cleanly | [] []; the middle moved 96083 without falloff, 3014 with; the top left corner 8640 and 6323 | yes |
 | 4_offset_rgb_separation.png, offset mode, amount 6, angle 90: red is the street's red six pixels to the left, blue six to the right, everywhere the street covers; draws cleanly | []; red 126360 and blue 126360 of 126360 pixels | yes |
-| 5_fringe_blur_100.png, 3_lens_falloff_100.png with fringe blur 100: the coloured fringes smeared outward, softer; draws cleanly | [], red and blue sideways contrast 522828 against 537034 | yes |
+| 5_fringe_blur_100.png, 3_lens_falloff_100.png with fringe blur 100: the coloured fringes smeared outward, softer; draws cleanly | [], red and blue sideways contrast 454880 against 466594 | yes |
 | 6_green_only.png, scales red 0, green 100, blue 0: only green moves, outward; red and blue stay where the street covers; draws cleanly | []; 0 covered pixels changed red or blue, 38252 changed green | yes |
 
 ## Result
