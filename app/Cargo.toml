@@ -26,6 +26,13 @@ tauri-plugin-dialog = "2"
 # it is named here because the shell now assembles JSON of its own rather than only forwarding
 # the core's.
 serde_json = "1.0.151"
+# D-1142 (a): playing frames reach the page through WebView2's shared buffer. Both crates are
+# already in this build under the framework (wry, at these versions), so this adds no crate:
+# `webview2-com` names the web view's shared buffer calls, `windows-core` is how one of its
+# interfaces is asked for another (`cast`). Windows only, as the web view is.
+[target.'cfg(windows)'.dependencies]
+webview2-com = "0.38"
+windows-core = "0.61"
 
 [build-dependencies]
 tauri-build = "2"

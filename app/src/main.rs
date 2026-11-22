@@ -18998,6 +18998,8 @@ fn session_log_json(log: &SessionLog) -> String {
         "costliest": s.costliest.map(|(st, _)| st.label()),
         "costliest_ms": s.costliest.map_or(0.0, |(_, n)| n as f64 / 1e6),
         "slowest": slowest,
+        // D-1142 (a): the road the last playing frame took to the page.
+        "road": shared_frame::road(),
     })
     .to_string()
 }
@@ -19038,6 +19040,8 @@ fn session_log_heading() -> Vec<String> {
                 "release"
             }
         ),
+        // D-1142 (a): the road the last playing frame took to the page.
+        format!("Playing frames reach the page by: {}", shared_frame::road()),
     ]
 }
 
@@ -19999,6 +20003,156 @@ fn failed_response(said: String) -> Response<Vec<u8>> {
         .expect("build the failed response")
 }
 
+/// D-1142 (a): playing frames reach the page through WebView2's shared buffer, memory the window
+/// and the page both see, instead of as the frame request's body. B-1004 measured the body at
+/// 35-41 ms of a 50 ms round for a Full frame, against the 41.7 ms 24 frames a second allow.
+///
+/// Only a playing frame (`/at/`, `/play/`) the page asks for with `buf=<id>`, the buffer it holds
+/// (0 for none), goes this way; its bytes are copied into the buffer as they are, the answer's
+/// body is left empty, and `x-shared` (the length) and `x-shared-id` say so. Every other request,
+/// and a playing frame whenever the page holds no buffer, a buffer other than the window's newest,
+/// or one too small, is D-36's frame request as before, and a buffer is made and posted then (at
+/// most once a second). The page asks for one playing frame at a time (D-32) and reads it before
+/// asking for the next, so the window never writes the buffer while the page reads it.
+///
+/// No port is opened and no path is named: the buffer is memory posted to this window's own page.
+/// The window only writes it and never reads it, so nothing the page writes there reaches the
+/// window; it is posted read-write because a page that writes a read-only one crashes its renderer.
+mod shared_frame {
+    use super::*;
+    use std::cell::RefCell;
+    use tauri::http::HeaderValue;
+    use webview2_com::Microsoft::Web::WebView2::Win32::{
+        ICoreWebView2Environment12, ICoreWebView2SharedBuffer, ICoreWebView2_17,
+        COREWEBVIEW2_SHARED_BUFFER_ACCESS_READ_WRITE,
+    };
+    use windows_core::{Interface, PCWSTR};
+
+    /// D-1142's switch: `false` sends every playing frame as the answer's body, as before.
+    pub const ON: bool = true;
+    /// The largest buffer made: a frame past 4K (3840x2160 is 33 MB) travels as the body.
+    const MOST: usize = 64 << 20;
+
+    /// The window's newest buffer: its number, where the window sees it, and its length.
+    struct Held {
+        id: u64,
+        at: usize,
+        len: usize,
+    }
+    /// `at` stays valid while the buffer object in [`KEPT`] lives; it is replaced here, under this
+    /// lock, before that object is let go, so a copy under the lock never meets a released one.
+    static NOW: Mutex<Option<Held>> = Mutex::new(None);
+    /// When a buffer was last asked for, so a page asking with an old number is not sent a new
+    /// buffer each frame.
+    static ASKED: Mutex<Option<Instant>> = Mutex::new(None);
+    /// Set when the web view cannot make or post a buffer: it is not asked again this launch.
+    static UNAVAILABLE: AtomicBool = AtomicBool::new(false);
+    /// What the session log says of the road the last playing frame took.
+    static ROAD: Mutex<String> = Mutex::new(String::new());
+
+    thread_local! {
+        /// The buffer object, kept on the window's thread, where the web view's objects live.
+        static KEPT: RefCell<Option<ICoreWebView2SharedBuffer>> = const { RefCell::new(None) };
+    }
+
+    fn said(road: String) {
+        *ROAD.lock().expect("the road lock was poisoned") = road;
+    }
+
+    /// The road the last playing frame took, for the session log.
+    pub fn road() -> String {
+        let road = ROAD.lock().expect("the road lock was poisoned").clone();
+        if road.is_empty() {
+            "no frame played yet".to_string()
+        } else {
+            road
+        }
+    }
+
+    /// `reply` with its pixels moved into the shared buffer when the page holds `asked`, the
+    /// window's newest, and it is large enough; otherwise `reply` as it is.
+    pub fn carry(app: &AppHandle, asked: Option<u64>, mut reply: Response<Vec<u8>>) -> Response<Vec<u8>> {
+        let Some(asked) = asked.filter(|_| ON) else {
+            return reply;
+        };
+        let len = reply.body().len();
+        // Nothing to carry: no pixels (the card painted the window, D-893 stopped it), a refusal,
+        // or boxes after the pixels, which the page reads from the body.
+        if len == 0 || reply.status() != 200 || reply.headers().contains_key("x-boxes") {
+            return reply;
+        }
+        let now = NOW.lock().expect("the shared buffer lock was poisoned");
+        if let Some(held) = now.as_ref().filter(|h| h.id == asked && h.len >= len) {
+            // SAFETY: `held.at` is `held.len` writable bytes while `NOW` names it (see `NOW`),
+            // and the lock is held for the copy.
+            unsafe { std::ptr::copy_nonoverlapping(reply.body().as_ptr(), held.at as *mut u8, len) };
+            reply.body_mut().clear();
+            reply.headers_mut().insert("x-shared", HeaderValue::from(len));
+            reply.headers_mut().insert("x-shared-id", HeaderValue::from(held.id));
+            said("the shared buffer (D-1142)".to_string());
+            return reply;
+        }
+        let held = now.as_ref().map_or(0, |h| h.len);
+        drop(now);
+        if UNAVAILABLE.load(Ordering::SeqCst) {
+            return reply;
+        }
+        if len > MOST {
+            said(format!("the frame request: a frame of {len} bytes is larger than the shared buffer is made for"));
+            return reply;
+        }
+        said("the frame request, while the shared buffer is made".to_string());
+        {
+            let mut asked_at = ASKED.lock().expect("the shared buffer lock was poisoned");
+            if asked_at.is_some_and(|t| t.elapsed() < Duration::from_secs(1)) {
+                return reply;
+            }
+            *asked_at = Some(Instant::now());
+        }
+        let Some(page) = app.get_webview_window("main") else {
+            return reply;
+        };
+        let size = len.max(held);
+        let posted = page.with_webview(move |w| {
+            // SAFETY: the web view's own calls, on the window's thread, as `with_webview` runs them.
+            if let Err(why) = unsafe { make(&w, size) } {
+                UNAVAILABLE.store(true, Ordering::SeqCst);
+                said(format!("the frame request: the web view could not make a shared buffer ({why})"));
+            }
+        });
+        if let Err(why) = posted {
+            UNAVAILABLE.store(true, Ordering::SeqCst);
+            said(format!("the frame request: the web view could not be reached ({why})"));
+        }
+        reply
+    }
+
+    /// A new buffer of `len` bytes, posted to the page with its number, then made the newest.
+    unsafe fn make(w: &tauri::webview::PlatformWebview, len: usize) -> windows_core::Result<()> {
+        static IDS: AtomicU64 = AtomicU64::new(0);
+        let id = IDS.fetch_add(1, Ordering::SeqCst) + 1;
+        let environment: ICoreWebView2Environment12 = w.environment().cast()?;
+        let web_view: ICoreWebView2_17 = w.controller().CoreWebView2()?.cast()?;
+        let buffer = environment.CreateSharedBuffer(len as u64)?;
+        let mut at = std::ptr::null_mut();
+        buffer.Buffer(&mut at)?;
+        let data: Vec<u16> = format!("{{\"id\":{id}}}").encode_utf16().chain([0]).collect();
+        web_view.PostSharedBufferToScript(
+            &buffer,
+            COREWEBVIEW2_SHARED_BUFFER_ACCESS_READ_WRITE,
+            PCWSTR(data.as_ptr()),
+        )?;
+        *NOW.lock().expect("the shared buffer lock was poisoned") = Some(Held {
+            id,
+            at: at as usize,
+            len,
+        });
+        // The one before is let go only now that `NOW` no longer names it.
+        KEPT.with(|k| k.replace(Some(buffer)));
+        Ok(())
+    }
+}
+
 /// One request on the `frame` scheme: a frame, or a question about what is on screen.
 /// D-890: answered on [`off_the_window_thread`], except `/place`.
 /// D-893: `since` is [`anime_compositor::stop::now`] as the request arrived; a `/stop` after
@@ -20077,6 +20231,16 @@ fn answer_frame(app: &AppHandle, request: &Request<Vec<u8>>, since: u64) -> Resp
                     // D-886: the picture the page holds, to send only what changed.
                     parameter(request.uri().query(), "have").and_then(|h| h.parse().ok()),
                 )));
+                // D-1142 (a): a playing frame the page asks with `buf=` goes through the shared
+                // buffer when it can, and as this answer's body when it cannot.
+                let reply = match ask {
+                    Ask::At(_) | Ask::Play(_) => shared_frame::carry(
+                        app,
+                        parameter(request.uri().query(), "buf").and_then(|b| b.parse().ok()),
+                        reply,
+                    ),
+                    Ask::Frame(_) => reply,
+                };
                 // B-154: while playing, the rest of the loop is made in the background; B-780: by
                 // several workers, and at rest too when [`AHEAD_AT_REST`] (the card) or
                 // [`AHEAD_AT_REST_CPU`]; the worker looks which draws the viewer.

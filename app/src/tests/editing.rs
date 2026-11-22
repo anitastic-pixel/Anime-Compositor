@@ -14186,6 +14186,16 @@ fn the_session_log_records_what_the_window_draws() {
         "11",
         copy.lines().filter(|l| l.starts_with("| ")).count() - 1,
     );
+    // D-1142 (a): which road playing frames take to the page; with no window, none was played.
+    report.check(
+        "the copy and the panel's answer name the road playing frames take to the page",
+        "Playing frames reach the page by: no frame played yet; no frame played yet",
+        format!(
+            "{}; {}",
+            heading.last().cloned().unwrap_or_default(),
+            panel["road"].as_str().unwrap_or("absent")
+        ),
+    );
 
     let page = include_str!("../../ui/index.html");
     for (what, text) in [
@@ -14198,6 +14208,7 @@ fn the_session_log_records_what_the_window_draws() {
         ("its known limits, on the panel", "Kept in memory only, for the last 5,000 frames, and emptied when the window closes. Off every time the window opens."),
         ("and that it is not a benchmark", "A diagnostic, not a benchmark."),
         ("the command palette finds it", "['Session log', '', () => $('sessionlogbutton').click()]"),
+        ("D-1142: the panel names the road playing frames take", "' Playing frames reach the page by ' + log.road"),
     ] {
         report.check(what, "present", if page.contains(text) { "present" } else { "absent" });
     }
