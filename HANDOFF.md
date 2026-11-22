@@ -1,6 +1,6 @@
 # Session handoff
 
-Rewritten 2026-09-08, at the end of B-12c; its state brought up to date on 2026-09-27, at G4, and again on 2026-10-15. Read this first when opening Claude Code in this
+Rewritten 2026-09-08, at the end of B-12c; its state brought up to date on 2026-09-27, at G4, again on 2026-10-15, and on 2026-11-21. Read this first when opening Claude Code in this
 directory. It is orientation only: what this project is, what state it is in today, and the things
 a fresh session gets wrong. What each unit of work settled is in `Markdown/15_Initial_Backlog.md`
 entry by entry, and the evidence is one file per unit under `verification/`.
@@ -59,6 +59,21 @@ said about it; read its last paragraphs for the latest state.
 - Sound: reading, hearing it in step and exporting it (D-638).
 - On 2026-10-14, audits and architecture reviews: bug fixes, faster heavy effects, unknown file
   data kept with its layer (ADR-008), and four new commands (B-602 to B-605).
+
+**Since 2026-10-15** (brought up to date 2026-11-21; the latest unit is B-1000, 2026-11-03):
+
+- Every effect was checked in the real app (`tools/app_snapshot.py`), and audits against After
+  Effects tutorials ran as numbered waves 6 to 12, several lanes at a time: effect and video
+  fixes, architecture speed-ups, input-lag fixes, colour management, Layer Styles, text animator
+  selectors, particles, and tutorial follow-alongs (D-743 to D-1080).
+- P-27 (`verification/P-27_speed_audit_table.md`) made edits cheaper: the window is sent only what
+  changed, undo steps share unchanged layers, and frames made ahead survive edits that draw nothing
+  (B-995 to B-1000, D-1115 to D-1120).
+- About 35 decisions are still PROPOSED in document 14 for the owner, and roughly 300 playtests in
+  document 15 say "awaiting the owner". Many proposals were built switched off; check a decision's
+  status before assuming it is on.
+- Agent lanes leave worktrees under `.claude/worktrees/` and `lane-*` / `worktree-agent-*`
+  branches behind. Most are merged history, not live work; the owner decides deletions.
 
 ## Things a fresh session is likely to get wrong
 

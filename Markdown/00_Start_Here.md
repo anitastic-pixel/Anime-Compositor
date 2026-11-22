@@ -44,6 +44,8 @@ Performance thresholds remain unmeasured. No benchmark, compatibility level or l
 
 ## Current gate
 
+**Latest state, 2026-11-21: G4 is current.** The latest built unit is B-1000 (2026-11-03). The paragraphs below run in date order from G0 and stop at B-605 (2026-10-14); later units are recorded entry by entry in document 15, and `HANDOFF.md` has a short summary of where things stand.
+
 **B-01 is recorded.** The reference shot is drawn and committed at `Fixtures/reference_shot/`, SP-01, SP-03, SP-04, SP-05 and SP-06 have been run, SP-07 adds the real-shot measurement ADR-006's exit condition asks for, and ADR-003, ADR-004 and ADR-006 are confirmed with none reopened. The artifact is `spikes/B-01_G0_spike_report.md`.
 
 The two risks that decided the Tauri interface are settled. SP-06 found the webview alters nothing, in readback and on the physical display. SP-05 found frames do reach the viewer fast enough, but with almost no margin: 39.54 ms per frame at full resolution against a 24 fps target, which is 3.3 times the cost of compositing the frame in the first place. Neither failed, so ADR-004's native-surface fallback is not triggered, but the document 27 cache and a draft-resolution preview are load-bearing rather than optional.
