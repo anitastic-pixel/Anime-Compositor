@@ -34,13 +34,18 @@ for j = 0 .. n - 1 (t_0 = 0 when n is 1). At the pixel whose centre is P:
   rho 0 otherwise); the channel's samples are at c + d (1 - s k g + t_j b |s| k g);
 - offset: u = along(angle); the samples are at P + u amount (t_j b |s| - s).
 
-Each sample is document 21's bilinear sample of the layer (premultiplied, transparent outside).
-The channel's own number is the mean of its samples' numbers for that channel, summed in order
-j = 0 .. n - 1 and divided once, and the channel's covering is the mean of the samples'
-coverings likewise. The pixel is (red's red, green's green, blue's blue) and its covering is the
-largest of the three channels' coverings. The layer does not grow. At the starting values
-(radial, falloff 0, scales 100, 0, -100, no blur) this is D-120's picture: the green channel's
-one sample is at P itself, which is the pixel's own.
+Each sample is document 21's bilinear sample of the layer (premultiplied) with D-1139's edge
+rule: each tap's column is held between 0 and the layer's width - 1 and its row between 0 and its
+height - 1, so a sample past the layer's edge reads the nearest edge pixel; the sampler is
+`tools/chromatic_edge_reference.py`'s (D-1139, accepted by the owner on 2026-11-21 and extended to
+this form when the owner said "proceed with your recommendation" on 2026-11-22; as first built a
+sample past the edge read transparent). The channel's own number is the mean of its samples'
+numbers for that channel, summed in order j = 0 .. n - 1 and divided once, and the channel's
+covering is the mean of the samples' coverings likewise. The pixel is (red's red, green's
+green, blue's blue) and its covering is the largest of the three channels' coverings. The layer
+does not grow. At the starting values (radial, falloff 0, scales 100, 0, -100, no blur) this is
+D-120's picture, both forms holding their samples by the same edge rule: the green channel's one
+sample is at P itself, which is the pixel's own.
 
 **This file never runs the build's code path.** It works in double precision on lists, straight
 from the drawing's 8-bit values, where the build works in single precision on its buffers.
@@ -49,12 +54,13 @@ Every case is a composition 16 pixels by 10 holding one drawing the same size, u
 the case says: Chromatic Aberration's figure. The drawing goes into
 `Fixtures/lens_chromatic_aberration/media`, the projects into `Fixtures/lens_chromatic_aberration`,
 and the expected frames into
-`Fixtures/lens_chromatic_aberration/expected_lens_chromatic_aberration.json`.
+`Fixtures/lens_chromatic_aberration/expected_lens_chromatic_aberration.json`; a folder given on
+the command line takes `Fixtures/lens_chromatic_aberration`'s place.
 
 Fixtures are read-only to implementation work: this file is run when the specification changes,
 and never to make a build pass.
 
-    python tools/lens_chromatic_aberration_reference.py
+    python tools/lens_chromatic_aberration_reference.py [out]
 """
 
 import json
@@ -66,13 +72,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from fxkey_reference import keyed, value_at, setting_json  # noqa: E402
 import smooth_reference as S  # noqa: E402
 import recolor_reference as R  # noqa: E402
-from radial_blur_reference import bilinear  # noqa: E402
+from chromatic_edge_reference import sample  # noqa: E402
 from bloom_reference import along  # noqa: E402
 import chromatic_aberration_reference as CA  # noqa: E402
 from adjust_reference import prop  # noqa: E402
 
 W, H = R.W, R.H
-OUT = Path(__file__).resolve().parent.parent / "Fixtures" / "lens_chromatic_aberration"
+OUT = (Path(sys.argv[1]) if len(sys.argv) > 1
+       else Path(__file__).resolve().parent.parent / "Fixtures" / "lens_chromatic_aberration")
 TOLERANCE = 2e-5  # document 25's default for a filter
 RANGES = {"amount": (0, 100), "angle": (-3600, 3600), "falloff": (0, 100),
           "red_scale": (-200, 200), "green_scale": (-200, 200), "blue_scale": (-200, 200),
@@ -89,8 +96,10 @@ def count(amount, s, b):
     return 1 if b * s == 0 else math.ceil(amount * abs(s) * b) + 1
 
 
-def lens(layer, v, size=(W, H)):
-    """The layer's pixels, split. `v` holds the settings at the frame; `size` is W0 by H0."""
+def lens(layer, v, size=(W, H), hold=True):
+    """The layer's pixels, split. `v` holds the settings at the frame; `size` is W0 by H0. `hold`
+    is D-1139's edge rule; without it a sample past the layer's edge reads transparent (D-409 as
+    first built)."""
     w0, h0 = size
     cx, cy = v["center"][0] / 100 * w0, v["center"][1] / 100 * h0
     rc = math.sqrt(w0 * w0 + h0 * h0) / 2
@@ -117,10 +126,10 @@ def lens(layer, v, size=(W, H)):
                 t = j / (n - 1) - 0.5 if n > 1 else 0.0
                 if v["mode"] == "radial":
                     f = 1 - s * k * g + t * b * abs(s) * k * g
-                    q = bilinear(layer, cx + dx * f, cy + dy * f)
+                    q = sample(layer, cx + dx * f, cy + dy * f, hold)
                 else:
                     m = v["amount"] * (t * b * abs(s) - s)
-                    q = bilinear(layer, px + ux * m, py + uy * m)
+                    q = sample(layer, px + ux * m, py + uy * m, hold)
                 total = [a + c for a, c in zip(total, q)]
             chans.append([a / n for a in total])
         out.append([chans[0][0], chans[1][1], chans[2][2],
@@ -155,8 +164,8 @@ def layer_of(c):
             "left": 0, "top": 0, "w": W, "h": H}
 
 
-def render(c, frame_no):
-    return R.frame(lens(layer_of(c), settings(c, frame_no)), c["shift"])
+def render(c, frame_no, hold=True):
+    return R.frame(lens(layer_of(c), settings(c, frame_no), hold=hold), c["shift"])
 
 
 def plain(c):
@@ -167,7 +176,9 @@ def plain(c):
 CASES = {
     "FX-LENSCA-001": ("The new form's settings as they start (radial, amount 3, falloff 0, "
                       "red 100, green 0, blue -100, no blur): the same picture as D-120's "
-                      "FX-CHROMA-001, red fringing outward, blue inward.",
+                      "FX-CHROMA-001, red fringing outward, blue inward; the white block's left "
+                      "column keeps its blue, whose sample falls past the layer's edge and reads "
+                      "the edge pixel (D-1139).",
                       case(), [0]),
     "FX-LENSCA-002": ("Amount 0: the drawing, untouched.",
                       case(amount=0), [0]),
@@ -191,7 +202,9 @@ CASES = {
                       "shift, strongest at the edges.",
                       case(amount=6, fringe_blur=100, falloff=100), [0]),
     "FX-LENSCA-009": ("Offset mode, amount 2, angle 90: red moved exactly two pixels right, "
-                      "blue two left, green kept, the same at every pixel.",
+                      "blue two left, green kept, the same at every pixel; the two left "
+                      "columns' red samples fall past the layer's edge and read its left column "
+                      "(D-1139), so the white block's two left columns keep their red.",
                       case(mode="offset", amount=2), [0]),
     "FX-LENSCA-010": ("Offset mode, amount 1.5, angle 0: red moved a pixel and a half up, "
                       "blue as far down, each a blend of two rows.",
@@ -206,7 +219,8 @@ CASES = {
                       "D-120's split at 6, frame 4 FX-LENSCA-003.",
                       case(amount=6, falloff=keyed((0, 0), (4, 100))), [0, 2, 4]),
     "FX-LENSCA-014": ("FX-LENSCA-009 moved three pixels right: the same, moved; the three "
-                      "columns left of the drawing stay empty, as the layer does not grow.",
+                      "columns left of the drawing stay empty, as the layer does not grow and "
+                      "the edge rule reads the layer's own edge, not the frame's.",
                       case(mode="offset", amount=2, shift=3), [0, 3]),
     "FX-LENSCA-015": ("Radial about 0, 50 with falloff 100 at amount 6: weak by the left "
                       "edge's middle, strong at the right edge.",
@@ -273,8 +287,13 @@ def main():
         rendered = {str(f): render(c, f) for f in frames}
         expected["cases"][fx] = {"says": says, "project": write(fx, c), "frames": rendered}
         before = plain(c)
+        first = {f: render(c, int(f), hold=False) for f in rendered}  # D-409 as first built
+        most = lambda f: max(abs(p - q) for a, b in zip(rendered[f], first[f])  # noqa: E731
+                             for p, q in zip(a, b))
         print(f"{fx}: " + ", ".join(
-            f"frame {f} {sum(px[i] != before[i] for i in range(W * H))} changed"
+            f"frame {f} {sum(px[i] != before[i] for i in range(W * H))} changed, "
+            f"{sum(px[i] != first[f][i] for i in range(W * H))} differ from the rule as first "
+            f"built (largest {most(f):.6g})"
             for f, px in rendered.items()))
     for fx, (says, c) in INVALID.items():
         says += (" The file is read, the effect is kept as written and left out of every frame, "
@@ -310,6 +329,10 @@ def check(expected):
     old = lambda amount, center=(50, 50): R.frame(  # noqa: E731
         CA.aberration(layer, amount, center), 0)
     assert near(c["FX-LENSCA-001"]["0"], old(3))
+    # D-1139 holds both forms' samples alike; this form as first built read transparent past
+    # the edge, and its white block's left column turned yellow where D-120's now keeps its blue.
+    assert not near(render(case(), 0, hold=False), old(3))
+    assert near([c["FX-LENSCA-001"]["0"][at(0, 4)]], [[1.0, 1.0, 1.0, 1.0]])
     assert near(c["FX-LENSCA-013"]["0"], old(6))
     assert near(render(case(center=(0, 50)), 0), old(3, (0, 50)))
     assert c["FX-LENSCA-002"]["0"] == drawn
@@ -338,13 +361,14 @@ def check(expected):
     assert all(seven[i][1] == drawn[i][1] for i in range(W * H))  # green unscaled, unsmeared
     eight = c["FX-LENSCA-008"]["0"]
     assert eight != three and count(6, 1, 1) == 7
-    # Offset: red exactly two pixels right, blue two left, green kept.
+    # Offset: red exactly two pixels right, blue two left, green kept; a sample past the layer's
+    # edge reads the edge column (D-1139), so the white block's left two columns keep their red.
     nine = c["FX-LENSCA-009"]["0"]
     for y in range(H):
         for x in range(W):
             p = nine[at(x, y)]
-            red = drawn[at(x - 2, y)][0] if x >= 2 else 0.0
-            blue = drawn[at(x + 2, y)][2] if x + 2 < W else 0.0
+            red = drawn[at(max(x - 2, 0), y)][0]
+            blue = drawn[at(min(x + 2, W - 1), y)][2]
             assert p[0] == red and p[2] == blue and p[1] == drawn[at(x, y)][1], (x, y)
     ten = c["FX-LENSCA-010"]["0"]
     # Row 0's red is sampled a pixel and a half below its centre, between rows 1 and 2: half of
@@ -377,7 +401,7 @@ def check(expected):
     eighteen = c["FX-LENSCA-018"]["0"]
     for y in range(H):
         for x in range(W):
-            want = drawn[at(x + 1, y)] if x + 1 < W else [0.0] * 4
+            want = drawn[at(min(x + 1, W - 1), y)]  # the right column, empty, read again
             assert eighteen[at(x, y)] == want, (x, y)
     print("checked")
 

@@ -215212,7 +215212,9 @@ FX-XFORM-032 (`fx_xform_032.json`): Use Composition's Shutter Angle written "may
 
 Chromatic Aberration's new form (`core.chromatic_aberration` with `mode`), PLUGINS.md's pick #3 (B-288). Every case is a project of one composition 16 by 10, five frames, holding D-120's drawing `art` (`media/figure.png`), unmoved unless the case says, with the effect `fx-0-0` in the new form, its settings as added unless the case says. `tools/lens_chromatic_aberration_reference.py` works the expected frames, `Fixtures/lens_chromatic_aberration/expected_lens_chromatic_aberration.json`, tolerance 2e-5; the rule is in document 21. FX-CHROMA-001 to 016 keep pinning D-120's form.
 
-FX-LENSCA-001 (`fx_lensca_001.json`): The new form's settings as they start (radial, amount 3, falloff 0, red 100, green 0, blue -100, no blur): the same picture as D-120's FX-CHROMA-001, red fringing outward, blue inward. Frames 0.
+**Rewritten under D-1139.** Each sample holds every bilinear tap's column and row inside the layer, so a sample past the layer's edge reads the nearest edge pixel, by `tools/chromatic_edge_reference.py`'s sampler, as D-120's form does since D-1139. As first written such a sample read transparent, so once D-120's form took the edge rule FX-LENSCA-001 no longer matched FX-CHROMA-001 and an old project converted to the new form at the starting values drew differently. The owner accepted extending D-1139 to this form on 2026-11-22 ("proceed with your recommendation"). Frames that change, all on the figure's white block, which touches the drawing's left edge, by at most 1 in a channel: 001 (12 pixels), 003 (10), 004 (12), 006 (12), 007 (16), 008 (14), 009 (12), 011 (25), 013 frames 0, 2 and 4 (12, 12, 10), 014 frames 0 and 3 (12 each), 015 (54), 016 (12) and 017 (12). 002, 005, 010, 012, 018 and 019 to 026 draw the same numbers as before; the projects and the drawing are unchanged. The claims of 001, 009 and 014 are reworded to the rule below.
+
+FX-LENSCA-001 (`fx_lensca_001.json`): The new form's settings as they start (radial, amount 3, falloff 0, red 100, green 0, blue -100, no blur): the same picture as D-120's FX-CHROMA-001, red fringing outward, blue inward; the white block's left column keeps its blue, whose sample falls past the layer's edge and reads the edge pixel (D-1139). Frames 0.
 
 FX-LENSCA-002 (`fx_lensca_002.json`): Amount 0: the drawing, untouched. Frames 0.
 
@@ -215228,7 +215230,7 @@ FX-LENSCA-007 (`fx_lensca_007.json`): Fringe blur 50 at amount 6: each fringe sm
 
 FX-LENSCA-008 (`fx_lensca_008.json`): Fringe blur 100 at amount 6 with falloff 100: the smear over the whole shift, strongest at the edges. Frames 0.
 
-FX-LENSCA-009 (`fx_lensca_009.json`): Offset mode, amount 2, angle 90: red moved exactly two pixels right, blue two left, green kept, the same at every pixel. Frames 0.
+FX-LENSCA-009 (`fx_lensca_009.json`): Offset mode, amount 2, angle 90: red moved exactly two pixels right, blue two left, green kept, the same at every pixel; the two left columns' red samples fall past the layer's edge and read its left column (D-1139), so the white block's two left columns keep their red. Frames 0.
 
 FX-LENSCA-010 (`fx_lensca_010.json`): Offset mode, amount 1.5, angle 0: red moved a pixel and a half up, blue as far down, each a blend of two rows. Frames 0.
 
@@ -215238,7 +215240,7 @@ FX-LENSCA-012 (`fx_lensca_012.json`): Offset mode, angle keyed from 0 at frame 0
 
 FX-LENSCA-013 (`fx_lensca_013.json`): Falloff keyed from 0 at frame 0 to 100 at frame 4 at amount 6: frame 0 D-120's split at 6, frame 4 FX-LENSCA-003. Frames 0, 2, 4.
 
-FX-LENSCA-014 (`fx_lensca_014.json`): FX-LENSCA-009 moved three pixels right: the same, moved; the three columns left of the drawing stay empty, as the layer does not grow. Frames 0, 3.
+FX-LENSCA-014 (`fx_lensca_014.json`): FX-LENSCA-009 moved three pixels right: the same, moved; the three columns left of the drawing stay empty, as the layer does not grow and the edge rule reads the layer's own edge, not the frame's. Frames 0, 3.
 
 FX-LENSCA-015 (`fx_lensca_015.json`): Radial about 0, 50 with falloff 100 at amount 6: weak by the left edge's middle, strong at the right edge. Frames 0.
 
