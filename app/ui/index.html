@@ -21192,7 +21192,7 @@ async function sessionLog(what) {
   $('sessionlogon').checked = log.on;
   $('sessionlogsummary').textContent = log.frames === 0
     ? (log.on ? 'Recording. No frame drawn yet.' : 'Off. Nothing is being recorded.')
-    : log.frames + ' frames logged' + (log.let_go ? ', and ' + log.let_go + ' older ones let go' : '')
+    : log.frames + ' frames logged, ' + log.shown + ' new frames shown' + (log.let_go ? ', and ' + log.let_go + ' older ones let go' : '')
       + '. Median ' + ms(log.median_ms) + ', slowest 5% ' + ms(log.slowest_5_percent_ms)
       + ' or more. Frames the clock dropped: ' + log.dropped + '. Most time in all: '
       + (log.costliest ? log.costliest + ', ' + ms(log.costliest_ms) : 'nothing measurable') + '.'

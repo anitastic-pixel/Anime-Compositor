@@ -64,6 +64,9 @@ impl Row {
 #[derive(Clone, Debug, PartialEq)]
 pub struct Summary {
     pub frames: usize,
+    /// D-1141: the rows that put a new frame up, each whose frame differs from the row before.
+    /// `frames` counts every answer, and on the card most are repaints of the frame already up.
+    pub shown: usize,
     pub let_go: u64,
     pub median_ms: f64,
     /// The time the slowest 5% of frames took at least (nearest rank).
@@ -142,6 +145,12 @@ impl SessionLog {
             .max_by_key(|&(_, n)| n);
         Summary {
             frames: self.rows.len(),
+            shown: self
+                .rows
+                .iter()
+                .zip(std::iter::once(None).chain(self.rows.iter().map(|r| Some(r.frame))))
+                .filter(|(r, before)| *before != Some(r.frame))
+                .count(),
             let_go: self.let_go,
             median_ms: rank(0.5),
             slowest_5_percent_ms: rank(0.95),
@@ -167,9 +176,11 @@ impl SessionLog {
             out.push_str(&format!("- {line}\n"));
         }
         out.push_str(&format!(
-            "\nFrames logged: {}. Let go because the log was full: {}. Median {:.1} ms, \
-             slowest 5% {:.1} ms or more. Frames the clock dropped: {}. Costliest stage: {}.\n\n",
+            "\nFrames logged: {}, new frames shown: {}. Let go because the log was full: {}. \
+             Median {:.1} ms, slowest 5% {:.1} ms or more. Frames the clock dropped: {}. \
+             Costliest stage: {}.\n\n",
             s.frames,
+            s.shown,
             s.let_go,
             s.median_ms,
             s.slowest_5_percent_ms,
