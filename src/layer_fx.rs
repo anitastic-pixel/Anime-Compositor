@@ -1084,7 +1084,8 @@ pub(crate) fn chromatic_aberration(
 /// [`crate::blurs::along`]`(angle)`. With fringe blur each channel is the mean of
 /// [`crate::effects::lens_aberration_counts`] samples evenly along its shift, `fringe_blur`
 /// (a fraction) of its length, summed in order and divided once. The covering is the largest of
-/// the three channels'. The layer does not grow. The settings are already valid.
+/// the three channels'. A point past the input's edge reads the nearest edge pixel (D-1139).
+/// The layer does not grow. The settings are already valid.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn lens_chromatic_aberration(
     source: &mut WorkingBuffer,
@@ -1110,6 +1111,12 @@ pub(crate) fn lens_chromatic_aberration(
     let counts = crate::effects::lens_aberration_counts(amount, scales, fringe_blur);
     let drawing = source.clone();
     let w = source.width();
+    // D-1139, as chromatic_aberration: a point past the input's edge reads the nearest edge
+    // pixel, so the starting values draw D-120's picture.
+    let (sw, sh) = (w as f64, source.height() as f64);
+    let held = |x: f64, y: f64| {
+        sample_bilinear(&drawing, x.max(0.5).min(sw - 0.5), y.max(0.5).min(sh - 0.5))
+    };
     source
         .data_mut()
         .par_chunks_exact_mut(4)
@@ -1139,10 +1146,10 @@ pub(crate) fn lens_chromatic_aberration(
                     };
                     let q = if offset {
                         let m = amount * (t * fringe_blur * s.abs() - s);
-                        sample_bilinear(&drawing, x + ux * m, y + uy * m)
+                        held(x + ux * m, y + uy * m)
                     } else {
                         let f = 1.0 - s * k * g + t * fringe_blur * s.abs() * k * g;
-                        sample_bilinear(&drawing, cx + dx * f, cy + dy * f)
+                        held(cx + dx * f, cy + dy * f)
                     };
                     for v in 0..4 {
                         total[v] += q[v];

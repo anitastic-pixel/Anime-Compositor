@@ -1948,7 +1948,7 @@ fn grade(@builtin(global_invocation_id) id: vec3<u32>) {
 }
 
 // layer_fx::chromatic_aberration, D-1139's edge held. k: the centre, 1 - k and 1 + k. With `flag` 1 (radial) or
-// 2 (offset), layer_fx::lens_chromatic_aberration (D-409). k: the centre, the half diagonal,
+// 2 (offset), layer_fx::lens_chromatic_aberration (D-409), its edge held too. k: the centre, the half diagonal,
 // amount over it, the falloff's power, the angle's step across and down, the amount, the fringe
 // blur, the three scales and the three sample counts.
 @compute @workgroup_size(16, 16)
@@ -1957,6 +1957,9 @@ fn aberr(@builtin(global_invocation_id) id: vec3<u32>) {
     if id.x >= size.x || id.y >= size.y {
         return;
     }
+    // D-1139: held inside the outer pixel centres, a point past the edge reads the edge pixel.
+    let hx = f64(size.x) - 0.5lf;
+    let hy = f64(size.y) - 0.5lf;
     if F.flag != 0u {
         let x = f64(id.x) + 0.5lf;
         let y = f64(id.y) + 0.5lf;
@@ -1979,10 +1982,10 @@ fn aberr(@builtin(global_invocation_id) id: vec3<u32>) {
                 }
                 if F.flag == 2u {
                     let m = k[7] * (t * k[8] * abs(s) - s);
-                    total += bilinear(input, x + k[5] * m, y + k[6] * m);
+                    total += bilinear(input, clamp(x + k[5] * m, 0.5lf, hx), clamp(y + k[6] * m, 0.5lf, hy));
                 } else {
                     let f = 1.0lf - s * k[3] * g + t * k[8] * abs(s) * k[3] * g;
-                    total += bilinear(input, k[0] + ldx * f, k[1] + ldy * f);
+                    total += bilinear(input, clamp(k[0] + ldx * f, 0.5lf, hx), clamp(k[1] + ldy * f, 0.5lf, hy));
                 }
             }
             let mean = total / f32(n);
@@ -1994,9 +1997,6 @@ fn aberr(@builtin(global_invocation_id) id: vec3<u32>) {
     }
     let dx = f64(id.x) + 0.5lf - k[0];
     let dy = f64(id.y) + 0.5lf - k[1];
-    // D-1139: held inside the outer pixel centres, a point past the edge reads the edge pixel.
-    let hx = f64(size.x) - 0.5lf;
-    let hy = f64(size.y) - 0.5lf;
     let red = bilinear(input, clamp(k[0] + dx * k[2], 0.5lf, hx), clamp(k[1] + dy * k[2], 0.5lf, hy));
     let blue = bilinear(input, clamp(k[0] + dx * k[3], 0.5lf, hx), clamp(k[1] + dy * k[3], 0.5lf, hy));
     let p = textureLoad(input, id.xy, 0);
