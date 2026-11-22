@@ -44922,11 +44922,13 @@ Frame 4: every pixel is the drawing's, unchanged.
 
 D-120, accepted on 2026-09-26. Every case is a project of one composition 16 by 10 at 24 fps, five frames long, in `Fixtures/chromatic_aberration/`, holding one drawing the same size with one Chromatic Aberration (`core.chromatic_aberration`) on it, unmoved unless the case says. The drawing is `Fixtures/chromatic_aberration/media/figure.png`: a white block in columns 0 to 5 and rows 2 to 7, against the drawing's left edge, closed by a line #1e1a24 down column 6, and a skin block #f6d6be in columns 9 to 12 and rows 3 to 6 with a half-covering edge down column 13; everything else is empty. The drawing's half diagonal is sqrt(16^2 + 10^2) / 2 = 9.434. Values are linear premultiplied working values, and only the pixels that change are listed: every other pixel is the drawing's own, exactly.
 
-**Every number below is produced by `tools/chromatic_aberration_reference.py`**, which works D-120's rule in double precision at every pixel, sampling by `tools/radial_blur_reference.py`'s bilinear rule. The same numbers are in `Fixtures/chromatic_aberration/expected_chromatic_aberration.json`. Tolerance 2e-5.
+**Every number below is produced by `tools/chromatic_aberration_reference.py`**, which works D-120's rule in double precision at every pixel, sampling by `tools/chromatic_edge_reference.py`'s bilinear rule with D-1139's edge: each tap's column and row held inside the layer, so a sample past the layer's edge reads the nearest edge pixel. The same numbers are in `Fixtures/chromatic_aberration/expected_chromatic_aberration.json`. Tolerance 2e-5.
 
-**Checked by what they claim.** The tool checks each case's claim on its numbers: green is always the pixel's own (all); amount 0 changes nothing (002, 005 frame 0); red fringes outward with the red sample's covering, blue inward, and the left column on the layer's edge loses its blue and nothing is drawn outside the layer (001, 007); the covering is never less than the pixel's own (001, 003); about the left edge, red runs right and the left column keeps its blue (004); keyed amount and centre meet the plain cases at their frames (005, 006); the most, or a centre far off, keeps only the green (008, 009); at amount 1 the insides of the blocks keep their colour (010); and about the bottom right corner red reaches above the blocks and blue below (011).
+**Rewritten under D-1139.** As first written, a sample past the layer's edge read transparent, and FX-CHROMA-001 pinned the white block's left column turning yellow. The owner accepted D-1139 on 2026-11-21 and on 2026-11-22 approved regenerating the twelve frames it changes (001, 003, 004, 005 frames 2 and 4, 006 frames 0, 2 and 4, 007 frames 0 and 3, 010, 011); the cases' claims and the tables below are the new rule's. 002, 008, 009 and 012 to 016 draw the same numbers as before; 008's and 009's samples now read the layer's edge pixels, which are empty there.
 
-FX-CHROMA-001: The settings as they start, amount 3 about the middle: red fringes outward past the blocks' outer edges, where the red sample alone covers and the pixel takes its covering, and blue fringes inward; the white block's left column, on the layer's edge, loses its blue, whose sample falls outside the layer, and turns yellow, and nothing is drawn beyond the layer.
+**Checked by what they claim.** The tool checks each case's claim on its numbers: green is always the pixel's own (all); amount 0 changes nothing (002, 005 frame 0); red fringes outward with the red sample's covering, blue inward, and the left column on the layer's edge keeps its blue, which the rule as first built lost, and nothing is drawn outside the layer (001, 007); the covering is never less than the pixel's own (001, 003); about the left edge, red runs right and the left column keeps its blue and its full red (004); keyed amount and centre meet the plain cases at their frames (005, 006); the most, or a centre far off, keeps only the green (008, 009); at amount 1 the insides of the blocks keep their colour (010); and about the bottom right corner red reaches above the blocks, blue below, and the left column keeps its blue (011).
+
+FX-CHROMA-001: The settings as they start, amount 3 about the middle: red fringes outward past the blocks' outer edges, where the red sample alone covers and the pixel takes its covering, and blue fringes inward; the white block's left column, on the layer's edge, keeps its blue, whose sample falls past the layer's edge and reads the edge pixel (D-1139), and nothing is drawn beyond the layer.
 
 Frame 0:
 
@@ -44965,8 +44967,8 @@ Row 2, the 15 pixels that change:
 
 | x | drawing | split |
 | --- | --- | --- |
-| 0 | 1 1 1 1 | 1 1 0 1 |
-| 1 | 1 1 1 1 | 1 1 0 1 |
+| 0 | 1 1 1 1 | 1 1 0.2050016 1 |
+| 1 | 1 1 1 1 | 1 1 0.2050016 1 |
 | 2 | 1 1 1 1 | 1 1 0.2050016 1 |
 | 3 | 1 1 1 1 | 1 1 0.2050016 1 |
 | 4 | 1 1 1 1 | 0.8884693 1 0.2050016 1 |
@@ -44981,12 +44983,10 @@ Row 2, the 15 pixels that change:
 | 14 | 0 0 0 0 | 0.7326561 0 0 0.7949984 |
 | 15 | 0 0 0 0 | 0.5082461 0 0 0.5514932 |
 
-Row 3, the 15 pixels that change:
+Row 3, the 13 pixels that change:
 
 | x | drawing | split |
 | --- | --- | --- |
-| 0 | 1 1 1 1 | 1 1 0 1 |
-| 1 | 1 1 1 1 | 1 1 0 1 |
 | 3 | 1 1 1 1 | 1 1 1 1 |
 | 4 | 1 1 1 1 | 0.8884693 1 1 1 |
 | 5 | 1 1 1 1 | 0.2153231 1 1 1 |
@@ -45001,12 +45001,10 @@ Row 3, the 15 pixels that change:
 | 14 | 0 0 0 0 | 0.9215819 0 0 1 |
 | 15 | 0 0 0 0 | 0.6393046 0 0 0.6937035 |
 
-Row 4, the 13 pixels that change:
+Row 4, the 11 pixels that change:
 
 | x | drawing | split |
 | --- | --- | --- |
-| 0 | 1 1 1 1 | 1 1 0 1 |
-| 1 | 1 1 1 1 | 1 1 0 1 |
 | 4 | 1 1 1 1 | 0.8884693 1 1 1 |
 | 5 | 1 1 1 1 | 0.2153231 1 1 1 |
 | 6 | 0.01298303 0.01032982 0.01764195 1 | 0.006790138 0.01032982 0.4862258 1 |
@@ -45019,12 +45017,10 @@ Row 4, the 13 pixels that change:
 | 14 | 0 0 0 0 | 0.9215819 0 0 1 |
 | 15 | 0 0 0 0 | 0.6393046 0 0 0.6937035 |
 
-Row 5, the 14 pixels that change:
+Row 5, the 12 pixels that change:
 
 | x | drawing | split |
 | --- | --- | --- |
-| 0 | 1 1 1 1 | 1 1 0 1 |
-| 1 | 1 1 1 1 | 1 1 0 1 |
 | 4 | 1 1 1 1 | 0.8884693 1 1 1 |
 | 5 | 1 1 1 1 | 0.2153231 1 1 1 |
 | 6 | 0.01298303 0.01032982 0.01764195 1 | 0.006790138 0.01032982 0.4862258 1 |
@@ -45038,12 +45034,10 @@ Row 5, the 14 pixels that change:
 | 14 | 0 0 0 0 | 0.9215819 0 0 1 |
 | 15 | 0 0 0 0 | 0.6393046 0 0 0.6937035 |
 
-Row 6, the 14 pixels that change:
+Row 6, the 12 pixels that change:
 
 | x | drawing | split |
 | --- | --- | --- |
-| 0 | 1 1 1 1 | 1 1 0 1 |
-| 1 | 1 1 1 1 | 1 1 0 1 |
 | 4 | 1 1 1 1 | 0.8884693 1 1 1 |
 | 5 | 1 1 1 1 | 0.2153231 1 1 1 |
 | 6 | 0.01298303 0.01032982 0.01764195 1 | 0.006790138 0.01032982 0.4862258 1 |
@@ -45061,8 +45055,8 @@ Row 7, the 15 pixels that change:
 
 | x | drawing | split |
 | --- | --- | --- |
-| 0 | 1 1 1 1 | 1 1 0 1 |
-| 1 | 1 1 1 1 | 1 1 0 1 |
+| 0 | 1 1 1 1 | 1 1 0.2050016 1 |
+| 1 | 1 1 1 1 | 1 1 0.2050016 1 |
 | 2 | 1 1 1 1 | 1 1 0.2050016 1 |
 | 3 | 1 1 1 1 | 1 1 0.2050016 1 |
 | 4 | 1 1 1 1 | 0.8884693 1 0.2050016 1 |
@@ -45173,13 +45167,12 @@ Row 2, the 14 pixels that change:
 | 14 | 0 0 0 0 | 0.9215819 0 0 1 |
 | 15 | 0 0 0 0 | 0.9215819 0 0 1 |
 
-Row 3, the 16 pixels that change:
+Row 3, the 15 pixels that change:
 
 | x | drawing | split |
 | --- | --- | --- |
-| 0 | 1 1 1 1 | 1 1 0 1 |
-| 1 | 1 1 1 1 | 0.8677479 1 0 1 |
-| 2 | 1 1 1 1 | 0.5084725 1 0 1 |
+| 1 | 1 1 1 1 | 0.8677479 1 1 1 |
+| 2 | 1 1 1 1 | 0.5084725 1 1 1 |
 | 3 | 1 1 1 1 | 0.149197 1 1 1 |
 | 4 | 1 1 1 1 | 0.01004892 1 1 1 |
 | 5 | 1 1 1 1 | 0.005323085 1 1 1 |
@@ -45194,13 +45187,12 @@ Row 3, the 16 pixels that change:
 | 14 | 0 0 0 0 | 0.9215819 0 0 1 |
 | 15 | 0 0 0 0 | 0.9215819 0 0 1 |
 
-Row 4, the 16 pixels that change:
+Row 4, the 15 pixels that change:
 
 | x | drawing | split |
 | --- | --- | --- |
-| 0 | 1 1 1 1 | 1 1 0 1 |
-| 1 | 1 1 1 1 | 0.8677479 1 0 1 |
-| 2 | 1 1 1 1 | 0.5084725 1 0 1 |
+| 1 | 1 1 1 1 | 0.8677479 1 1 1 |
+| 2 | 1 1 1 1 | 0.5084725 1 1 1 |
 | 3 | 1 1 1 1 | 0.149197 1 1 1 |
 | 4 | 1 1 1 1 | 0.01004892 1 1 1 |
 | 5 | 1 1 1 1 | 0.005323085 1 1 1 |
@@ -45215,13 +45207,12 @@ Row 4, the 16 pixels that change:
 | 14 | 0 0 0 0 | 0.9215819 0 0 1 |
 | 15 | 0 0 0 0 | 0.9215819 0 0 1 |
 
-Row 5, the 16 pixels that change:
+Row 5, the 15 pixels that change:
 
 | x | drawing | split |
 | --- | --- | --- |
-| 0 | 1 1 1 1 | 1 1 0 1 |
-| 1 | 1 1 1 1 | 0.8677479 1 0 1 |
-| 2 | 1 1 1 1 | 0.5084725 1 0 1 |
+| 1 | 1 1 1 1 | 0.8677479 1 1 1 |
+| 2 | 1 1 1 1 | 0.5084725 1 1 1 |
 | 3 | 1 1 1 1 | 0.149197 1 1 1 |
 | 4 | 1 1 1 1 | 0.01004892 1 1 1 |
 | 5 | 1 1 1 1 | 0.005323085 1 1 1 |
@@ -45236,13 +45227,12 @@ Row 5, the 16 pixels that change:
 | 14 | 0 0 0 0 | 0.9215819 0 0 1 |
 | 15 | 0 0 0 0 | 0.9215819 0 0 1 |
 
-Row 6, the 16 pixels that change:
+Row 6, the 15 pixels that change:
 
 | x | drawing | split |
 | --- | --- | --- |
-| 0 | 1 1 1 1 | 1 1 0 1 |
-| 1 | 1 1 1 1 | 0.8677479 1 0 1 |
-| 2 | 1 1 1 1 | 0.5084725 1 0 1 |
+| 1 | 1 1 1 1 | 0.8677479 1 1 1 |
+| 2 | 1 1 1 1 | 0.5084725 1 1 1 |
 | 3 | 1 1 1 1 | 0.149197 1 1 1 |
 | 4 | 1 1 1 1 | 0.01004892 1 1 1 |
 | 5 | 1 1 1 1 | 0.005323085 1 1 1 |
@@ -45314,7 +45304,7 @@ Row 9, the 14 pixels that change:
 | 14 | 0 0 0 0 | 0.7943983 0 0 0.8619943 |
 | 15 | 0 0 0 0 | 0.7943983 0 0 0.8619943 |
 
-FX-CHROMA-004: Centre 0, 50, the middle of the left edge: the split runs away from there, so red spreads right past both blocks' right sides, and the white block's left column, beside the centre, keeps its blue, whose sample now lands inside the layer.
+FX-CHROMA-004: Centre 0, 50, the middle of the left edge: the split runs away from there, so red spreads right past both blocks' right sides, and the white block's left column, beside the centre, keeps its blue, whose sample lands inside the layer, and its full red, whose sample falls past the left edge and reads the edge pixel; above and below the block that column takes red from the edge too.
 
 Frame 0:
 
@@ -45322,7 +45312,7 @@ Row 0, the 11 pixels that change:
 
 | x | drawing | split |
 | --- | --- | --- |
-| 0 | 0 0 0 0 | 0.3624687 0 0 0.3624687 |
+| 0 | 0 0 0 0 | 0.4309971 0 0 0.4309971 |
 | 1 | 0 0 0 0 | 0.4309971 0 0 0.4309971 |
 | 2 | 0 0 0 0 | 0.4309971 0 0 0.4309971 |
 | 3 | 0 0 0 0 | 0.4309971 0 0 0.4309971 |
@@ -45338,7 +45328,7 @@ Row 1, the 15 pixels that change:
 
 | x | drawing | split |
 | --- | --- | --- |
-| 0 | 0 0 0 0 | 0.8410003 0 0 0.8410003 |
+| 0 | 0 0 0 0 | 1 0 0 1 |
 | 1 | 0 0 0 0 | 1 0 0 1 |
 | 2 | 0 0 0 0 | 1 0 0 1 |
 | 3 | 0 0 0 0 | 1 0 0 1 |
@@ -45358,7 +45348,7 @@ Row 2, the 15 pixels that change:
 
 | x | drawing | split |
 | --- | --- | --- |
-| 0 | 1 1 1 1 | 0.8410003 1 0.2050016 1 |
+| 0 | 1 1 1 1 | 1 1 0.2050016 1 |
 | 1 | 1 1 1 1 | 1 1 0.2050016 1 |
 | 2 | 1 1 1 1 | 1 1 0.2050016 1 |
 | 3 | 1 1 1 1 | 1 1 0.2050016 1 |
@@ -45374,11 +45364,10 @@ Row 2, the 15 pixels that change:
 | 14 | 0 0 0 0 | 0.7326561 0 0 0.7949984 |
 | 15 | 0 0 0 0 | 0.7326561 0 0 0.7949984 |
 
-Row 3, the 13 pixels that change:
+Row 3, the 12 pixels that change:
 
 | x | drawing | split |
 | --- | --- | --- |
-| 0 | 1 1 1 1 | 0.8410003 1 1 1 |
 | 4 | 1 1 1 1 | 1 1 0.5766065 1 |
 | 5 | 1 1 1 1 | 1 1 0.004428192 1 |
 | 6 | 0.01298303 0.01032982 0.01764195 1 | 1 0.01032982 0.01804215 1 |
@@ -45392,11 +45381,10 @@ Row 3, the 13 pixels that change:
 | 14 | 0 0 0 0 | 0.9215819 0 0 1 |
 | 15 | 0 0 0 0 | 0.9215819 0 0 1 |
 
-Row 4, the 13 pixels that change:
+Row 4, the 12 pixels that change:
 
 | x | drawing | split |
 | --- | --- | --- |
-| 0 | 1 1 1 1 | 0.8410003 1 1 1 |
 | 4 | 1 1 1 1 | 1 1 0.5766065 1 |
 | 5 | 1 1 1 1 | 1 1 0.004428192 1 |
 | 6 | 0.01298303 0.01032982 0.01764195 1 | 1 0.01032982 0.03449735 1 |
@@ -45410,11 +45398,10 @@ Row 4, the 13 pixels that change:
 | 14 | 0 0 0 0 | 0.9215819 0 0 1 |
 | 15 | 0 0 0 0 | 0.9215819 0 0 1 |
 
-Row 5, the 13 pixels that change:
+Row 5, the 12 pixels that change:
 
 | x | drawing | split |
 | --- | --- | --- |
-| 0 | 1 1 1 1 | 0.8410003 1 1 1 |
 | 4 | 1 1 1 1 | 1 1 0.5766065 1 |
 | 5 | 1 1 1 1 | 1 1 0.004428192 1 |
 | 6 | 0.01298303 0.01032982 0.01764195 1 | 1 0.01032982 0.03449735 1 |
@@ -45432,7 +45419,7 @@ Row 6, the 13 pixels that change:
 
 | x | drawing | split |
 | --- | --- | --- |
-| 0 | 1 1 1 1 | 0.8410003 1 1 1 |
+| 0 | 1 1 1 1 | 1 1 1 1 |
 | 4 | 1 1 1 1 | 1 1 0.5766065 1 |
 | 5 | 1 1 1 1 | 1 1 0.004428192 1 |
 | 6 | 0.01298303 0.01032982 0.01764195 1 | 1 0.01032982 0.01804215 1 |
@@ -45450,7 +45437,7 @@ Row 7, the 15 pixels that change:
 
 | x | drawing | split |
 | --- | --- | --- |
-| 0 | 1 1 1 1 | 0.8410003 1 0.2050016 1 |
+| 0 | 1 1 1 1 | 1 1 0.2050016 1 |
 | 1 | 1 1 1 1 | 1 1 0.2050016 1 |
 | 2 | 1 1 1 1 | 1 1 0.2050016 1 |
 | 3 | 1 1 1 1 | 1 1 0.2050016 1 |
@@ -45470,7 +45457,7 @@ Row 8, the 15 pixels that change:
 
 | x | drawing | split |
 | --- | --- | --- |
-| 0 | 0 0 0 0 | 0.8410003 0 0 0.8410003 |
+| 0 | 0 0 0 0 | 1 0 0 1 |
 | 1 | 0 0 0 0 | 1 0 0 1 |
 | 2 | 0 0 0 0 | 1 0 0 1 |
 | 3 | 0 0 0 0 | 1 0 0 1 |
@@ -45490,7 +45477,7 @@ Row 9, the 11 pixels that change:
 
 | x | drawing | split |
 | --- | --- | --- |
-| 0 | 0 0 0 0 | 0.3624687 0 0 0.3624687 |
+| 0 | 0 0 0 0 | 0.4309971 0 0 0.4309971 |
 | 1 | 0 0 0 0 | 0.4309971 0 0 0.4309971 |
 | 2 | 0 0 0 0 | 0.4309971 0 0 0.4309971 |
 | 3 | 0 0 0 0 | 0.4309971 0 0 0.4309971 |
@@ -45565,13 +45552,12 @@ Row 2, the 14 pixels that change:
 | 14 | 0 0 0 0 | 0.9215819 0 0 1 |
 | 15 | 0 0 0 0 | 0.9215819 0 0 1 |
 
-Row 3, the 16 pixels that change:
+Row 3, the 15 pixels that change:
 
 | x | drawing | split |
 | --- | --- | --- |
-| 0 | 1 1 1 1 | 1 1 0 1 |
-| 1 | 1 1 1 1 | 0.8677479 1 0 1 |
-| 2 | 1 1 1 1 | 0.5084725 1 0 1 |
+| 1 | 1 1 1 1 | 0.8677479 1 1 1 |
+| 2 | 1 1 1 1 | 0.5084725 1 1 1 |
 | 3 | 1 1 1 1 | 0.149197 1 1 1 |
 | 4 | 1 1 1 1 | 0.01004892 1 1 1 |
 | 5 | 1 1 1 1 | 0.005323085 1 1 1 |
@@ -45586,13 +45572,12 @@ Row 3, the 16 pixels that change:
 | 14 | 0 0 0 0 | 0.9215819 0 0 1 |
 | 15 | 0 0 0 0 | 0.9215819 0 0 1 |
 
-Row 4, the 16 pixels that change:
+Row 4, the 15 pixels that change:
 
 | x | drawing | split |
 | --- | --- | --- |
-| 0 | 1 1 1 1 | 1 1 0 1 |
-| 1 | 1 1 1 1 | 0.8677479 1 0 1 |
-| 2 | 1 1 1 1 | 0.5084725 1 0 1 |
+| 1 | 1 1 1 1 | 0.8677479 1 1 1 |
+| 2 | 1 1 1 1 | 0.5084725 1 1 1 |
 | 3 | 1 1 1 1 | 0.149197 1 1 1 |
 | 4 | 1 1 1 1 | 0.01004892 1 1 1 |
 | 5 | 1 1 1 1 | 0.005323085 1 1 1 |
@@ -45607,13 +45592,12 @@ Row 4, the 16 pixels that change:
 | 14 | 0 0 0 0 | 0.9215819 0 0 1 |
 | 15 | 0 0 0 0 | 0.9215819 0 0 1 |
 
-Row 5, the 16 pixels that change:
+Row 5, the 15 pixels that change:
 
 | x | drawing | split |
 | --- | --- | --- |
-| 0 | 1 1 1 1 | 1 1 0 1 |
-| 1 | 1 1 1 1 | 0.8677479 1 0 1 |
-| 2 | 1 1 1 1 | 0.5084725 1 0 1 |
+| 1 | 1 1 1 1 | 0.8677479 1 1 1 |
+| 2 | 1 1 1 1 | 0.5084725 1 1 1 |
 | 3 | 1 1 1 1 | 0.149197 1 1 1 |
 | 4 | 1 1 1 1 | 0.01004892 1 1 1 |
 | 5 | 1 1 1 1 | 0.005323085 1 1 1 |
@@ -45628,13 +45612,12 @@ Row 5, the 16 pixels that change:
 | 14 | 0 0 0 0 | 0.9215819 0 0 1 |
 | 15 | 0 0 0 0 | 0.9215819 0 0 1 |
 
-Row 6, the 16 pixels that change:
+Row 6, the 15 pixels that change:
 
 | x | drawing | split |
 | --- | --- | --- |
-| 0 | 1 1 1 1 | 1 1 0 1 |
-| 1 | 1 1 1 1 | 0.8677479 1 0 1 |
-| 2 | 1 1 1 1 | 0.5084725 1 0 1 |
+| 1 | 1 1 1 1 | 0.8677479 1 1 1 |
+| 2 | 1 1 1 1 | 0.5084725 1 1 1 |
 | 3 | 1 1 1 1 | 0.149197 1 1 1 |
 | 4 | 1 1 1 1 | 0.01004892 1 1 1 |
 | 5 | 1 1 1 1 | 0.005323085 1 1 1 |
@@ -45764,11 +45747,11 @@ Row 3, the 15 pixels that change:
 
 | x | drawing | split |
 | --- | --- | --- |
-| 0 | 1 1 1 1 | 0.9215819 1 0 1 |
-| 1 | 1 1 1 1 | 0.9215819 1 0 1 |
-| 2 | 1 1 1 1 | 0.9178826 1 0 1 |
-| 3 | 1 1 1 1 | 0.6672147 1 0 1 |
-| 4 | 1 1 1 1 | 0.4165468 1 0.05041891 1 |
+| 0 | 1 1 1 1 | 0.9215819 1 0.09200382 1 |
+| 1 | 1 1 1 1 | 0.9215819 1 0.09200382 1 |
+| 2 | 1 1 1 1 | 0.9178826 1 0.09200382 1 |
+| 3 | 1 1 1 1 | 0.6672147 1 0.09200382 1 |
+| 4 | 1 1 1 1 | 0.4165468 1 0.09200382 1 |
 | 5 | 1 1 1 1 | 0.1658789 1 0.09200382 1 |
 | 6 | 0.01298303 0.01032982 0.01764195 1 | 0 0.01032982 0.09200382 1 |
 | 7 | 0 0 0 0 | 0 0 0.001032307 0.05851431 |
@@ -45784,11 +45767,11 @@ Row 4, the 16 pixels that change:
 
 | x | drawing | split |
 | --- | --- | --- |
-| 0 | 1 1 1 1 | 0.9215819 1 0 1 |
-| 1 | 1 1 1 1 | 0.9215819 1 0 1 |
-| 2 | 1 1 1 1 | 0.9178826 1 0 1 |
-| 3 | 1 1 1 1 | 0.6672147 1 0 1 |
-| 4 | 1 1 1 1 | 0.4165468 1 0.5480089 1 |
+| 0 | 1 1 1 1 | 0.9215819 1 1 1 |
+| 1 | 1 1 1 1 | 0.9215819 1 1 1 |
+| 2 | 1 1 1 1 | 0.9178826 1 1 1 |
+| 3 | 1 1 1 1 | 0.6672147 1 1 1 |
+| 4 | 1 1 1 1 | 0.4165468 1 1 1 |
 | 5 | 1 1 1 1 | 0.1658789 1 1 1 |
 | 6 | 0.01298303 0.01032982 0.01764195 1 | 0 0.01032982 1 1 |
 | 7 | 0 0 0 0 | 0 0 0.01122026 0.6359987 |
@@ -45805,11 +45788,11 @@ Row 5, the 16 pixels that change:
 
 | x | drawing | split |
 | --- | --- | --- |
-| 0 | 1 1 1 1 | 0.9215819 1 0 1 |
-| 1 | 1 1 1 1 | 0.9215819 1 0 1 |
-| 2 | 1 1 1 1 | 0.9178826 1 0 1 |
-| 3 | 1 1 1 1 | 0.6672147 1 0 1 |
-| 4 | 1 1 1 1 | 0.4165468 1 0.5480089 1 |
+| 0 | 1 1 1 1 | 0.9215819 1 1 1 |
+| 1 | 1 1 1 1 | 0.9215819 1 1 1 |
+| 2 | 1 1 1 1 | 0.9178826 1 1 1 |
+| 3 | 1 1 1 1 | 0.6672147 1 1 1 |
+| 4 | 1 1 1 1 | 0.4165468 1 1 1 |
 | 5 | 1 1 1 1 | 0.1658789 1 1 1 |
 | 6 | 0.01298303 0.01032982 0.01764195 1 | 0 0.01032982 1 1 |
 | 7 | 0 0 0 0 | 0 0 0.01122026 0.6359987 |
@@ -45826,11 +45809,11 @@ Row 6, the 15 pixels that change:
 
 | x | drawing | split |
 | --- | --- | --- |
-| 0 | 1 1 1 1 | 0.9215819 1 0 1 |
-| 1 | 1 1 1 1 | 0.9215819 1 0 1 |
-| 2 | 1 1 1 1 | 0.9178826 1 0 1 |
-| 3 | 1 1 1 1 | 0.6672147 1 0 1 |
-| 4 | 1 1 1 1 | 0.4165468 1 0.05041891 1 |
+| 0 | 1 1 1 1 | 0.9215819 1 0.09200382 1 |
+| 1 | 1 1 1 1 | 0.9215819 1 0.09200382 1 |
+| 2 | 1 1 1 1 | 0.9178826 1 0.09200382 1 |
+| 3 | 1 1 1 1 | 0.6672147 1 0.09200382 1 |
+| 4 | 1 1 1 1 | 0.4165468 1 0.09200382 1 |
 | 5 | 1 1 1 1 | 0.1658789 1 0.09200382 1 |
 | 6 | 0.01298303 0.01032982 0.01764195 1 | 0 0.01032982 0.09200382 1 |
 | 7 | 0 0 0 0 | 0 0 0.001032307 0.05851431 |
@@ -45933,8 +45916,8 @@ Row 2, the 15 pixels that change:
 
 | x | drawing | split |
 | --- | --- | --- |
-| 0 | 1 1 1 1 | 1 1 0 1 |
-| 1 | 1 1 1 1 | 1 1 0 1 |
+| 0 | 1 1 1 1 | 1 1 0.2050016 1 |
+| 1 | 1 1 1 1 | 1 1 0.2050016 1 |
 | 2 | 1 1 1 1 | 1 1 0.2050016 1 |
 | 3 | 1 1 1 1 | 1 1 0.2050016 1 |
 | 4 | 1 1 1 1 | 0.8884693 1 0.2050016 1 |
@@ -45949,12 +45932,10 @@ Row 2, the 15 pixels that change:
 | 14 | 0 0 0 0 | 0.7326561 0 0 0.7949984 |
 | 15 | 0 0 0 0 | 0.5082461 0 0 0.5514932 |
 
-Row 3, the 15 pixels that change:
+Row 3, the 13 pixels that change:
 
 | x | drawing | split |
 | --- | --- | --- |
-| 0 | 1 1 1 1 | 1 1 0 1 |
-| 1 | 1 1 1 1 | 1 1 0 1 |
 | 3 | 1 1 1 1 | 1 1 1 1 |
 | 4 | 1 1 1 1 | 0.8884693 1 1 1 |
 | 5 | 1 1 1 1 | 0.2153231 1 1 1 |
@@ -45969,12 +45950,10 @@ Row 3, the 15 pixels that change:
 | 14 | 0 0 0 0 | 0.9215819 0 0 1 |
 | 15 | 0 0 0 0 | 0.6393046 0 0 0.6937035 |
 
-Row 4, the 13 pixels that change:
+Row 4, the 11 pixels that change:
 
 | x | drawing | split |
 | --- | --- | --- |
-| 0 | 1 1 1 1 | 1 1 0 1 |
-| 1 | 1 1 1 1 | 1 1 0 1 |
 | 4 | 1 1 1 1 | 0.8884693 1 1 1 |
 | 5 | 1 1 1 1 | 0.2153231 1 1 1 |
 | 6 | 0.01298303 0.01032982 0.01764195 1 | 0.006790138 0.01032982 0.4862258 1 |
@@ -45987,12 +45966,10 @@ Row 4, the 13 pixels that change:
 | 14 | 0 0 0 0 | 0.9215819 0 0 1 |
 | 15 | 0 0 0 0 | 0.6393046 0 0 0.6937035 |
 
-Row 5, the 14 pixels that change:
+Row 5, the 12 pixels that change:
 
 | x | drawing | split |
 | --- | --- | --- |
-| 0 | 1 1 1 1 | 1 1 0 1 |
-| 1 | 1 1 1 1 | 1 1 0 1 |
 | 4 | 1 1 1 1 | 0.8884693 1 1 1 |
 | 5 | 1 1 1 1 | 0.2153231 1 1 1 |
 | 6 | 0.01298303 0.01032982 0.01764195 1 | 0.006790138 0.01032982 0.4862258 1 |
@@ -46006,12 +45983,10 @@ Row 5, the 14 pixels that change:
 | 14 | 0 0 0 0 | 0.9215819 0 0 1 |
 | 15 | 0 0 0 0 | 0.6393046 0 0 0.6937035 |
 
-Row 6, the 14 pixels that change:
+Row 6, the 12 pixels that change:
 
 | x | drawing | split |
 | --- | --- | --- |
-| 0 | 1 1 1 1 | 1 1 0 1 |
-| 1 | 1 1 1 1 | 1 1 0 1 |
 | 4 | 1 1 1 1 | 0.8884693 1 1 1 |
 | 5 | 1 1 1 1 | 0.2153231 1 1 1 |
 | 6 | 0.01298303 0.01032982 0.01764195 1 | 0.006790138 0.01032982 0.4862258 1 |
@@ -46029,8 +46004,8 @@ Row 7, the 15 pixels that change:
 
 | x | drawing | split |
 | --- | --- | --- |
-| 0 | 1 1 1 1 | 1 1 0 1 |
-| 1 | 1 1 1 1 | 1 1 0 1 |
+| 0 | 1 1 1 1 | 1 1 0.2050016 1 |
+| 1 | 1 1 1 1 | 1 1 0.2050016 1 |
 | 2 | 1 1 1 1 | 1 1 0.2050016 1 |
 | 3 | 1 1 1 1 | 1 1 0.2050016 1 |
 | 4 | 1 1 1 1 | 0.8884693 1 0.2050016 1 |
@@ -46115,7 +46090,7 @@ Row 2, the 14 pixels that change:
 
 | x | drawing | split |
 | --- | --- | --- |
-| 0 | 1 1 1 1 | 1 1 0 1 |
+| 0 | 1 1 1 1 | 1 1 0.2050016 1 |
 | 1 | 1 1 1 1 | 1 1 0.2050016 1 |
 | 2 | 1 1 1 1 | 1 1 0.2050016 1 |
 | 3 | 1 1 1 1 | 1 1 0.2050016 1 |
@@ -46130,11 +46105,10 @@ Row 2, the 14 pixels that change:
 | 14 | 0 0 0 0 | 0.7326561 0 0 0.7949984 |
 | 15 | 0 0 0 0 | 0.7326561 0 0 0.7949984 |
 
-Row 3, the 13 pixels that change:
+Row 3, the 12 pixels that change:
 
 | x | drawing | split |
 | --- | --- | --- |
-| 0 | 1 1 1 1 | 1 1 0 1 |
 | 3 | 1 1 1 1 | 1 1 1 1 |
 | 5 | 1 1 1 1 | 1 1 0.5314161 1 |
 | 6 | 0.01298303 0.01032982 0.01764195 1 | 0.79766 0.01032982 0.003616629 1 |
@@ -46148,11 +46122,10 @@ Row 3, the 13 pixels that change:
 | 14 | 0 0 0 0 | 0.9215819 0 0 1 |
 | 15 | 0 0 0 0 | 0.9215819 0 0 1 |
 
-Row 4, the 12 pixels that change:
+Row 4, the 11 pixels that change:
 
 | x | drawing | split |
 | --- | --- | --- |
-| 0 | 1 1 1 1 | 1 1 0 1 |
 | 5 | 1 1 1 1 | 1 1 0.5314161 1 |
 | 6 | 0.01298303 0.01032982 0.01764195 1 | 0.79766 0.01032982 0.003616629 1 |
 | 7 | 0 0 0 0 | 0.1245138 0 0.05818455 1 |
@@ -46165,11 +46138,10 @@ Row 4, the 12 pixels that change:
 | 14 | 0 0 0 0 | 0.9215819 0 0 1 |
 | 15 | 0 0 0 0 | 0.9215819 0 0 1 |
 
-Row 5, the 12 pixels that change:
+Row 5, the 11 pixels that change:
 
 | x | drawing | split |
 | --- | --- | --- |
-| 0 | 1 1 1 1 | 1 1 0 1 |
 | 5 | 1 1 1 1 | 1 1 0.5314161 1 |
 | 6 | 0.01298303 0.01032982 0.01764195 1 | 0.79766 0.01032982 0.003616629 1 |
 | 7 | 0 0 0 0 | 0.1245138 0 0.05818455 1 |
@@ -46182,11 +46154,10 @@ Row 5, the 12 pixels that change:
 | 14 | 0 0 0 0 | 0.9215819 0 0 1 |
 | 15 | 0 0 0 0 | 0.9215819 0 0 1 |
 
-Row 6, the 13 pixels that change:
+Row 6, the 12 pixels that change:
 
 | x | drawing | split |
 | --- | --- | --- |
-| 0 | 1 1 1 1 | 1 1 0 1 |
 | 4 | 1 1 1 1 | 1 1 1 1 |
 | 5 | 1 1 1 1 | 1 1 0.5314161 1 |
 | 6 | 0.01298303 0.01032982 0.01764195 1 | 0.79766 0.01032982 0.003616629 1 |
@@ -46204,7 +46175,7 @@ Row 7, the 14 pixels that change:
 
 | x | drawing | split |
 | --- | --- | --- |
-| 0 | 1 1 1 1 | 1 1 0 1 |
+| 0 | 1 1 1 1 | 1 1 0.2050016 1 |
 | 1 | 1 1 1 1 | 1 1 0.2050016 1 |
 | 2 | 1 1 1 1 | 1 1 0.2050016 1 |
 | 3 | 1 1 1 1 | 1 1 0.2050016 1 |
@@ -46258,7 +46229,7 @@ Row 0, the 11 pixels that change:
 
 | x | drawing | split |
 | --- | --- | --- |
-| 0 | 0 0 0 0 | 0.3624687 0 0 0.3624687 |
+| 0 | 0 0 0 0 | 0.4309971 0 0 0.4309971 |
 | 1 | 0 0 0 0 | 0.4309971 0 0 0.4309971 |
 | 2 | 0 0 0 0 | 0.4309971 0 0 0.4309971 |
 | 3 | 0 0 0 0 | 0.4309971 0 0 0.4309971 |
@@ -46274,7 +46245,7 @@ Row 1, the 15 pixels that change:
 
 | x | drawing | split |
 | --- | --- | --- |
-| 0 | 0 0 0 0 | 0.8410003 0 0 0.8410003 |
+| 0 | 0 0 0 0 | 1 0 0 1 |
 | 1 | 0 0 0 0 | 1 0 0 1 |
 | 2 | 0 0 0 0 | 1 0 0 1 |
 | 3 | 0 0 0 0 | 1 0 0 1 |
@@ -46294,7 +46265,7 @@ Row 2, the 15 pixels that change:
 
 | x | drawing | split |
 | --- | --- | --- |
-| 0 | 1 1 1 1 | 0.8410003 1 0.2050016 1 |
+| 0 | 1 1 1 1 | 1 1 0.2050016 1 |
 | 1 | 1 1 1 1 | 1 1 0.2050016 1 |
 | 2 | 1 1 1 1 | 1 1 0.2050016 1 |
 | 3 | 1 1 1 1 | 1 1 0.2050016 1 |
@@ -46310,11 +46281,10 @@ Row 2, the 15 pixels that change:
 | 14 | 0 0 0 0 | 0.7326561 0 0 0.7949984 |
 | 15 | 0 0 0 0 | 0.7326561 0 0 0.7949984 |
 
-Row 3, the 13 pixels that change:
+Row 3, the 12 pixels that change:
 
 | x | drawing | split |
 | --- | --- | --- |
-| 0 | 1 1 1 1 | 0.8410003 1 1 1 |
 | 4 | 1 1 1 1 | 1 1 0.5766065 1 |
 | 5 | 1 1 1 1 | 1 1 0.004428192 1 |
 | 6 | 0.01298303 0.01032982 0.01764195 1 | 1 0.01032982 0.01804215 1 |
@@ -46328,11 +46298,10 @@ Row 3, the 13 pixels that change:
 | 14 | 0 0 0 0 | 0.9215819 0 0 1 |
 | 15 | 0 0 0 0 | 0.9215819 0 0 1 |
 
-Row 4, the 13 pixels that change:
+Row 4, the 12 pixels that change:
 
 | x | drawing | split |
 | --- | --- | --- |
-| 0 | 1 1 1 1 | 0.8410003 1 1 1 |
 | 4 | 1 1 1 1 | 1 1 0.5766065 1 |
 | 5 | 1 1 1 1 | 1 1 0.004428192 1 |
 | 6 | 0.01298303 0.01032982 0.01764195 1 | 1 0.01032982 0.03449735 1 |
@@ -46346,11 +46315,10 @@ Row 4, the 13 pixels that change:
 | 14 | 0 0 0 0 | 0.9215819 0 0 1 |
 | 15 | 0 0 0 0 | 0.9215819 0 0 1 |
 
-Row 5, the 13 pixels that change:
+Row 5, the 12 pixels that change:
 
 | x | drawing | split |
 | --- | --- | --- |
-| 0 | 1 1 1 1 | 0.8410003 1 1 1 |
 | 4 | 1 1 1 1 | 1 1 0.5766065 1 |
 | 5 | 1 1 1 1 | 1 1 0.004428192 1 |
 | 6 | 0.01298303 0.01032982 0.01764195 1 | 1 0.01032982 0.03449735 1 |
@@ -46368,7 +46336,7 @@ Row 6, the 13 pixels that change:
 
 | x | drawing | split |
 | --- | --- | --- |
-| 0 | 1 1 1 1 | 0.8410003 1 1 1 |
+| 0 | 1 1 1 1 | 1 1 1 1 |
 | 4 | 1 1 1 1 | 1 1 0.5766065 1 |
 | 5 | 1 1 1 1 | 1 1 0.004428192 1 |
 | 6 | 0.01298303 0.01032982 0.01764195 1 | 1 0.01032982 0.01804215 1 |
@@ -46386,7 +46354,7 @@ Row 7, the 15 pixels that change:
 
 | x | drawing | split |
 | --- | --- | --- |
-| 0 | 1 1 1 1 | 0.8410003 1 0.2050016 1 |
+| 0 | 1 1 1 1 | 1 1 0.2050016 1 |
 | 1 | 1 1 1 1 | 1 1 0.2050016 1 |
 | 2 | 1 1 1 1 | 1 1 0.2050016 1 |
 | 3 | 1 1 1 1 | 1 1 0.2050016 1 |
@@ -46406,7 +46374,7 @@ Row 8, the 15 pixels that change:
 
 | x | drawing | split |
 | --- | --- | --- |
-| 0 | 0 0 0 0 | 0.8410003 0 0 0.8410003 |
+| 0 | 0 0 0 0 | 1 0 0 1 |
 | 1 | 0 0 0 0 | 1 0 0 1 |
 | 2 | 0 0 0 0 | 1 0 0 1 |
 | 3 | 0 0 0 0 | 1 0 0 1 |
@@ -46426,7 +46394,7 @@ Row 9, the 11 pixels that change:
 
 | x | drawing | split |
 | --- | --- | --- |
-| 0 | 0 0 0 0 | 0.3624687 0 0 0.3624687 |
+| 0 | 0 0 0 0 | 0.4309971 0 0 0.4309971 |
 | 1 | 0 0 0 0 | 0.4309971 0 0 0.4309971 |
 | 2 | 0 0 0 0 | 0.4309971 0 0 0.4309971 |
 | 3 | 0 0 0 0 | 0.4309971 0 0 0.4309971 |
@@ -46474,8 +46442,8 @@ Row 2, the 12 pixels that change:
 
 | x | drawing | split |
 | --- | --- | --- |
-| 3 | 1 1 1 1 | 1 1 0 1 |
-| 4 | 1 1 1 1 | 1 1 0 1 |
+| 3 | 1 1 1 1 | 1 1 0.2050016 1 |
+| 4 | 1 1 1 1 | 1 1 0.2050016 1 |
 | 5 | 1 1 1 1 | 1 1 0.2050016 1 |
 | 6 | 1 1 1 1 | 1 1 0.2050016 1 |
 | 7 | 1 1 1 1 | 0.8884693 1 0.2050016 1 |
@@ -46487,12 +46455,10 @@ Row 2, the 12 pixels that change:
 | 14 | 0 0 0 0 | 0.7326561 0 0 0.7949984 |
 | 15 | 0 0 0 0 | 0.7326561 0 0 0.7949984 |
 
-Row 3, the 12 pixels that change:
+Row 3, the 10 pixels that change:
 
 | x | drawing | split |
 | --- | --- | --- |
-| 3 | 1 1 1 1 | 1 1 0 1 |
-| 4 | 1 1 1 1 | 1 1 0 1 |
 | 6 | 1 1 1 1 | 1 1 1 1 |
 | 7 | 1 1 1 1 | 0.8884693 1 1 1 |
 | 8 | 1 1 1 1 | 0.2153231 1 1 1 |
@@ -46504,12 +46470,10 @@ Row 3, the 12 pixels that change:
 | 14 | 0.9215819 0.6724432 0.5149177 1 | 0.9215819 0.6724432 0.2541468 1 |
 | 15 | 0.9215819 0.6724432 0.5149177 1 | 0.9215819 0.6724432 0.07691739 1 |
 
-Row 4, the 10 pixels that change:
+Row 4, the 8 pixels that change:
 
 | x | drawing | split |
 | --- | --- | --- |
-| 3 | 1 1 1 1 | 1 1 0 1 |
-| 4 | 1 1 1 1 | 1 1 0 1 |
 | 7 | 1 1 1 1 | 0.8884693 1 1 1 |
 | 8 | 1 1 1 1 | 0.2153231 1 1 1 |
 | 9 | 0.01298303 0.01032982 0.01764195 1 | 0.006790138 0.01032982 0.4862258 1 |
@@ -46519,12 +46483,10 @@ Row 4, the 10 pixels that change:
 | 14 | 0.9215819 0.6724432 0.5149177 1 | 0.9215819 0.6724432 0.4859395 1 |
 | 15 | 0.9215819 0.6724432 0.5149177 1 | 0.9215819 0.6724432 0.1470693 1 |
 
-Row 5, the 11 pixels that change:
+Row 5, the 9 pixels that change:
 
 | x | drawing | split |
 | --- | --- | --- |
-| 3 | 1 1 1 1 | 1 1 0 1 |
-| 4 | 1 1 1 1 | 1 1 0 1 |
 | 7 | 1 1 1 1 | 0.8884693 1 1 1 |
 | 8 | 1 1 1 1 | 0.2153231 1 1 1 |
 | 9 | 0.01298303 0.01032982 0.01764195 1 | 0.006790138 0.01032982 0.4862258 1 |
@@ -46535,12 +46497,10 @@ Row 5, the 11 pixels that change:
 | 14 | 0.9215819 0.6724432 0.5149177 1 | 0.9215819 0.6724432 0.4859395 1 |
 | 15 | 0.9215819 0.6724432 0.5149177 1 | 0.9215819 0.6724432 0.1470693 1 |
 
-Row 6, the 11 pixels that change:
+Row 6, the 9 pixels that change:
 
 | x | drawing | split |
 | --- | --- | --- |
-| 3 | 1 1 1 1 | 1 1 0 1 |
-| 4 | 1 1 1 1 | 1 1 0 1 |
 | 7 | 1 1 1 1 | 0.8884693 1 1 1 |
 | 8 | 1 1 1 1 | 0.2153231 1 1 1 |
 | 9 | 0.01298303 0.01032982 0.01764195 1 | 0.006790138 0.01032982 0.4862258 1 |
@@ -46555,8 +46515,8 @@ Row 7, the 12 pixels that change:
 
 | x | drawing | split |
 | --- | --- | --- |
-| 3 | 1 1 1 1 | 1 1 0 1 |
-| 4 | 1 1 1 1 | 1 1 0 1 |
+| 3 | 1 1 1 1 | 1 1 0.2050016 1 |
+| 4 | 1 1 1 1 | 1 1 0.2050016 1 |
 | 5 | 1 1 1 1 | 1 1 0.2050016 1 |
 | 6 | 1 1 1 1 | 1 1 0.2050016 1 |
 | 7 | 1 1 1 1 | 0.8884693 1 0.2050016 1 |
@@ -46630,8 +46590,8 @@ Row 2, the 12 pixels that change:
 
 | x | drawing | split |
 | --- | --- | --- |
-| 3 | 1 1 1 1 | 1 1 0 1 |
-| 4 | 1 1 1 1 | 1 1 0 1 |
+| 3 | 1 1 1 1 | 1 1 0.2050016 1 |
+| 4 | 1 1 1 1 | 1 1 0.2050016 1 |
 | 5 | 1 1 1 1 | 1 1 0.2050016 1 |
 | 6 | 1 1 1 1 | 1 1 0.2050016 1 |
 | 7 | 1 1 1 1 | 0.8884693 1 0.2050016 1 |
@@ -46643,12 +46603,10 @@ Row 2, the 12 pixels that change:
 | 14 | 0 0 0 0 | 0.7326561 0 0 0.7949984 |
 | 15 | 0 0 0 0 | 0.7326561 0 0 0.7949984 |
 
-Row 3, the 12 pixels that change:
+Row 3, the 10 pixels that change:
 
 | x | drawing | split |
 | --- | --- | --- |
-| 3 | 1 1 1 1 | 1 1 0 1 |
-| 4 | 1 1 1 1 | 1 1 0 1 |
 | 6 | 1 1 1 1 | 1 1 1 1 |
 | 7 | 1 1 1 1 | 0.8884693 1 1 1 |
 | 8 | 1 1 1 1 | 0.2153231 1 1 1 |
@@ -46660,12 +46618,10 @@ Row 3, the 12 pixels that change:
 | 14 | 0.9215819 0.6724432 0.5149177 1 | 0.9215819 0.6724432 0.2541468 1 |
 | 15 | 0.9215819 0.6724432 0.5149177 1 | 0.9215819 0.6724432 0.07691739 1 |
 
-Row 4, the 10 pixels that change:
+Row 4, the 8 pixels that change:
 
 | x | drawing | split |
 | --- | --- | --- |
-| 3 | 1 1 1 1 | 1 1 0 1 |
-| 4 | 1 1 1 1 | 1 1 0 1 |
 | 7 | 1 1 1 1 | 0.8884693 1 1 1 |
 | 8 | 1 1 1 1 | 0.2153231 1 1 1 |
 | 9 | 0.01298303 0.01032982 0.01764195 1 | 0.006790138 0.01032982 0.4862258 1 |
@@ -46675,12 +46631,10 @@ Row 4, the 10 pixels that change:
 | 14 | 0.9215819 0.6724432 0.5149177 1 | 0.9215819 0.6724432 0.4859395 1 |
 | 15 | 0.9215819 0.6724432 0.5149177 1 | 0.9215819 0.6724432 0.1470693 1 |
 
-Row 5, the 11 pixels that change:
+Row 5, the 9 pixels that change:
 
 | x | drawing | split |
 | --- | --- | --- |
-| 3 | 1 1 1 1 | 1 1 0 1 |
-| 4 | 1 1 1 1 | 1 1 0 1 |
 | 7 | 1 1 1 1 | 0.8884693 1 1 1 |
 | 8 | 1 1 1 1 | 0.2153231 1 1 1 |
 | 9 | 0.01298303 0.01032982 0.01764195 1 | 0.006790138 0.01032982 0.4862258 1 |
@@ -46691,12 +46645,10 @@ Row 5, the 11 pixels that change:
 | 14 | 0.9215819 0.6724432 0.5149177 1 | 0.9215819 0.6724432 0.4859395 1 |
 | 15 | 0.9215819 0.6724432 0.5149177 1 | 0.9215819 0.6724432 0.1470693 1 |
 
-Row 6, the 11 pixels that change:
+Row 6, the 9 pixels that change:
 
 | x | drawing | split |
 | --- | --- | --- |
-| 3 | 1 1 1 1 | 1 1 0 1 |
-| 4 | 1 1 1 1 | 1 1 0 1 |
 | 7 | 1 1 1 1 | 0.8884693 1 1 1 |
 | 8 | 1 1 1 1 | 0.2153231 1 1 1 |
 | 9 | 0.01298303 0.01032982 0.01764195 1 | 0.006790138 0.01032982 0.4862258 1 |
@@ -46711,8 +46663,8 @@ Row 7, the 12 pixels that change:
 
 | x | drawing | split |
 | --- | --- | --- |
-| 3 | 1 1 1 1 | 1 1 0 1 |
-| 4 | 1 1 1 1 | 1 1 0 1 |
+| 3 | 1 1 1 1 | 1 1 0.2050016 1 |
+| 4 | 1 1 1 1 | 1 1 0.2050016 1 |
 | 5 | 1 1 1 1 | 1 1 0.2050016 1 |
 | 6 | 1 1 1 1 | 1 1 0.2050016 1 |
 | 7 | 1 1 1 1 | 0.8884693 1 0.2050016 1 |
@@ -46752,7 +46704,7 @@ Row 9, the 7 pixels that change:
 | 8 | 0 0 0 0 | 0.09280363 0 0 0.4309971 |
 | 9 | 0 0 0 0 | 0.00292653 0 0 0.2254119 |
 
-FX-CHROMA-008: Amount 100, the most: k is past 10, so the red picture is turned over through the centre and shrunk nearly tenfold and the blue one grown nearly twelvefold, and on a drawing this small both samples fall off it for every pixel: each keeps only its own green, at its own covering, as in FX-CHROMA-009.
+FX-CHROMA-008: Amount 100, the most: k is past 10, so the red picture is turned over through the centre and shrunk nearly tenfold and the blue one grown nearly twelvefold, and on a drawing this small both samples fall past its edge for every pixel and read edge pixels that are empty: each keeps only its own green, at its own covering, as in FX-CHROMA-009.
 
 Frame 0:
 
@@ -46848,7 +46800,7 @@ Row 7, the 7 pixels that change:
 | 5 | 1 1 1 1 | 0 1 0 1 |
 | 6 | 0.01298303 0.01032982 0.01764195 1 | 0 0.01032982 0 1 |
 
-FX-CHROMA-009: Centre -1000, -1000, far off the top left: both samples fall off the layer for every pixel, so each pixel keeps only its own green, at its own covering.
+FX-CHROMA-009: Centre -1000, -1000, far off the top left: both samples fall past the layer's edge for every pixel and read its empty corners, so each pixel keeps only its own green, at its own covering.
 
 Frame 0:
 
@@ -46964,7 +46916,7 @@ Row 2, the 14 pixels that change:
 
 | x | drawing | split |
 | --- | --- | --- |
-| 0 | 1 1 1 1 | 1 1 0.1506763 1 |
+| 0 | 1 1 1 1 | 1 1 0.7350005 1 |
 | 1 | 1 1 1 1 | 1 1 0.7350005 1 |
 | 2 | 1 1 1 1 | 1 1 0.7350005 1 |
 | 3 | 1 1 1 1 | 1 1 0.7350005 1 |
@@ -46979,11 +46931,10 @@ Row 2, the 14 pixels that change:
 | 13 | 0 0 0 0 | 0.1934986 0 0 0.2099636 |
 | 14 | 0 0 0 0 | 0.08446311 0 0 0.09165014 |
 
-Row 3, the 11 pixels that change:
+Row 3, the 10 pixels that change:
 
 | x | drawing | split |
 | --- | --- | --- |
-| 0 | 1 1 1 1 | 1 1 0.2050016 1 |
 | 5 | 1 1 1 1 | 0.738441 1 1 1 |
 | 6 | 0.01298303 0.01032982 0.01764195 1 | 0.01091873 0.01032982 0.1738366 1 |
 | 7 | 0 0 0 0 | 0 0 0.0009350217 0.05299989 |
@@ -46995,11 +46946,10 @@ Row 3, the 11 pixels that change:
 | 13 | 0.462598 0.3375401 0.2584685 0.5019608 | 0.730185 0.3375401 0.09064441 0.7923171 |
 | 14 | 0 0 0 0 | 0.3187294 0 0 0.3458503 |
 
-Row 4, the 11 pixels that change:
+Row 4, the 10 pixels that change:
 
 | x | drawing | split |
 | --- | --- | --- |
-| 0 | 1 1 1 1 | 1 1 0.2050016 1 |
 | 5 | 1 1 1 1 | 0.738441 1 1 1 |
 | 6 | 0.01298303 0.01032982 0.01764195 1 | 0.01091873 0.01032982 0.1738366 1 |
 | 7 | 0 0 0 0 | 0 0 0.0009350217 0.05299989 |
@@ -47011,11 +46961,10 @@ Row 4, the 11 pixels that change:
 | 13 | 0.462598 0.3375401 0.2584685 0.5019608 | 0.730185 0.3375401 0.1077817 0.7923171 |
 | 14 | 0 0 0 0 | 0.3187294 0 0 0.3458503 |
 
-Row 5, the 10 pixels that change:
+Row 5, the 9 pixels that change:
 
 | x | drawing | split |
 | --- | --- | --- |
-| 0 | 1 1 1 1 | 1 1 0.2050016 1 |
 | 5 | 1 1 1 1 | 0.738441 1 1 1 |
 | 6 | 0.01298303 0.01032982 0.01764195 1 | 0.01091873 0.01032982 0.1738366 1 |
 | 7 | 0 0 0 0 | 0 0 0.0009350217 0.05299989 |
@@ -47026,11 +46975,10 @@ Row 5, the 10 pixels that change:
 | 13 | 0.462598 0.3375401 0.2584685 0.5019608 | 0.730185 0.3375401 0.1077817 0.7923171 |
 | 14 | 0 0 0 0 | 0.3187294 0 0 0.3458503 |
 
-Row 6, the 11 pixels that change:
+Row 6, the 10 pixels that change:
 
 | x | drawing | split |
 | --- | --- | --- |
-| 0 | 1 1 1 1 | 1 1 0.2050016 1 |
 | 5 | 1 1 1 1 | 0.738441 1 1 1 |
 | 6 | 0.01298303 0.01032982 0.01764195 1 | 0.01091873 0.01032982 0.1738366 1 |
 | 7 | 0 0 0 0 | 0 0 0.0009350217 0.05299989 |
@@ -47046,7 +46994,7 @@ Row 7, the 14 pixels that change:
 
 | x | drawing | split |
 | --- | --- | --- |
-| 0 | 1 1 1 1 | 1 1 0.1506763 1 |
+| 0 | 1 1 1 1 | 1 1 0.7350005 1 |
 | 1 | 1 1 1 1 | 1 1 0.7350005 1 |
 | 2 | 1 1 1 1 | 1 1 0.7350005 1 |
 | 3 | 1 1 1 1 | 1 1 0.7350005 1 |
@@ -47073,7 +47021,7 @@ Row 8, the 7 pixels that change:
 | 5 | 0 0 0 0 | 0.2739611 0 0 0.3709993 |
 | 6 | 0 0 0 0 | 0.004050842 0 0 0.3120105 |
 
-FX-CHROMA-011: Centre 100, 100, the bottom right corner: the red picture is drawn larger away from that corner, up and left, so red reaches rows 0 and 1 above the blocks; the blue picture is drawn smaller toward it, so blue reaches row 8 below the white block; and the white block's left column loses its blue.
+FX-CHROMA-011: Centre 100, 100, the bottom right corner: the red picture is drawn larger away from that corner, up and left, so red reaches rows 0 and 1 above the blocks; the blue picture is drawn smaller toward it, so blue reaches row 8 below the white block; and the white block's left column keeps its blue, whose sample falls past the left edge and reads the edge pixel.
 
 Frame 0:
 
@@ -47151,14 +47099,13 @@ Row 3, the 14 pixels that change:
 | 12 | 0.9215819 0.6724432 0.5149177 1 | 0.4103254 0.6724432 0 1 |
 | 13 | 0.462598 0.3375401 0.2584685 0.5019608 | 0.09483332 0.3375401 0 0.5019608 |
 
-Row 4, the 15 pixels that change:
+Row 4, the 14 pixels that change:
 
 | x | drawing | split |
 | --- | --- | --- |
-| 0 | 1 1 1 1 | 1 1 0 1 |
-| 1 | 1 1 1 1 | 0.3969417 1 0 1 |
-| 2 | 1 1 1 1 | 0.009179115 1 0 1 |
-| 3 | 1 1 1 1 | 0.000324679 1 0.02500795 1 |
+| 1 | 1 1 1 1 | 0.3969417 1 1 1 |
+| 2 | 1 1 1 1 | 0.009179115 1 1 1 |
+| 3 | 1 1 1 1 | 0.000324679 1 1 1 |
 | 4 | 1 1 1 1 | 0 1 1 1 |
 | 5 | 1 1 1 1 | 0.3124101 1 1 1 |
 | 6 | 0.01298303 0.01032982 0.01764195 1 | 0.9215819 0.01032982 1 1 |
@@ -47171,14 +47118,13 @@ Row 4, the 15 pixels that change:
 | 13 | 0.462598 0.3375401 0.2584685 0.5019608 | 0.09483332 0.3375401 0.1160503 0.5019608 |
 | 14 | 0 0 0 0 | 0 0 0.03094602 0.06009898 |
 
-Row 5, the 15 pixels that change:
+Row 5, the 14 pixels that change:
 
 | x | drawing | split |
 | --- | --- | --- |
-| 0 | 1 1 1 1 | 1 1 0 1 |
-| 1 | 1 1 1 1 | 0.3969417 1 0 1 |
-| 2 | 1 1 1 1 | 0.009179115 1 0 1 |
-| 3 | 1 1 1 1 | 0.000324679 1 0.02500795 1 |
+| 1 | 1 1 1 1 | 0.3969417 1 1 1 |
+| 2 | 1 1 1 1 | 0.009179115 1 1 1 |
+| 3 | 1 1 1 1 | 0.000324679 1 1 1 |
 | 4 | 1 1 1 1 | 0 1 1 1 |
 | 5 | 1 1 1 1 | 0.1777622 1 1 1 |
 | 6 | 0.01298303 0.01032982 0.01764195 1 | 0.5243827 0.01032982 1 1 |
@@ -47195,10 +47141,10 @@ Row 6, the 15 pixels that change:
 
 | x | drawing | split |
 | --- | --- | --- |
-| 0 | 1 1 1 1 | 0.8870022 1 0 1 |
-| 1 | 1 1 1 1 | 0.3520882 1 0 1 |
-| 2 | 1 1 1 1 | 0.008141896 1 0 1 |
-| 3 | 1 1 1 1 | 0.000287991 1 0.02500795 1 |
+| 0 | 1 1 1 1 | 0.8870022 1 1 1 |
+| 1 | 1 1 1 1 | 0.3520882 1 1 1 |
+| 2 | 1 1 1 1 | 0.008141896 1 1 1 |
+| 3 | 1 1 1 1 | 0.000287991 1 1 1 |
 | 4 | 1 1 1 1 | 0 1 1 1 |
 | 5 | 1 1 1 1 | 0 1 1 1 |
 | 6 | 0.01298303 0.01032982 0.01764195 1 | 0 0.01032982 1 1 |
@@ -47215,10 +47161,10 @@ Row 7, the 15 pixels that change:
 
 | x | drawing | split |
 | --- | --- | --- |
-| 0 | 1 1 1 1 | 0.2050016 1 0 1 |
-| 1 | 1 1 1 1 | 0.08137369 1 0 1 |
-| 2 | 1 1 1 1 | 0.001881733 1 0 1 |
-| 3 | 1 1 1 1 | 6.655972e-05 1 0.02500795 1 |
+| 0 | 1 1 1 1 | 0.2050016 1 1 1 |
+| 1 | 1 1 1 1 | 0.08137369 1 1 1 |
+| 2 | 1 1 1 1 | 0.001881733 1 1 1 |
+| 3 | 1 1 1 1 | 6.655972e-05 1 1 1 |
 | 4 | 1 1 1 1 | 0 1 1 1 |
 | 5 | 1 1 1 1 | 0 1 1 1 |
 | 6 | 0.01298303 0.01032982 0.01764195 1 | 0 0.01032982 1 1 |
@@ -47231,11 +47177,14 @@ Row 7, the 15 pixels that change:
 | 13 | 0 0 0 0 | 0 0 0.3675637 0.71383 |
 | 14 | 0 0 0 0 | 0 0 0.09801473 0.1903503 |
 
-Row 8, the 7 pixels that change:
+Row 8, the 10 pixels that change:
 
 | x | drawing | split |
 | --- | --- | --- |
-| 3 | 0 0 0 0 | 0 0 0.01192877 0.01192877 |
+| 0 | 0 0 0 0 | 0 0 0.476999 0.476999 |
+| 1 | 0 0 0 0 | 0 0 0.476999 0.476999 |
+| 2 | 0 0 0 0 | 0 0 0.476999 0.476999 |
+| 3 | 0 0 0 0 | 0 0 0.476999 0.476999 |
 | 4 | 0 0 0 0 | 0 0 0.476999 0.476999 |
 | 5 | 0 0 0 0 | 0 0 0.476999 0.476999 |
 | 6 | 0 0 0 0 | 0 0 0.476999 0.476999 |
@@ -47284,7 +47233,7 @@ D-1139, accepted on 2026-11-21 (P-28 bug 1). Every case is a project of one comp
 
 **Checked by what they claim.** The tool checks each case's claim on its numbers: the flat frame is unchanged, where the rule as first built leaves 128 of its 160 pixels with no blue (001); the square keeps its own green and full covering, a blue from its own colours at every pixel, and nothing is drawn outside it, where the rule as first built leaves 20 (002) and 32 (003) of its pixels with no blue; and holding the taps gives the same sample as holding the point inside the pixel centres.
 
-**Existing Chromatic Aberration cases.** FX-CHROMA-001 to 016 are not changed here. Under this rule twelve of their frames differ (001, 003, 004, 005 frames 2 and 4, 006 frames 0, 2 and 4, 007 frames 0 and 3, 010, 011), because the figure's white block touches the drawing's left edge, which FX-CHROMA-001 says turns yellow; rewriting them is the owner's decision.
+**Existing Chromatic Aberration cases.** Under this rule twelve of FX-CHROMA-001 to 016's frames differ (001, 003, 004, 005 frames 2 and 4, 006 frames 0, 2 and 4, 007 frames 0 and 3, 010, 011), because the figure's white block touches the drawing's left edge, which FX-CHROMA-001 as first written said turns yellow. The owner approved regenerating them on 2026-11-22; `tools/chromatic_aberration_reference.py` now works D-1139's rule, and the section above is rewritten to it.
 
 FX-CHROMAEDGE-001: A flat #f6d6be filling the frame, under an adjustment layer holding Chromatic Aberration amount 12 about the middle: every sample past the frame's edge reads the edge's own colour, so every pixel is unchanged and no band round the frame loses its blue.
 
