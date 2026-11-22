@@ -587,9 +587,9 @@ fn b15b_package() {
         &match &said {
             Err(_) => "crashed".to_string(),
             Ok(Err(d)) => format!("refused: {}", d.id),
-            Ok(Ok(())) => format!("collected: {}", media.len()),
+            Ok(Ok(_)) => format!("collected: {}", media.len()),
         },
-        matches!(said, Ok(Ok(()))) && media.len() == 2,
+        matches!(said, Ok(Ok(_))) && media.len() == 2,
     );
 
     let doc = format!(

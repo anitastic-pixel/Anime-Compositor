@@ -455,7 +455,7 @@ fn the_audio_fixtures() {
         }
         t.row(
             "Collect files copies the sound file into the package",
-            &format!("{}; {}", refusal(said), wavs.join(", ")),
+            &format!("{}; {}", refusal(said.map(|_| ())), wavs.join(", ")),
             wavs.len() == 1 && wavs[0].ends_with("true"),
         );
         let _ = fs::remove_dir_all(&dest);

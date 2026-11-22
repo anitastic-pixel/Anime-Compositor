@@ -156,12 +156,15 @@ impl V {
 ///
 /// `project_file` is where the open project is saved, or `None` if it never was; its folder is
 /// what stored paths are relative to. Nothing about the open project is changed.
+///
+/// Gives back the stored paths it left out under D-268, in the project's order: files on a
+/// network share and files of a kind the program does not import.
 pub fn collect(
     project: &Project,
     preserved: &Preserved,
     project_file: Option<&Path>,
     dest: &Path,
-) -> Result<(), Diagnostic> {
+) -> Result<Vec<String>, Diagnostic> {
     collect_limited(project, preserved, project_file, dest, None)
 }
 
@@ -173,7 +176,7 @@ pub fn collect_limited(
     project_file: Option<&Path>,
     dest: &Path,
     file_limit: Option<usize>,
-) -> Result<(), Diagnostic> {
+) -> Result<Vec<String>, Diagnostic> {
     let mut partial = dest.as_os_str().to_os_string();
     partial.push(".partial");
     let partial = PathBuf::from(partial);
@@ -196,8 +199,9 @@ pub fn collect_limited(
     let name = project_file
         .and_then(Path::file_name)
         .map_or("project.json".into(), |n| n.to_string_lossy().into_owned());
-    let resolve = |stored: &str| dir.map_or(PathBuf::from(stored), |d| d.join(stored));
+    let root = dir.map_or(PathBuf::new(), Path::to_path_buf);
 
+    let mut left_out = Vec::new();
     let mut packaged = project.clone();
     let mut folders = HashSet::new();
     let mut assets = Vec::new();
@@ -210,17 +214,28 @@ pub fn collect_limited(
         for (stored, frames) in stored_files(asset) {
             let file_name = stored.rsplit(['/', '\\']).next().unwrap_or(stored);
             let path = format!("media/{folder}/{}", unique(&safe(file_name), &mut names));
-            let source = resolve(stored);
-            let data = if source.is_file() {
-                fs::read(&source).ok()
-            } else {
-                None
+            // D-268: a file on a network share, or of a kind the program does not import, is
+            // neither read nor copied, and is named back to the person.
+            let source = crate::media::file_at(&root, stored);
+            let refused = match &source {
+                Err(_) => Some("network share"),
+                Ok(_) if !crate::media::importable(stored) => Some("not media"),
+                Ok(_) => None,
             };
-            let status = match (&data, asset.redistribute) {
-                (None, _) => "missing",
-                (Some(_), true) => "copied",
-                (Some(_), false) => "excluded",
+            let data = match &source {
+                Ok(source) if refused.is_none() && source.is_file() => fs::read(source).ok(),
+                _ => None,
             };
+            let status = match (refused, &data, asset.redistribute) {
+                (Some(why), _, _) => why,
+                (None, None, _) => "missing",
+                (None, Some(_), true) => "copied",
+                (None, Some(_), false) => "excluded",
+            };
+            if refused.is_some() {
+                left_out.push(stored.to_string());
+            }
+            let source = source.unwrap_or_default();
             if status == "copied" {
                 to_copy.push((source, path.clone()));
             }
@@ -315,7 +330,7 @@ pub fn collect_limited(
         }
         fs::rename(&partial, dest)
     })();
-    outcome.map_err(|e| {
+    outcome.map(|()| left_out).map_err(|e| {
         let _ = fs::remove_dir_all(&partial);
         Diagnostic::new(
             DiagnosticId::PackageWriteFailed,
@@ -405,6 +420,19 @@ pub fn check(project_file: &Path) -> Result<Vec<Row>, Diagnostic> {
                 DiagnosticId::PackageMediaExcluded,
                 Severity::Info,
                 "Left out on purpose: its media may not be passed on. Put your own copy here.",
+            ),
+            // D-268: never read when the package was made.
+            (None, _) if f["status"] == "network share" => (
+                Answer::Excluded,
+                DiagnosticId::PackageMediaExcluded,
+                Severity::Info,
+                "Left out: it was on a network share, so it was not read. Copy it here yourself.",
+            ),
+            (None, _) if f["status"] == "not media" => (
+                Answer::Excluded,
+                DiagnosticId::PackageMediaExcluded,
+                Severity::Info,
+                "Left out: the program does not import this kind of file, so it was not copied.",
             ),
             (None, _) => (
                 Answer::Missing,

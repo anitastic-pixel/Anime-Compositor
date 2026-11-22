@@ -772,7 +772,8 @@ fn exposed_cel(
     let local = layer.source_time(frame)?.floor() as i32;
     let relative = source_at(layer.exposure_spans.clone(), asset, local, frame).ok()??;
     let read = project.interpretation(asset);
-    (!matches!(read.color_space, crate::ColorSpace::Unknown(_))).then(|| (root.join(relative), read))
+    let path = crate::media::file_at(root, relative).ok()?;
+    (!matches!(read.color_space, crate::ColorSpace::Unknown(_))).then_some((path, read))
 }
 
 /// D-57's `M_world` for a chain of layers, with the two things keeping place needs that the
@@ -3268,7 +3269,13 @@ fn decode_cel(
             return None;
         }
     };
-    let path = root.join(&relative);
+    let path = match crate::media::file_at(root, &relative) {
+        Ok(path) => path,
+        Err(refused) => {
+            log.record(frame, layer.name.clone(), refused);
+            return None;
+        }
+    };
     let read = project.interpretation(asset);
     // D-909: a colour-space word this build does not have draws nothing, never a guess.
     if matches!(read.color_space, crate::ColorSpace::Unknown(_)) {
@@ -8489,7 +8496,7 @@ fn sound_window(
         .iter()
         .find(|a| a.id == heard.asset_id)
         .and_then(|a| a.path.as_ref())?;
-    let sound = match crate::audio::load(&root.join(path)) {
+    let sound = match crate::media::file_at(root, path).and_then(|p| crate::audio::load(&p)) {
         Ok(sound) => sound,
         Err(d) => {
             log.record(frame, holder.to_string(), d);

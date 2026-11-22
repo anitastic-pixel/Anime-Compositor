@@ -4063,10 +4063,8 @@ fn import(viewer: &Mutex<Viewer>, files: &[PathBuf]) -> String {
 const SOUNDS: [&str; 9] = [
     "wav", "mp3", "ogg", "opus", "flac", "m4a", "aac", "mp4", "mov",
 ];
-const DRAWINGS_AND_SOUND: [&str; 18] = [
-    "png", "exr", "bmp", "tga", "tif", "tiff", "webp", "jpg", "jpeg", "wav", "mp3", "ogg", "opus",
-    "flac", "m4a", "aac", "mp4", "mov",
-];
+/// D-268: the import dialog's list lives in the core, where Collect Files reads it too.
+use anime_compositor::media::{DRAWINGS_AND_SOUND, LOOKUPS};
 
 fn is_sound(file: &Path) -> bool {
     file.extension()
@@ -4143,7 +4141,7 @@ fn sound(viewer: &Mutex<Viewer>, query: Option<&str>) -> Response<Vec<u8>> {
             .assets
             .iter()
             .find(|a| a.id == id && a.kind == AssetKind::Audio)?;
-        std::fs::read(held.root.join(asset.path.as_ref()?)).ok()
+        std::fs::read(media::file_at(&held.root, asset.path.as_ref()?).ok()?).ok()
     })();
     match bytes {
         Some(bytes) => allow_the_page_to_read_this(Response::builder())
@@ -4224,7 +4222,9 @@ fn files_gone(viewer: &Mutex<Viewer>) -> serde_json::Value {
             asset
                 .files()
                 .into_iter()
-                .filter(|relative| !root.join(relative).exists())
+                // D-268: a file on a network share is not looked at, so it counts as gone and
+                // can be relinked.
+                .filter(|relative| !media::file_at(&root, relative).is_ok_and(|f| f.exists()))
                 .map(|file| serde_json::json!({ "asset": asset.id.as_str(), "name": asset.name, "file": file }))
                 .collect::<Vec<_>>()
         })
@@ -4267,8 +4267,9 @@ fn thumbnail(
         let first = asset
             .files()
             .first()
-            .map(|f| root.join(f))
+            .copied()
             .ok_or_else(|| format!("{} has no files", asset.name))?;
+        let first = media::file_at(&root, first).map_err(|d| d.to_string())?;
         media::decode(&first)
             .map_err(|d| d.to_string())?
             .into_working()
@@ -4410,7 +4411,7 @@ fn size_now(root: &Path, asset: &Asset) -> Option<(usize, usize)> {
     asset
         .frames
         .values()
-        .find_map(|relative| media::decode(&root.join(relative)).ok())
+        .find_map(|relative| media::decode(&media::file_at(root, relative).ok()?).ok())
         .map(|image| (image.width(), image.height()))
 }
 
@@ -12691,7 +12692,7 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                     .and_then(|a| {
                         a.files()
                             .first()
-                            .and_then(|f| media::decode(&held.root.join(f)).ok())
+                            .and_then(|f| media::decode(&media::file_at(&held.root, f).ok()?).ok())
                     })
                     .map(|image| (image.width() as u32, image.height() as u32));
                 // D-1073: a looped sequence's composition is that many times as long.
@@ -13622,7 +13623,7 @@ fn edit_command(viewer: &Mutex<Viewer>, id: &str, query: Option<&str>) -> Option
                 .and_then(|a| {
                     a.files()
                         .first()
-                        .and_then(|f| media::decode(&held.root.join(f)).ok())
+                        .and_then(|f| media::decode(&media::file_at(&held.root, f).ok()?).ok())
                 })
                 .map(|image| (image.width() as f64, image.height() as f64));
             if let Some((w, h)) = size {
@@ -16463,9 +16464,10 @@ fn collect_into(viewer: &Mutex<Viewer>, into: &Path) -> String {
         into,
     );
     drop(held);
-    if let Err(diagnostic) = written {
-        return diagnostic.sentence();
-    }
+    let left_out = match written {
+        Ok(left_out) => left_out,
+        Err(diagnostic) => return diagnostic.sentence(),
+    };
     // The counts are read back from the manifest just written, so the sentence cannot disagree
     // with it.
     let manifest: serde_json::Value = std::fs::read_to_string(into.join(package::MANIFEST))
@@ -16492,6 +16494,21 @@ fn collect_into(viewer: &Mutex<Viewer>, into: &Path) -> String {
     }
     if excluded > 0 {
         said += &format!(" {} left out, marked not to be passed on.", were(excluded));
+    }
+    // D-268: every file left out is named by the path the project gives it.
+    let (shared, other): (Vec<String>, Vec<String>) =
+        left_out.into_iter().partition(|p| media::on_network(p));
+    if !other.is_empty() {
+        said += &format!(
+            " Not copied, because the program does not import that kind of file: {}.",
+            other.join(", ")
+        );
+    }
+    if !shared.is_empty() {
+        said += &format!(
+            " Not read, because it is on a network share: {}.",
+            shared.join(", ")
+        );
     }
     said + " The open project is unchanged."
 }
@@ -18855,7 +18872,7 @@ fn ask_what_to_relink_to(app: &AppHandle, asset: Id) {
         (
             "Relink to this lookup file",
             "Colour lookup",
-            &["cube", "amp"],
+            &LOOKUPS,
         )
     } else {
         (

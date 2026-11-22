@@ -1033,7 +1033,7 @@ fn mix_in(
         else {
             continue;
         };
-        let sound = match load(&root.join(path)) {
+        let sound = match crate::media::file_at(root, path).and_then(|p| load(&p)) {
             Ok(sound) => sound,
             Err(d) => {
                 left_out.push((layer.id.as_str().to_string(), d));

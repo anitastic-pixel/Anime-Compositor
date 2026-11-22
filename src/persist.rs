@@ -16581,11 +16581,15 @@ pub fn load(path: &Path) -> Result<Loaded, Diagnostic> {
     let mut loaded = load_str(&text)?;
     let root = path.parent().unwrap_or(Path::new("."));
     for asset in &loaded.document.project().assets {
-        let absent: Vec<&str> = asset
-            .files()
-            .into_iter()
-            .filter(|relative| !root.join(relative).exists())
-            .collect();
+        let mut absent = Vec::new();
+        for relative in asset.files() {
+            // D-268: a file on a network share is not looked at, not even to see if it is there.
+            match crate::media::file_at(root, relative) {
+                Ok(file) if !file.exists() => absent.push(relative),
+                Ok(_) => {}
+                Err(refused) => loaded.warnings.push(refused),
+            }
+        }
         if absent.is_empty() {
             continue;
         }

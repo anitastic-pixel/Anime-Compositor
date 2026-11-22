@@ -425,6 +425,61 @@ pub(crate) fn file_size(
     Ok((picture.image.width() as u32, picture.image.height() as u32))
 }
 
+/// D-268 (L1): the kinds of file the import dialog offers as "Drawings and sound", and the lookup
+/// files a Color Lookup or Arbitrary Map is given. Collect Files copies nothing else.
+pub const DRAWINGS_AND_SOUND: [&str; 18] = [
+    "png", "exr", "bmp", "tga", "tif", "tiff", "webp", "jpg", "jpeg", "wav", "mp3", "ogg", "opus",
+    "flac", "m4a", "aac", "mp4", "mov",
+];
+pub const LOOKUPS: [&str; 2] = ["cube", "amp"];
+
+/// D-268 (L1): a file of a kind the program imports, by its extension, in any case.
+pub fn importable(path: &str) -> bool {
+    Path::new(path).extension().is_some_and(|e| {
+        DRAWINGS_AND_SOUND
+            .iter()
+            .chain(&LOOKUPS)
+            .any(|o| e.eq_ignore_ascii_case(o))
+    })
+}
+
+/// D-268 (M2): true for a stored path whose reading would reach another computer or a device: a
+/// network share (`\\server\share`, `//server/share`, `\\?\UNC\...`, `\??\UNC\...`) or a device
+/// path (`\\.\...`). Opening one makes Windows send the person's sign-in proof to that server. A
+/// drive letter, mapped or not, and the long local form `\\?\C:\...` stay on this computer.
+pub fn on_network(stored: &str) -> bool {
+    let s = stored.replace('/', "\\");
+    for prefix in ["\\\\?\\", "\\??\\"] {
+        if let Some(rest) = s.strip_prefix(prefix) {
+            let b = rest.as_bytes();
+            return !(b.len() >= 2 && b[0].is_ascii_alphabetic() && b[1] == b':');
+        }
+    }
+    s.starts_with("\\\\")
+}
+
+/// D-268 (M2): the one place a project's stored media path becomes a file to read, relative to
+/// the project's folder `root`. A network or device path is refused with `INVALID_PATH`; the
+/// stored path itself is never changed.
+pub fn file_at(root: &Path, stored: impl AsRef<Path>) -> Result<PathBuf, Diagnostic> {
+    let stored = stored.as_ref();
+    let text = stored.to_string_lossy();
+    if !on_network(&text) {
+        return Ok(root.join(stored));
+    }
+    Err(Diagnostic::new(
+        DiagnosticId::InvalidPath,
+        Severity::Error,
+        format!("\"{text}\" was not opened because it is on a network share."),
+        "Opening a file on another computer makes Windows send your sign-in proof to that \
+         computer. The project keeps the path as it was.",
+    )
+    .with_remediation(
+        "Copy the file to a drive on this computer, or to a mapped drive letter such as Z:, and \
+         relink it.",
+    ))
+}
+
 /// Decode a PNG or an EXR drawing, as the file's extension says (D-62).
 ///
 /// An EXR comes back linear light and premultiplied; its adjustment reasons were reported at

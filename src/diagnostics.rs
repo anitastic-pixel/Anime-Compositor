@@ -82,6 +82,9 @@ diagnostic_ids! {
     ProjectRecoveryAvailable = ("PROJECT_RECOVERY_AVAILABLE", true),
     /// Document 28: referenced media unavailable; the reference is preserved.
     MediaMissing = ("MEDIA_MISSING", true),
+    /// Document 28: a path fails the access policy. D-268: a media path naming a network share
+    /// or a device is not read; the reference is preserved.
+    InvalidPath = ("INVALID_PATH", true),
     /// Document 28: effect type not installed or implemented; the record is preserved and
     /// bypassed.
     EffectUnsupported = ("EFFECT_UNSUPPORTED", true),
