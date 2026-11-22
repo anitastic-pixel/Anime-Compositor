@@ -27,7 +27,7 @@ What changed: a project that names a media file on a network share (`\\server\sh
 | `\shots\cel.png` | read | read | yes |
 | a network path is refused with document 28's identifier | INVALID_PATH | INVALID_PATH | yes |
 | and the reason and the way out are said | network share, sign-in, copy it to a drive on this computer, or a mapped drive letter | network share, sign-in, copy it to a drive on this computer, or a mapped drive letter | yes |
-| a path on this computer is joined to the project's folder | I:\AI Coding\Claude\TotallyNotAfterEffects\target/b1001-scratch\local.png | I:\AI Coding\Claude\TotallyNotAfterEffects\target/b1001-scratch\local.png | yes |
+| a path on this computer is joined to the project's folder | <project folder>\local.png | <project folder>\local.png | yes |
 
 ## Opening a project that names them (M2)
 

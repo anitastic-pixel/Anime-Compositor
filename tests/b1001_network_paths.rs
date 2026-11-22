@@ -210,8 +210,15 @@ fn b1001_network_paths() {
     );
     t.row(
         "a path on this computer is joined to the project's folder",
-        scratch.join("local.png").display(),
-        media::file_at(&scratch, "local.png").map_or("refused".into(), |p| p.display().to_string()),
+        "<project folder>\\local.png",
+        // The page names the project folder, not this checkout's own path, so it reads the
+        // same on every machine (CI diffs verification/).
+        media::file_at(&scratch, "local.png").map_or("refused".into(), |p| {
+            p.strip_prefix(&scratch).map_or_else(
+                |_| p.display().to_string(),
+                |rest| format!("<project folder>\\{}", rest.display()),
+            )
+        }),
     );
 
     // ---- opening the project ---------------------------------------------------------------
