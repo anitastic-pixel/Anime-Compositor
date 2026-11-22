@@ -16428,6 +16428,37 @@ fn ask_where_to_export(
         });
 }
 
+/// D-1140: `/export?into=<folder>`, for checking tools. `Ok(None)` when no folder is named, so
+/// the person's Export still asks in the folder dialog. A named folder is taken only in a window
+/// started with `ANIME_COMPOSITOR_TEST_EXPORT` set (`testing`), only as a full path, and only
+/// when it is absent or empty; the window then makes it, so nothing already there is written over.
+fn export_into(query: Option<&str>, testing: bool) -> Result<Option<PathBuf>, String> {
+    let Some(named) = parameter(query, "into") else {
+        return Ok(None);
+    };
+    if !testing {
+        return Err("Nothing was exported: a folder named in the request is taken only in a \
+                    window started for testing. Choose the folder in the dialog."
+            .into());
+    }
+    let into = PathBuf::from(named);
+    if !into.is_absolute() {
+        return Err(format!(
+            "Nothing was exported: \"{}\" is not a full path.",
+            into.display()
+        ));
+    }
+    if std::fs::read_dir(&into).is_ok_and(|mut d| d.next().is_some()) {
+        return Err(format!(
+            "Nothing was exported: {} is not empty.",
+            into.display()
+        ));
+    }
+    std::fs::create_dir_all(&into)
+        .map_err(|e| format!("Nothing was exported: {} could not be made: {e}", into.display()))?;
+    Ok(Some(into))
+}
+
 /// Audit B8: what the export asks before writing over files already in the folder.
 fn replace_question(first: &Path, count: usize) -> String {
     let name = first
@@ -19844,10 +19875,17 @@ fn command(app: &AppHandle, path: &str, query: Option<&str>) -> Response<Vec<u8>
         // D-62: `?format=` is the page's format list; a value it does not offer is refused
         // before any folder is asked for.
         // D-73: a quality the page does not offer is refused the same way.
-        "export" => match output_format(query).and_then(|f| Ok((f, export_choices(query)?))) {
-            Ok((format, choices)) => {
+        // D-1140: `into=` skips the dialog, only in a window started for testing.
+        "export" => match output_format(query).and_then(|f| {
+            let testing = std::env::var_os("ANIME_COMPOSITOR_TEST_EXPORT").is_some();
+            Ok((f, export_choices(query)?, export_into(query, testing)?))
+        }) {
+            Ok((format, choices, None)) => {
                 ask_where_to_export(app, missing_source(query), format, choices);
                 String::new()
+            }
+            Ok((format, choices, Some(into))) => {
+                start_export(app, &into, missing_source(query), format, choices)
             }
             Err(refused) => refused,
         },
