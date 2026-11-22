@@ -15,8 +15,12 @@ drawing's own size W0 by H0, R = sqrt(W0^2 + H0^2) / 2 and k = amount / R: at th
 centre is P, d = P - c; red is the red of document 21's bilinear sample of the layer at
 c + d (1 - k), blue is the blue of the sample at c + d (1 + k), green is the pixel's own, and
 the covering is the largest of the two samples' coverings and the pixel's own. All are
-premultiplied. The layer does not grow: a fringe that would fall outside the layer is cut, and
-a sample outside it reads transparent. Amount 0 changes nothing.
+premultiplied. The layer does not grow: a fringe that would fall outside the layer is cut. A
+sample past the layer's edge reads the nearest edge pixel: each bilinear tap's column is held
+between 0 and the layer's width - 1 and its row between 0 and its height - 1, the sampler of
+`tools/chromatic_edge_reference.py` (D-1139, accepted by the owner on 2026-11-21; as first built
+such a sample read transparent, and the owner approved these cases' new values on 2026-11-22).
+Amount 0 changes nothing.
 
 **This file never runs the build's code path.** It works in double precision on lists, straight
 from the drawing's 8-bit values, where the build works in single precision on its buffers.
@@ -24,12 +28,13 @@ from the drawing's 8-bit values, where the build works in single precision on it
 Every case is a composition 16 pixels by 10 holding one drawing the same size, unmoved unless
 the case says: a figure, drawn below. The drawing goes into
 `Fixtures/chromatic_aberration/media`, the projects into `Fixtures/chromatic_aberration`, and
-the expected frames into `Fixtures/chromatic_aberration/expected_chromatic_aberration.json`.
+the expected frames into `Fixtures/chromatic_aberration/expected_chromatic_aberration.json`;
+a folder given on the command line takes `Fixtures/chromatic_aberration`'s place.
 
 Fixtures are read-only to implementation work: this file is run when the specification changes,
 and never to make a build pass.
 
-    python tools/chromatic_aberration_reference.py
+    python tools/chromatic_aberration_reference.py [out]
 """
 
 import json
@@ -42,10 +47,11 @@ from adjust_reference import prop  # noqa: E402
 from fxkey_reference import keyed, value_at, setting_json  # noqa: E402
 import smooth_reference as S  # noqa: E402
 import recolor_reference as R  # noqa: E402
-from radial_blur_reference import bilinear  # noqa: E402
+from chromatic_edge_reference import sample  # noqa: E402
 
 W, H = R.W, R.H
-OUT = Path(__file__).resolve().parent.parent / "Fixtures" / "chromatic_aberration"
+OUT = (Path(sys.argv[1]) if len(sys.argv) > 1
+       else Path(__file__).resolve().parent.parent / "Fixtures" / "chromatic_aberration")
 TOLERANCE = 2e-5  # document 25's default for a filter
 AMOUNT = (0, 100)
 CENTER = (-1000, 1000)
@@ -53,8 +59,9 @@ CENTER = (-1000, 1000)
 
 # --- the rule -------------------------------------------------------------------------------
 
-def aberration(layer, amount, center, size=(W, H)):
-    """The layer's pixels, split. `size` is the drawing's own W0 by H0."""
+def aberration(layer, amount, center, size=(W, H), hold=True):
+    """The layer's pixels, split. `size` is the drawing's own W0 by H0. `hold` is D-1139's edge
+    rule; without it a sample past the layer's edge reads transparent (D-120 as first built)."""
     w0, h0 = size
     cx, cy = center[0] / 100 * w0, center[1] / 100 * h0
     k = amount / (math.sqrt(w0 * w0 + h0 * h0) / 2)
@@ -62,8 +69,8 @@ def aberration(layer, amount, center, size=(W, H)):
     for i, p in enumerate(layer["px"]):
         dx = layer["left"] + i % layer["w"] + 0.5 - cx
         dy = layer["top"] + i // layer["w"] + 0.5 - cy
-        red = bilinear(layer, cx + dx * (1 - k), cy + dy * (1 - k))
-        blue = bilinear(layer, cx + dx * (1 + k), cy + dy * (1 + k))
+        red = sample(layer, cx + dx * (1 - k), cy + dy * (1 - k), hold)
+        blue = sample(layer, cx + dx * (1 + k), cy + dy * (1 + k), hold)
         out.append([red[0], p[1], blue[2], max(red[3], p[3], blue[3])])
     return out
 
@@ -122,9 +129,9 @@ CASES = {
     "FX-CHROMA-001": ("The settings as they start, amount 3 about the middle: red fringes "
                       "outward past the blocks' outer edges, where the red sample alone covers "
                       "and the pixel takes its covering, and blue fringes inward; the white "
-                      "block's left column, on the layer's edge, loses its blue, whose sample "
-                      "falls outside the layer, and turns yellow, and nothing is drawn beyond "
-                      "the layer.",
+                      "block's left column, on the layer's edge, keeps its blue, whose sample "
+                      "falls past the layer's edge and reads the edge pixel (D-1139), and "
+                      "nothing is drawn beyond the layer.",
                       case(), [0]),
     "FX-CHROMA-002": ("Amount 0: the drawing, untouched.",
                       case(amount=0), [0]),
@@ -134,7 +141,9 @@ CASES = {
     "FX-CHROMA-004": ("Centre 0, 50, the middle of the left edge: the split runs away from "
                       "there, so red spreads right past both blocks' right sides, and the "
                       "white block's left column, beside the centre, keeps its blue, whose "
-                      "sample now lands inside the layer.",
+                      "sample lands inside the layer, and its full red, whose sample falls past "
+                      "the left edge and reads the edge pixel; above and below the block that "
+                      "column takes red from the edge too.",
                       case(center=(0, 50)), [0]),
     "FX-CHROMA-005": ("Amount keyed from 0 at frame 0 to 12 at frame 4, linear: frame 0 "
                       "untouched, frame 2 is FX-CHROMA-003, frame 4 splits at 12, past the "
@@ -149,13 +158,13 @@ CASES = {
                       case(shift=3), [0, 3]),
     "FX-CHROMA-008": ("Amount 100, the most: k is past 10, so the red picture is turned over "
                       "through the centre and shrunk nearly tenfold and the blue one grown "
-                      "nearly twelvefold, and on a drawing this small both samples fall off it "
-                      "for every pixel: each keeps only its own green, at its own covering, as "
-                      "in FX-CHROMA-009.",
+                      "nearly twelvefold, and on a drawing this small both samples fall past its "
+                      "edge for every pixel and read edge pixels that are empty: each keeps "
+                      "only its own green, at its own covering, as in FX-CHROMA-009.",
                       case(amount=100), [0]),
-    "FX-CHROMA-009": ("Centre -1000, -1000, far off the top left: both samples fall off the "
-                      "layer for every pixel, so each pixel keeps only its own green, at its "
-                      "own covering.",
+    "FX-CHROMA-009": ("Centre -1000, -1000, far off the top left: both samples fall past the "
+                      "layer's edge for every pixel and read its empty corners, so each pixel "
+                      "keeps only its own green, at its own covering.",
                       case(center=(-1000, -1000)), [0]),
     "FX-CHROMA-010": ("Amount 1: fringes a pixel or less wide at the blocks' edges; the "
                       "insides of both blocks, whose samples all land inside them, keep their "
@@ -165,7 +174,8 @@ CASES = {
                       "larger away from that corner, up and left, so red reaches rows 0 and 1 "
                       "above the blocks; the blue picture is drawn smaller toward it, so blue "
                       "reaches row 8 below the white block; and the white block's left column "
-                      "loses its blue.",
+                      "keeps its blue, whose sample falls past the left edge and reads the "
+                      "edge pixel.",
                       case(center=(100, 100)), [0]),
 }
 
@@ -261,18 +271,22 @@ def check(expected):
         assert drawn[at(x, y)][3] == 0 and p[0] > 0 and p[1] == 0 and p[2] == 0 and p[3] >= p[0]
     # Blue inward: the white block's outer row loses some blue, its sample reaching the empty row.
     assert one[at(2, 2)][2] < drawn[at(2, 2)][2] and one[at(2, 2)][0] == drawn[at(2, 2)][0]
-    # The left edge: blue's sample falls outside the layer, and the column turns yellow.
+    # The left edge (D-1139): blue's sample falls past the layer's edge and reads the edge pixel,
+    # so the column stays white; as first built it read transparent and the column turned yellow.
+    old = aberration(layer, 3, (50, 50), hold=False)
     for y in range(3, 7):
-        assert one[at(0, y)][:2] == [1.0, 1.0] and one[at(0, y)][2] == 0 and one[at(0, y)][3] == 1
+        assert near([one[at(0, y)]], [[1.0, 1.0, 1.0, 1.0]])
+        assert old[at(0, y)][:2] == [1.0, 1.0] and old[at(0, y)][2] == 0
     # The covering is the largest of the three: never less than the pixel's own.
     for fx in ("FX-CHROMA-001", "FX-CHROMA-003", "FX-CHROMA-008"):
         assert all(c[fx]["0"][i][3] >= drawn[i][3] for i in range(W * H))
     three = c["FX-CHROMA-003"]["0"]
     assert spread(three) > spread(one) and three[at(13, 4)][3] >= drawn[at(13, 4)][3]
-    # About the left edge's middle: red runs right, and the left column keeps its blue.
+    # About the left edge's middle: red runs right, and the left column keeps its blue and, its
+    # red sample past the edge reading the edge pixel, its full red.
     four = c["FX-CHROMA-004"]["0"]
     for y in range(3, 7):
-        assert abs(four[at(0, y)][2] - 1) < 1e-12 and one[at(0, y)][2] == 0
+        assert abs(four[at(0, y)][2] - 1) < 1e-12 and abs(four[at(0, y)][0] - 1) < 1e-12
     for x in (7, 14):
         assert drawn[at(x, 4)][3] == 0 and four[at(x, 4)][0] > 0.5
     five, six = c["FX-CHROMA-005"], c["FX-CHROMA-006"]
@@ -295,13 +309,14 @@ def check(expected):
     for x, y in ((2, 4), (3, 5), (10, 4), (11, 5)):
         assert near([ten[at(x, y)]], [drawn[at(x, y)]]), (x, y)
     assert ten[at(2, 1)][0] > 0 and ten[at(7, 4)] != drawn[at(7, 4)]
-    # About the bottom right corner: red above the blocks, blue below, the left column blueless.
+    # About the bottom right corner: red above the blocks, blue below, the left column keeps its
+    # blue (D-1139).
     eleven = c["FX-CHROMA-011"]["0"]
     for x, y in ((0, 0), (7, 1), (10, 2)):
         assert drawn[at(x, y)][3] == 0 and eleven[at(x, y)][0] > 0.5, (x, y)
     for x in range(4, 8):
         assert drawn[at(x, 8)][3] == 0 and eleven[at(x, 8)][2] > 0.4 and eleven[at(x, 8)][0] == 0
-    assert eleven[at(0, 5)][2] == 0 and eleven[at(0, 5)][3] == 1
+    assert abs(eleven[at(0, 5)][2] - 1) < 1e-12 and eleven[at(0, 5)][3] == 1
     print("checked")
 
 
