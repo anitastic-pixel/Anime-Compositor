@@ -20341,6 +20341,12 @@ mod latest_request_and_refine;
 #[path = "tests/exporting.rs"]
 mod exporting;
 
+/// D-1140: `/export?into=` only in a window started for testing. Writes
+/// `verification/D-1140_export_into_table.md`.
+#[cfg(test)]
+#[path = "tests/export_into.rs"]
+mod export_into;
+
 #[cfg(test)]
 #[path = "tests/tests.rs"]
 mod tests;
