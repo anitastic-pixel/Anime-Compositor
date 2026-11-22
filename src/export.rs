@@ -370,7 +370,7 @@ fn own_media_in_the_way(
         .assets
         .iter()
         .flat_map(|a| a.path.iter().chain(a.frames.values()))
-        .filter_map(|p| root.join(p).canonicalize().ok())
+        .filter_map(|p| crate::media::file_at(root, p).ok()?.canonicalize().ok())
         .collect();
     in_the_way
         .into_iter()
@@ -1486,6 +1486,8 @@ fn is_unresolved_source(id: DiagnosticId) -> bool {
             | DiagnosticId::MediaMissing
             | DiagnosticId::MediaDecodeFailed
             | DiagnosticId::MediaUnsupportedFormat
+            // D-268: a drawing on a network share is not read, so the frame has none.
+            | DiagnosticId::InvalidPath
     )
 }
 

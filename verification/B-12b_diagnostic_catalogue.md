@@ -13,6 +13,7 @@ One row per identifier this build can print, and the table where a person can re
 | `PROJECT_SAVE_FAILED` | yes | `verification/B-09_persistence_table.md` |
 | `PROJECT_RECOVERY_AVAILABLE` | yes | `verification/B-09_persistence_table.md` |
 | `MEDIA_MISSING` | yes | `verification/B-08a_compose_table.md` |
+| `INVALID_PATH` | yes | `verification/B-1001_network_paths_table.md` |
 | `EFFECT_UNSUPPORTED` | yes | `verification/B-07_effects_table.md` |
 | `EFFECT_PARAMETER_INVALID` | yes | `verification/B-07_effects_table.md` |
 | `PROJECT_FEATURE_UNSUPPORTED` | **no — added by a decision** | **nothing raises it** |
@@ -93,7 +94,6 @@ One row per identifier this build can print, and the table where a person can re
 |---|---|
 | `GPU_BACKEND_FAILED` | The only GPU path is B-44's viewer picture, and a card that fails there refuses nothing: the CPU draws the frame and GPU_PREVIEW_ON_CPU says so (D-101, accepted). |
 | `GPU_OUT_OF_MEMORY` | The only GPU path is B-44's viewer picture, and a card out of memory there refuses nothing: the CPU draws the frame and GPU_PREVIEW_ON_CPU says so (D-101, accepted). |
-| `INVALID_PATH` | Paths reach this build through Windows file dialogs and are read, not normalised; a path that cannot be read is reported by the identifier for what failed to read it. |
 | `DEPENDENCY_LICENSE_UNRESOLVED` | A distribution-time check rather than a running one: tools/archive_licenses.py and docs/DEPENDENCIES.md flag the unresolved entries and CI blocks on them. |
 
 ## What the build says that the catalogue does not list
@@ -132,6 +132,9 @@ One row per identifier this build can print, and the table where a person can re
 | MEDIA_MISSING: the enum spells it the way the catalogue does | MEDIA_MISSING | MEDIA_MISSING | pass |
 | MEDIA_MISSING: says truthfully whether document 28 lists it | true | true | pass |
 | MEDIA_MISSING: a table somewhere shows a person this sentence | named in B-08a_compose_table.md | named in B-08a_compose_table.md | pass |
+| INVALID_PATH: the enum spells it the way the catalogue does | INVALID_PATH | INVALID_PATH | pass |
+| INVALID_PATH: says truthfully whether document 28 lists it | true | true | pass |
+| INVALID_PATH: a table somewhere shows a person this sentence | named in B-1001_network_paths_table.md | named in B-1001_network_paths_table.md | pass |
 | EFFECT_UNSUPPORTED: the enum spells it the way the catalogue does | EFFECT_UNSUPPORTED | EFFECT_UNSUPPORTED | pass |
 | EFFECT_UNSUPPORTED: says truthfully whether document 28 lists it | true | true | pass |
 | EFFECT_UNSUPPORTED: a table somewhere shows a person this sentence | named in B-07_effects_table.md | named in B-07_effects_table.md | pass |
@@ -357,7 +360,7 @@ One row per identifier this build can print, and the table where a person can re
 | and nothing is written down as not built that the build actually has | none | none | pass |
 | and every entry written down as not built is one the catalogue actually lists | none invented | none invented | pass |
 
-**240 of 240 checks pass.**
+**243 of 243 checks pass.**
 
 ## What this cannot cover
 

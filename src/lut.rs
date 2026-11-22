@@ -423,7 +423,13 @@ pub(crate) fn fill(
             continue;
         };
         let relative = asset.path.as_deref().unwrap_or("");
-        let path = root.join(relative);
+        let path = match crate::media::file_at(root, relative) {
+            Ok(path) => path,
+            Err(refused) => {
+                said.push(refused);
+                continue;
+            }
+        };
         if relative.is_empty() || !crate::cache::looked_at(&path).is_ok_and(|m| m.is_file()) {
             said.push(
                 Diagnostic::new(
