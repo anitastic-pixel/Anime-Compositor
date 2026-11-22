@@ -1485,3 +1485,5 @@ Done: behavior works, relevant fixtures pass, the verification artifact exists a
 For the first coding session use B-01. Do not attempt several backlog items in one session because they look small.
 
 Related documents: 03, 11, 12, 14, 22, 23 and 25.
+
+B-1002 / A ceiling on undo memory, D-1137 (follow-up to D-1118 part b) / Done on 2026-11-21 after the owner's "proceed". Undo steps are counted by what each alone holds (the layers its edit changed, measured as their written length, and its own copy of the rest of the project); past the ceiling, 512 MB unless set in Preferences ("Undo, in MB"), the oldest steps are let go, the newest always kept, and the Undo button's hover text and Preferences say how many. Every kept step undoes and redoes to the project equal by value; dirty is still a comparison with the save. Checks `tests/b1002_undo_ceiling.rs` 7 of 7; b05_model, b09_persistence, p03_byte_equality; app suite 175 passed. p20's new row (1 MB ceiling, 400 edits): 186, 18 and 17 steps kept at 4, 50 and 200 layers; the program's count is within about 0.5 to 2.6 times the allocator's. Playtest: `verification/B-1002_playtest.md`.

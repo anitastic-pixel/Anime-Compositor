@@ -2594,7 +2594,7 @@ fn open(path: &Path) -> Result<Viewer, Diagnostic> {
     }
 
     Ok(Viewer {
-        document: loaded.document,
+        document: ceiled(loaded.document),
         preserved: Arc::new(loaded.preserved),
         path: Some(path.to_path_buf()),
         root: path.parent().unwrap_or(Path::new(".")).to_path_buf(),
@@ -2639,6 +2639,17 @@ fn ram_ceiling() -> usize {
         0 => anime_compositor::cache::automatic_budget(),
         custom => custom,
     }
+}
+
+/// D-1137: the undo memory ceiling in bytes, the window's as the memory setting is: a project
+/// opened later is given the same ([`ceiled`]).
+static UNDO_CEILING: std::sync::atomic::AtomicUsize =
+    std::sync::atomic::AtomicUsize::new(anime_compositor::command::DEFAULT_UNDO_CEILING);
+
+/// D-1137: `document` under the window's undo ceiling.
+fn ceiled(mut document: Document) -> Document {
+    document.set_undo_ceiling(UNDO_CEILING.load(std::sync::atomic::Ordering::Relaxed));
+    document
 }
 
 /// B-161, D-232: where decoded drawings are kept on disk and the most they may take, or `None`
@@ -2711,6 +2722,27 @@ fn memory(app: &AppHandle, viewer: &Mutex<Viewer>, query: Option<&str>) -> Strin
         let ram = custom("ram", cache::largest_budget());
         RAM_CEILING.store(ram.unwrap_or(0), std::sync::atomic::Ordering::Relaxed);
     }
+    // D-1137: `undo` in megabytes, at least 1; anything else is the 512 MB default.
+    if let Some(mb) = parameter(query, "undo") {
+        let bytes = mb
+            .parse::<f64>()
+            .ok()
+            .filter(|mb| mb.is_finite() && *mb >= 1.0)
+            .map_or(anime_compositor::command::DEFAULT_UNDO_CEILING, |mb| (mb * 1e6) as usize);
+        UNDO_CEILING.store(bytes, std::sync::atomic::Ordering::Relaxed);
+        let viewer = &mut *viewer.lock().expect("the viewer lock was poisoned");
+        viewer.document.set_undo_ceiling(bytes);
+    }
+    let undo = {
+        let viewer = viewer.lock().expect("the viewer lock was poisoned");
+        let d = &viewer.document;
+        serde_json::json!({
+            "now": d.undo_ceiling(),
+            "held": d.undo_held_bytes(),
+            "steps": d.undo_depth(),
+            "dropped": d.undo_dropped(),
+        })
+    };
     if let Some(gb) = parameter(query, "disk") {
         let cap = gb
             .parse::<f64>()
@@ -2775,6 +2807,7 @@ fn memory(app: &AppHandle, viewer: &Mutex<Viewer>, query: Option<&str>) -> Strin
             "held": held,
         },
         "card": on_card,
+        "undo": undo,
         "disk": disk_setting().map(|disk| serde_json::json!({
             "folder": disk.folder.to_string_lossy(),
             "now": disk.cap,
@@ -2825,7 +2858,7 @@ fn blank(root: PathBuf) -> Viewer {
     let id = composition.id.clone();
     project.compositions.push(composition);
     Viewer {
-        document: Document::new(project),
+        document: ceiled(Document::new(project)),
         preserved: Arc::new(Preserved::none()),
         path: None,
         root,
@@ -3149,7 +3182,7 @@ fn recover_in(viewer: &Mutex<Viewer>, snapshot: &Path, unsaved: Option<&Path>) -
                     Err(diagnostic) => return diagnostic.sentence(),
                 };
                 let project = taken.document.project().clone();
-                taken.document = Document::recovered(project.clone(), Project::new(project.id));
+                taken.document = ceiled(Document::recovered(project.clone(), Project::new(project.id)));
                 taken.path = None;
                 taken.name = "Untitled project (recovered)".to_string();
                 taken.recovery = persist::recovery_candidates(&unsaved_copy(folder))
@@ -3177,10 +3210,10 @@ fn recover_in(viewer: &Mutex<Viewer>, snapshot: &Path, unsaved: Option<&Path>) -
         Ok(saved) => saved,
         Err(diagnostic) => return diagnostic.sentence(),
     };
-    taken.document = Document::recovered(
+    taken.document = ceiled(Document::recovered(
         taken.document.project().clone(),
         saved.document.project().clone(),
-    );
+    ));
     taken.name = project
         .file_name()
         .map(|n| n.to_string_lossy().into_owned())
@@ -3266,6 +3299,8 @@ fn state(viewer: &Mutex<Viewer>) -> String {
             // taken back.
             "undo": viewer.document.undo_labels(),
             "redo": viewer.document.redo_labels(),
+            // D-1137: how many of the oldest steps the undo memory ceiling has let go.
+            "undo_dropped": viewer.document.undo_dropped(),
         })
         .to_string();
         (viewer.document.project().clone(), viewer.preserved.clone(), rest)
@@ -3292,6 +3327,8 @@ fn state_since(viewer: &Mutex<Viewer>, since: Option<u64>) -> String {
             "solo": viewer.solo.iter().map(|id| id.as_str()).collect::<Vec<_>>(),
             "undo": viewer.document.undo_labels(),
             "redo": viewer.document.redo_labels(),
+            // D-1137: how many of the oldest steps the undo memory ceiling has let go.
+            "undo_dropped": viewer.document.undo_dropped(),
         })
         .to_string();
         let sent = viewer.state_sent.take();

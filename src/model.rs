@@ -1990,6 +1990,37 @@ impl Project {
             && plain(self) == plain(other)
     }
 
+    /// D-1137: about how many bytes this copy of the project holds that `newer` does not share:
+    /// each layer not behind the same pointer in `newer`, and the rest of the project, which no
+    /// copy shares (compositions, assets, the layer lists). Measured as the length of the values
+    /// written out (`Debug`), not counted by the allocator.
+    ///
+    /// ponytail: the written length stands in for memory; p20's D-1137 row prints it beside the
+    /// allocator's count. Count heap bytes per type if the two drift far apart.
+    pub fn bytes_not_shared_with(&self, newer: &Project) -> usize {
+        let rest = Project {
+            compositions: self
+                .compositions
+                .iter()
+                .map(|c| Composition { layers: BTreeMap::new(), ..c.clone() })
+                .collect(),
+            ..self.clone()
+        };
+        let mut bytes = format!("{rest:?}").len();
+        for comp in &self.compositions {
+            let theirs = newer.compositions.iter().find(|c| c.id == comp.id);
+            for (id, layer) in &comp.layers {
+                let shared = theirs
+                    .and_then(|c| c.layers.get(id))
+                    .is_some_and(|l| Arc::ptr_eq(l, layer));
+                if !shared {
+                    bytes += format!("{layer:?}").len();
+                }
+            }
+        }
+        bytes
+    }
+
     pub fn new(id: Id) -> Self {
         Project {
             id,

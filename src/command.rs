@@ -1646,7 +1646,13 @@ pub struct Record {
     /// The commands as applied, in order. More than one only for a transaction.
     pub commands: Vec<Command>,
     before: Project,
+    /// D-1137: what this step alone holds, about, in bytes: `before`'s layers the next state
+    /// does not share, and the rest of `before`. Counted when the step enters the undo stack.
+    bytes: usize,
 }
+
+/// D-1137: the most the undo steps may hold before the oldest are let go: 512 MB.
+pub const DEFAULT_UNDO_CEILING: usize = 512_000_000;
 
 /// A drag in progress. Document 26: "release creates one history record from original to
 /// final value."
@@ -1665,6 +1671,9 @@ pub struct Document {
     undo: Vec<Record>,
     redo: Vec<Record>,
     drag: Option<Drag>,
+    /// D-1137: the undo memory ceiling, and how many of the oldest steps it has let go.
+    ceiling: usize,
+    dropped: usize,
 }
 
 impl Document {
@@ -1676,6 +1685,8 @@ impl Document {
             undo: Vec::new(),
             redo: Vec::new(),
             drag: None,
+            ceiling: DEFAULT_UNDO_CEILING,
+            dropped: 0,
         }
     }
 
@@ -1697,6 +1708,8 @@ impl Document {
             undo: Vec::new(),
             redo: Vec::new(),
             drag: None,
+            ceiling: DEFAULT_UNDO_CEILING,
+            dropped: 0,
         }
     }
 
@@ -1711,6 +1724,39 @@ impl Document {
     }
     pub fn redo_depth(&self) -> usize {
         self.redo.len()
+    }
+
+    /// D-1137: the ceiling on what the undo steps hold, in bytes.
+    pub fn undo_ceiling(&self) -> usize {
+        self.ceiling
+    }
+    /// D-1137: set the ceiling; steps past it are let go at once, and raising it brings none back.
+    pub fn set_undo_ceiling(&mut self, bytes: usize) {
+        self.ceiling = bytes;
+        self.trim_undo();
+    }
+    /// D-1137: how many of the oldest steps the ceiling has let go since the project was opened.
+    pub fn undo_dropped(&self) -> usize {
+        self.dropped
+    }
+    /// D-1137: what the undo steps hold now, about, in bytes. Redo steps are not counted: they
+    /// only exist after undos, so they never hold more than the undo steps they came from.
+    pub fn undo_held_bytes(&self) -> usize {
+        self.undo.iter().map(|r| r.bytes).sum()
+    }
+
+    /// D-1137: let the oldest steps go while the rest hold more than the ceiling, always keeping
+    /// the newest. Every step holds a whole project of its own, so dropping one never touches what
+    /// the others undo to; dirty is a comparison with the save, so it does not move either.
+    fn trim_undo(&mut self) {
+        let mut held = self.undo_held_bytes();
+        let mut drop = 0;
+        while held > self.ceiling && self.undo.len() - drop > 1 {
+            held -= self.undo[drop].bytes;
+            drop += 1;
+        }
+        self.undo.drain(..drop);
+        self.dropped += drop;
     }
     pub fn undo_labels(&self) -> Vec<&str> {
         self.undo.iter().map(|r| r.label.as_str()).collect()
@@ -1781,9 +1827,11 @@ impl Document {
             affected: commands.iter().flat_map(Command::affected).collect(),
             source_revision: self.revision - 1,
             commands,
+            bytes: before.bytes_not_shared_with(&self.project),
             before,
         };
         self.undo.push(record);
+        self.trim_undo();
         Ok(self.undo.last().expect("just pushed"))
     }
 
@@ -1861,8 +1909,10 @@ impl Document {
             affected,
             source_revision: self.revision - 1,
             commands: drag.commands,
+            bytes: drag.before.bytes_not_shared_with(&self.project),
             before: drag.before,
         });
+        self.trim_undo();
         self.undo.last()
     }
 
@@ -1912,7 +1962,9 @@ impl Document {
         }
         self.project = working;
         self.revision += 1;
-        self.undo.push(Record { before, ..record });
+        // Recounted: the step's layers are new copies now. No trim: redo only moves a step back.
+        let bytes = before.bytes_not_shared_with(&self.project);
+        self.undo.push(Record { before, bytes, ..record });
         self.undo.last()
     }
 }

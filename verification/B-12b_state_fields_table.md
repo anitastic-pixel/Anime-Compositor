@@ -20,13 +20,14 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 
 | Check | Expected | Actual | Result |
 |---|---|---|---|
-| the panels read 6 fields out of the whole answer | true | true | pass |
+| the panels read 7 fields out of the whole answer | true | true | pass |
 | `doc.composition` is in the answer | present | present | pass |
 | `doc.project` is in the answer | present | present | pass |
 | `doc.redo` is in the answer | present | present | pass |
 | `doc.solo` is in the answer | present | present | pass |
 | `doc.token` is in the answer | present | present | pass |
 | `doc.undo` is in the answer | present | present | pass |
+| `doc.undo_dropped` is in the answer | present | present | pass |
 | the panels read 20 fields out of the composition on screen | true | true | pass |
 | `comp.ae_32bpc` is in the answer | present | present | pass |
 | `comp.background_color` is in the answer | present | present | pass |
@@ -686,4 +687,4 @@ It also cannot see a field that is present and always null. `mask` is null on ev
 | the panel's `core.compressor` is an effect this build has | added | added | pass |
 | and the settings it sends for it - threshold, ratio, knee, attack, release, makeup, output_limit, auto_release - are the ones the command reads | accepted | accepted | pass |
 
-**665 of 665 checks pass.**
+**666 of 666 checks pass.**
