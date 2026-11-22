@@ -1,0 +1,2100 @@
+{
+ "exe": "I:\\AI Coding\\Claude\\TotallyNotAfterEffects\\target\\lanes\\p28\\release\\anime_compositor_app.exe",
+ "exe_written": "2026-11-21T22:56:27",
+ "commit": "89fec3d2",
+ "machine": "AMD Ryzen 9 9900X 12-Core Processor | 12 cores 24 threads | 61.5 GB | Microsoft Windows 11 Education 10.0.26300",
+ "python": "3.13.6",
+ "scrambled": {
+  "cpu": {
+   "119": {
+    "window_ms": 113.4,
+    "tool_ms": null,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": [],
+    "frame_notes": "",
+    "note_codes": []
+   },
+   "0": {
+    "window_ms": 31.2,
+    "tool_ms": null,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": [],
+    "frame_notes": "",
+    "note_codes": []
+   },
+   "50": {
+    "window_ms": 87.9,
+    "tool_ms": null,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": [],
+    "frame_notes": "",
+    "note_codes": []
+   },
+   "48": {
+    "window_ms": 97.4,
+    "tool_ms": null,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": [],
+    "frame_notes": "",
+    "note_codes": []
+   },
+   "90": {
+    "window_ms": 91.9,
+    "tool_ms": null,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": [],
+    "frame_notes": "",
+    "note_codes": []
+   },
+   "24": {
+    "window_ms": 72.8,
+    "tool_ms": null,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": [],
+    "frame_notes": "",
+    "note_codes": []
+   },
+   "55": {
+    "window_ms": 79.2,
+    "tool_ms": null,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": [],
+    "frame_notes": "",
+    "note_codes": []
+   },
+   "47": {
+    "window_ms": 53.9,
+    "tool_ms": null,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": [],
+    "frame_notes": "",
+    "note_codes": []
+   },
+   "54": {
+    "window_ms": 87.6,
+    "tool_ms": null,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": [],
+    "frame_notes": "",
+    "note_codes": []
+   },
+   "49": {
+    "window_ms": 56.8,
+    "tool_ms": null,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": [],
+    "frame_notes": "",
+    "note_codes": []
+   }
+  },
+  "card": {
+   "119": {
+    "tool_ms": 636,
+    "drawn_on": "GPU",
+    "failed": [],
+    "quality": "Full"
+   },
+   "0": {
+    "tool_ms": 633,
+    "drawn_on": "GPU",
+    "failed": [],
+    "quality": "Full"
+   },
+   "50": {
+    "tool_ms": 634,
+    "drawn_on": "CPU, not GPU",
+    "failed": [],
+    "quality": "Full"
+   },
+   "48": {
+    "tool_ms": 663,
+    "drawn_on": "CPU, not GPU",
+    "failed": [],
+    "quality": "Full"
+   },
+   "90": {
+    "tool_ms": 706,
+    "drawn_on": "GPU",
+    "failed": [],
+    "quality": "Full"
+   },
+   "24": {
+    "tool_ms": 631,
+    "drawn_on": "GPU",
+    "failed": [],
+    "quality": "Full"
+   },
+   "55": {
+    "tool_ms": 672,
+    "drawn_on": "GPU",
+    "failed": [],
+    "quality": "Full"
+   },
+   "47": {
+    "tool_ms": 609,
+    "drawn_on": "GPU",
+    "failed": [],
+    "quality": "Full"
+   },
+   "54": {
+    "tool_ms": 602,
+    "drawn_on": "CPU, not GPU",
+    "failed": [],
+    "quality": "Full"
+   },
+   "49": {
+    "tool_ms": 668,
+    "drawn_on": "CPU, not GPU",
+    "failed": [],
+    "quality": "Full"
+   }
+  },
+  "card_log": {
+   "costliest": "GPU: draw, encode and bring the picture back",
+   "costliest_ms": 84.8516,
+   "dropped": 0,
+   "frames": 30,
+   "let_go": 0,
+   "median_ms": 2.5084999999999997,
+   "on": true,
+   "slowest": [
+    {
+     "dropped": 0,
+     "exporting": false,
+     "frame": 50,
+     "ms": 95.7868,
+     "playing": false,
+     "quality": "Full",
+     "read_ahead": false,
+     "stages": [
+      [
+       "encode for the page",
+       11.2318
+      ],
+      [
+       "effect: gaussian blur",
+       11.0746
+      ],
+      [
+       "effect: chromatic aberration",
+       8.5532
+      ]
+     ],
+     "warnings": [
+      "GPU_PREVIEW_ON_CPU: The CPU drew this frame: its adjustment layer has a blend mode other than normal."
+     ]
+    },
+    {
+     "dropped": 0,
+     "exporting": false,
+     "frame": 48,
+     "ms": 95.17970000000001,
+     "playing": false,
+     "quality": "Full",
+     "read_ahead": false,
+     "stages": [
+      [
+       "effect: gaussian blur",
+       11.0115
+      ],
+      [
+       "effect: chromatic aberration",
+       10.9697
+      ],
+      [
+       "tile loop: sample and blend",
+       7.8078
+      ]
+     ],
+     "warnings": [
+      "GPU_PREVIEW_ON_CPU: The CPU drew this frame: its adjustment layer has a blend mode other than normal."
+     ]
+    },
+    {
+     "dropped": 0,
+     "exporting": false,
+     "frame": 49,
+     "ms": 93.2002,
+     "playing": false,
+     "quality": "Full",
+     "read_ahead": false,
+     "stages": [
+      [
+       "effect: gaussian blur",
+       10.9245
+      ],
+      [
+       "effect: chromatic aberration",
+       9.3745
+      ],
+      [
+       "tile loop: sample and blend",
+       7.7522
+      ]
+     ],
+     "warnings": [
+      "GPU_PREVIEW_ON_CPU: The CPU drew this frame: its adjustment layer has a blend mode other than normal."
+     ]
+    },
+    {
+     "dropped": 0,
+     "exporting": false,
+     "frame": 54,
+     "ms": 91.9205,
+     "playing": false,
+     "quality": "Full",
+     "read_ahead": false,
+     "stages": [
+      [
+       "effect: gaussian blur",
+       10.7522
+      ],
+      [
+       "effect: chromatic aberration",
+       10.2018
+      ],
+      [
+       "tile loop: sample and blend",
+       8.7611
+      ]
+     ],
+     "warnings": [
+      "GPU_PREVIEW_ON_CPU: The CPU drew this frame: its adjustment layer has a blend mode other than normal."
+     ]
+    },
+    {
+     "dropped": 0,
+     "exporting": false,
+     "frame": 119,
+     "ms": 57.9537,
+     "playing": false,
+     "quality": "Full",
+     "read_ahead": false,
+     "stages": [
+      [
+       "GPU: draw, encode and bring the picture back",
+       18.1868
+      ],
+      [
+       "GPU: send drawings to the card",
+       16.2382
+      ],
+      [
+       "layer mask",
+       5.2711
+      ]
+     ],
+     "warnings": []
+    },
+    {
+     "dropped": 0,
+     "exporting": false,
+     "frame": 90,
+     "ms": 55.7489,
+     "playing": false,
+     "quality": "Full",
+     "read_ahead": false,
+     "stages": [
+      [
+       "GPU: draw, encode and bring the picture back",
+       23.3257
+      ],
+      [
+       "GPU: send drawings to the card",
+       8.2386
+      ],
+      [
+       "layer mask",
+       4.8204
+      ]
+     ],
+     "warnings": []
+    },
+    {
+     "dropped": 0,
+     "exporting": false,
+     "frame": 55,
+     "ms": 49.9469,
+     "playing": false,
+     "quality": "Full",
+     "read_ahead": false,
+     "stages": [
+      [
+       "GPU: draw, encode and bring the picture back",
+       12.293
+      ],
+      [
+       "GPU: send drawings to the card",
+       6.8913
+      ],
+      [
+       "layer mask",
+       4.6466
+      ]
+     ],
+     "warnings": []
+    },
+    {
+     "dropped": 0,
+     "exporting": false,
+     "frame": 0,
+     "ms": 41.3343,
+     "playing": false,
+     "quality": "Full",
+     "read_ahead": false,
+     "stages": [
+      [
+       "GPU: draw, encode and bring the picture back",
+       10.3905
+      ],
+      [
+       "layer mask",
+       4.5282
+      ],
+      [
+       "GPU: send drawings to the card",
+       3.9587
+      ]
+     ],
+     "warnings": []
+    },
+    {
+     "dropped": 0,
+     "exporting": false,
+     "frame": 24,
+     "ms": 34.0398,
+     "playing": false,
+     "quality": "Full",
+     "read_ahead": false,
+     "stages": [
+      [
+       "GPU: draw, encode and bring the picture back",
+       9.7784
+      ],
+      [
+       "GPU: send drawings to the card",
+       6.1299
+      ],
+      [
+       "layer mask",
+       4.4528
+      ]
+     ],
+     "warnings": []
+    },
+    {
+     "dropped": 0,
+     "exporting": false,
+     "frame": 47,
+     "ms": 32.213699999999996,
+     "playing": false,
+     "quality": "Full",
+     "read_ahead": false,
+     "stages": [
+      [
+       "GPU: draw, encode and bring the picture back",
+       10.8772
+      ],
+      [
+       "GPU: send drawings to the card",
+       5.9605
+      ],
+      [
+       "layer mask",
+       5.1529
+      ]
+     ],
+     "warnings": []
+    },
+    {
+     "dropped": 0,
+     "exporting": false,
+     "frame": 49,
+     "ms": 4.2816,
+     "playing": false,
+     "quality": "Full",
+     "read_ahead": false,
+     "stages": [
+      [
+       "wait for the viewer lock",
+       0.0002
+      ]
+     ],
+     "warnings": [
+      "GPU_PREVIEW_ON_CPU: The CPU drew this frame: its adjustment layer has a blend mode other than normal."
+     ]
+    },
+    {
+     "dropped": 0,
+     "exporting": false,
+     "frame": 90,
+     "ms": 3.2931000000000004,
+     "playing": false,
+     "quality": "Full",
+     "read_ahead": false,
+     "stages": [
+      [
+       "wait for the viewer lock",
+       0.0001
+      ]
+     ],
+     "warnings": []
+    },
+    {
+     "dropped": 0,
+     "exporting": false,
+     "frame": 55,
+     "ms": 2.9565,
+     "playing": false,
+     "quality": "Full",
+     "read_ahead": false,
+     "stages": [],
+     "warnings": []
+    },
+    {
+     "dropped": 0,
+     "exporting": false,
+     "frame": 119,
+     "ms": 2.8279,
+     "playing": false,
+     "quality": "Full",
+     "read_ahead": false,
+     "stages": [
+      [
+       "wait for the viewer lock",
+       0.0004
+      ]
+     ],
+     "warnings": []
+    },
+    {
+     "dropped": 0,
+     "exporting": false,
+     "frame": 50,
+     "ms": 2.7037,
+     "playing": false,
+     "quality": "Full",
+     "read_ahead": false,
+     "stages": [
+      [
+       "wait for the viewer lock",
+       0.0001
+      ]
+     ],
+     "warnings": [
+      "GPU_PREVIEW_ON_CPU: The CPU drew this frame: its adjustment layer has a blend mode other than normal."
+     ]
+    },
+    {
+     "dropped": 0,
+     "exporting": false,
+     "frame": 47,
+     "ms": 2.5084999999999997,
+     "playing": false,
+     "quality": "Full",
+     "read_ahead": false,
+     "stages": [
+      [
+       "wait for the viewer lock",
+       0.0001
+      ]
+     ],
+     "warnings": []
+    },
+    {
+     "dropped": 0,
+     "exporting": false,
+     "frame": 54,
+     "ms": 2.4998,
+     "playing": false,
+     "quality": "Full",
+     "read_ahead": false,
+     "stages": [
+      [
+       "wait for the viewer lock",
+       0.0001
+      ]
+     ],
+     "warnings": [
+      "GPU_PREVIEW_ON_CPU: The CPU drew this frame: its adjustment layer has a blend mode other than normal."
+     ]
+    },
+    {
+     "dropped": 0,
+     "exporting": false,
+     "frame": 48,
+     "ms": 2.449,
+     "playing": false,
+     "quality": "Full",
+     "read_ahead": false,
+     "stages": [
+      [
+       "wait for the viewer lock",
+       0.0001
+      ]
+     ],
+     "warnings": [
+      "GPU_PREVIEW_ON_CPU: The CPU drew this frame: its adjustment layer has a blend mode other than normal."
+     ]
+    },
+    {
+     "dropped": 0,
+     "exporting": false,
+     "frame": 24,
+     "ms": 2.4108,
+     "playing": false,
+     "quality": "Full",
+     "read_ahead": false,
+     "stages": [
+      [
+       "wait for the viewer lock",
+       0.0001
+      ]
+     ],
+     "warnings": []
+    },
+    {
+     "dropped": 0,
+     "exporting": false,
+     "frame": 0,
+     "ms": 2.3364000000000003,
+     "playing": false,
+     "quality": "Full",
+     "read_ahead": false,
+     "stages": [
+      [
+       "wait for the viewer lock",
+       0.0003
+      ]
+     ],
+     "warnings": []
+    }
+   ],
+   "slowest_5_percent_ms": 95.17970000000001
+  }
+ },
+ "sequence": {
+  "cpu": {
+   "0": {
+    "window_ms": 31.3,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "1": {
+    "window_ms": 45.3,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "2": {
+    "window_ms": 51.6,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "3": {
+    "window_ms": 47.8,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "4": {
+    "window_ms": 61.2,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "5": {
+    "window_ms": 51.7,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "6": {
+    "window_ms": 51.6,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "7": {
+    "window_ms": 62.4,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "8": {
+    "window_ms": 62.9,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "9": {
+    "window_ms": 57.5,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "10": {
+    "window_ms": 62.1,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "11": {
+    "window_ms": 62.5,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "12": {
+    "window_ms": 69,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "13": {
+    "window_ms": 58,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "14": {
+    "window_ms": 67.5,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "15": {
+    "window_ms": 59.8,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "16": {
+    "window_ms": 67.1,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "17": {
+    "window_ms": 62.5,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "18": {
+    "window_ms": 64.3,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "19": {
+    "window_ms": 59.2,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "20": {
+    "window_ms": 62.2,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "21": {
+    "window_ms": 59.2,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "22": {
+    "window_ms": 67.6,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "23": {
+    "window_ms": 60.2,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "24": {
+    "window_ms": 68.4,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "25": {
+    "window_ms": 63.6,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "26": {
+    "window_ms": 65.8,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "27": {
+    "window_ms": 62.3,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "28": {
+    "window_ms": 66.8,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "29": {
+    "window_ms": 65.3,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "30": {
+    "window_ms": 72.5,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "31": {
+    "window_ms": 51.3,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "32": {
+    "window_ms": 52.9,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "33": {
+    "window_ms": 49.6,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "34": {
+    "window_ms": 52.3,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "35": {
+    "window_ms": 50.5,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "36": {
+    "window_ms": 52.2,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "37": {
+    "window_ms": 51.3,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "38": {
+    "window_ms": 54.2,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "39": {
+    "window_ms": 52.3,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "40": {
+    "window_ms": 54.7,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "41": {
+    "window_ms": 48.9,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "42": {
+    "window_ms": 53.8,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "43": {
+    "window_ms": 49.1,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "44": {
+    "window_ms": 53.3,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "45": {
+    "window_ms": 50.1,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "46": {
+    "window_ms": 55.7,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "47": {
+    "window_ms": 51,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "48": {
+    "window_ms": 82.2,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "49": {
+    "window_ms": 57.3,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "50": {
+    "window_ms": 86,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "51": {
+    "window_ms": 83.8,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "52": {
+    "window_ms": 80.4,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "53": {
+    "window_ms": 82.8,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "54": {
+    "window_ms": 80.1,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "55": {
+    "window_ms": 87.3,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "56": {
+    "window_ms": 67.9,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "57": {
+    "window_ms": 73.2,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "58": {
+    "window_ms": 72.3,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "59": {
+    "window_ms": 73.4,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "60": {
+    "window_ms": 74.8,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "61": {
+    "window_ms": 71.4,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "62": {
+    "window_ms": 72.6,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "63": {
+    "window_ms": 74.4,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "64": {
+    "window_ms": 78,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "65": {
+    "window_ms": 74.1,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "66": {
+    "window_ms": 73.4,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "67": {
+    "window_ms": 74.8,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "68": {
+    "window_ms": 74.6,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "69": {
+    "window_ms": 71.5,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "70": {
+    "window_ms": 73.9,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "71": {
+    "window_ms": 74.8,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "72": {
+    "window_ms": 75.2,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "73": {
+    "window_ms": 74.8,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "74": {
+    "window_ms": 77.1,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "75": {
+    "window_ms": 77.5,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "76": {
+    "window_ms": 75.7,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "77": {
+    "window_ms": 76.3,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "78": {
+    "window_ms": 78.7,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "79": {
+    "window_ms": 75.5,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "80": {
+    "window_ms": 75.4,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "81": {
+    "window_ms": 80.3,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "82": {
+    "window_ms": 76.1,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "83": {
+    "window_ms": 76.9,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "84": {
+    "window_ms": 77.9,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "85": {
+    "window_ms": 79.9,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "86": {
+    "window_ms": 80.4,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "87": {
+    "window_ms": 83.8,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "88": {
+    "window_ms": 79.2,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "89": {
+    "window_ms": 80.4,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "90": {
+    "window_ms": 78.7,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "91": {
+    "window_ms": 81.1,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "92": {
+    "window_ms": 89.7,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "93": {
+    "window_ms": 93.8,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "94": {
+    "window_ms": 99.2,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "95": {
+    "window_ms": 98.1,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "96": {
+    "window_ms": 94.7,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "97": {
+    "window_ms": 104.4,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "98": {
+    "window_ms": 85.4,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "99": {
+    "window_ms": 83.4,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "100": {
+    "window_ms": 87.3,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "101": {
+    "window_ms": 87.2,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "102": {
+    "window_ms": 84,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "103": {
+    "window_ms": 88.1,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "104": {
+    "window_ms": 84.3,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "105": {
+    "window_ms": 87.4,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "106": {
+    "window_ms": 86.5,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "107": {
+    "window_ms": 86.2,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "108": {
+    "window_ms": 87.3,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "109": {
+    "window_ms": 89.6,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "110": {
+    "window_ms": 90.1,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "111": {
+    "window_ms": 97.5,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "112": {
+    "window_ms": 101.3,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "113": {
+    "window_ms": 109.5,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "114": {
+    "window_ms": 102.6,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "115": {
+    "window_ms": 104.5,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "116": {
+    "window_ms": 103.6,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "117": {
+    "window_ms": 89.2,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "118": {
+    "window_ms": 114.9,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   },
+   "119": {
+    "window_ms": 97.2,
+    "drawn_on": "CPU",
+    "from_memory": false,
+    "failed": []
+   }
+  },
+  "hashes": {
+   "0": "79f925839dfdb79a",
+   "1": "6a71fb737d38cb4d",
+   "2": "af3d8b028b521d38",
+   "3": "96d0b898a831cff9",
+   "4": "84d93a0c19f00d70",
+   "5": "6adacad7b1db4c1b",
+   "6": "f36a8c26d20e773a",
+   "7": "77fe2f096087a03e",
+   "8": "0627af73e73549bc",
+   "9": "e8a3167664a794f0",
+   "10": "fc03a302dcd27d5b",
+   "11": "0ae2e1d03fc4d0f9",
+   "12": "6849a29569f2209c",
+   "13": "6baa400466b5d25d",
+   "14": "8704472df0bf4299",
+   "15": "2dff3be914fccac0",
+   "16": "780e11d0a05d5561",
+   "17": "7697b958c00cee1a",
+   "18": "66fa790c3086c69f",
+   "19": "6ef54c66dd0f6504",
+   "20": "6e2fa7245b85f8d1",
+   "21": "bac75a1c9f732dc2",
+   "22": "36a566db445aa8ab",
+   "23": "af4f99b544a868ce",
+   "24": "5dc87f14ea89e33e",
+   "25": "b2a4376f122ac36e",
+   "26": "963bc05a6697910b",
+   "27": "86f01d607fa047e4",
+   "28": "3b5ecc9bdae55543",
+   "29": "669293dce6778d9e",
+   "30": "05dda79917f50327",
+   "31": "b3d6af59ff4ff6f0",
+   "32": "e5d90f505344639c",
+   "33": "97eba54eccd8cc07",
+   "34": "4be3e21fcae1cb4d",
+   "35": "2cdb9d4441cb91b9",
+   "36": "3d1727f1ec081af7",
+   "37": "ccc066ea00f10c41",
+   "38": "216afbbbea886a17",
+   "39": "0a9f85cfa621798d",
+   "40": "704b4712a1a1c6bf",
+   "41": "50f1b8ad9e97d856",
+   "42": "2403b0dc8d8d9105",
+   "43": "e204bdbd200bcaed",
+   "44": "9eb24bd365f0b3b3",
+   "45": "756756f76743cea9",
+   "46": "5cc6b933bb024b1d",
+   "47": "d55798c5c069c128",
+   "48": "cf0f7c652f3dc868",
+   "49": "cf0f7c652f3dc868",
+   "50": "5aae6687d8f44385",
+   "51": "258dfc2e75d7ed0c",
+   "52": "5e1e19f46d8344f9",
+   "53": "c676852fabbed502",
+   "54": "8e429f92ff7775c5",
+   "55": "c0d089e2b9997cb0",
+   "56": "7320e5c072cb2179",
+   "57": "99fbccfcf3c3ba05",
+   "58": "1a38613886de7f85",
+   "59": "2eae11c67b95bc67",
+   "60": "ce913405869801ac",
+   "61": "a8774bc817b3456d",
+   "62": "7215fe2bcf463736",
+   "63": "77bb40440271a686",
+   "64": "b39674649e693bbb",
+   "65": "f1b103d5d821212b",
+   "66": "ec29304d264b6002",
+   "67": "9dabde2daf5c32c8",
+   "68": "5b736e703881c354",
+   "69": "b42669789edb20ac",
+   "70": "9311381c5971f800",
+   "71": "ba8e077428d96a11",
+   "72": "13d3bd7c51e7b0f9",
+   "73": "ed38d975244ed974",
+   "74": "9a0a2196f44be3b1",
+   "75": "7ac1ae0bc7c0d143",
+   "76": "682a563520c578e6",
+   "77": "4ce761709eb15b61",
+   "78": "cadf186f905b78e8",
+   "79": "8a53f9630d766fa0",
+   "80": "6d299137f026e937",
+   "81": "e7fa2a848166721e",
+   "82": "e5e00de84d5c5ac6",
+   "83": "341072d4e0b54fc4",
+   "84": "778890cfe59482ba",
+   "85": "7f0749682ce41949",
+   "86": "afb3f70c7db70638",
+   "87": "30eab1f71cb96fdb",
+   "88": "73d745aeefe9a42f",
+   "89": "bc687c4c0a2697af",
+   "90": "369be71aa1f884da",
+   "91": "38b4d05da55a5697",
+   "92": "966ce0d39cd32abe",
+   "93": "1e10fbd10763a94e",
+   "94": "208ac706b18f8f28",
+   "95": "21bbc14c2f96d21a",
+   "96": "e5b20f0b79cfd315",
+   "97": "1a48f9e2190ea7ae",
+   "98": "34cf9f62aa31713e",
+   "99": "735559b2517ed0d7",
+   "100": "ca49c104a7422d23",
+   "101": "721d9693c2ce1661",
+   "102": "2e2d4f9b60e908ba",
+   "103": "85fca09f34b84dae",
+   "104": "c2f75940ba11194a",
+   "105": "b65607786c268a3f",
+   "106": "a7fb1233dfea0eba",
+   "107": "644d5cb7eb913ce2",
+   "108": "3fade782c18f38af",
+   "109": "6be0428e6f579d9e",
+   "110": "a4b9ce3c0eca5aa2",
+   "111": "e160f9da4ca6dee3",
+   "112": "fe4d089e4323fe8b",
+   "113": "aedc3f24994bc2bf",
+   "114": "cec23732bafe3c3a",
+   "115": "605f87d327a554ef",
+   "116": "38478fda9e0d484c",
+   "117": "6f42c4540e3e993f",
+   "118": "57917786742f25b6",
+   "119": "8ea4a19b89f6f6e9"
+  },
+  "mix": {
+   "from 0, 120 frames": {
+    "samples": 240000,
+    "first_loud": 96000
+   },
+   "from 47, 1 frames": {
+    "samples": 2000,
+    "first_loud": null
+   },
+   "from 48, 1 frames": {
+    "samples": 2000,
+    "first_loud": 0
+   },
+   "from 24, 24 frames": {
+    "samples": 48000,
+    "first_loud": null
+   }
+  }
+ },
+ "draft": {
+  "cpu": {
+   "119": {
+    "window_ms": 52.5,
+    "drawn_on": "CPU",
+    "quality": "Draft",
+    "width": 480,
+    "height": 270,
+    "from_memory": false
+   },
+   "0": {
+    "window_ms": 0.5,
+    "drawn_on": "CPU",
+    "quality": "Draft",
+    "width": 480,
+    "height": 270,
+    "from_memory": true
+   },
+   "50": {
+    "window_ms": 38.5,
+    "drawn_on": "CPU",
+    "quality": "Draft",
+    "width": 480,
+    "height": 270,
+    "from_memory": false
+   },
+   "48": {
+    "window_ms": 39.4,
+    "drawn_on": "CPU",
+    "quality": "Draft",
+    "width": 480,
+    "height": 270,
+    "from_memory": false
+   },
+   "90": {
+    "window_ms": 40.4,
+    "drawn_on": "CPU",
+    "quality": "Draft",
+    "width": 480,
+    "height": 270,
+    "from_memory": false
+   },
+   "24": {
+    "window_ms": 39.6,
+    "drawn_on": "CPU",
+    "quality": "Draft",
+    "width": 480,
+    "height": 270,
+    "from_memory": false
+   },
+   "55": {
+    "window_ms": 39.9,
+    "drawn_on": "CPU",
+    "quality": "Draft",
+    "width": 480,
+    "height": 270,
+    "from_memory": false
+   },
+   "47": {
+    "window_ms": 30.4,
+    "drawn_on": "CPU",
+    "quality": "Draft",
+    "width": 480,
+    "height": 270,
+    "from_memory": false
+   },
+   "54": {
+    "window_ms": 37.8,
+    "drawn_on": "CPU",
+    "quality": "Draft",
+    "width": 480,
+    "height": 270,
+    "from_memory": false
+   },
+   "49": {
+    "window_ms": 22,
+    "drawn_on": "CPU",
+    "quality": "Draft",
+    "width": 480,
+    "height": 270,
+    "from_memory": false
+   }
+  },
+  "card": {
+   "119": {
+    "tool_ms": 142,
+    "drawn_on": "GPU",
+    "quality": "Draft, not final",
+    "width": 480
+   },
+   "0": {
+    "tool_ms": 80,
+    "drawn_on": "GPU",
+    "quality": "Draft, not final",
+    "width": 480
+   },
+   "50": {
+    "tool_ms": 99,
+    "drawn_on": "CPU, not GPU",
+    "quality": "Draft, not final",
+    "width": 480
+   },
+   "48": {
+    "tool_ms": 102,
+    "drawn_on": "CPU, not GPU",
+    "quality": "Draft, not final",
+    "width": 480
+   },
+   "90": {
+    "tool_ms": 136,
+    "drawn_on": "GPU",
+    "quality": "Draft, not final",
+    "width": 480
+   },
+   "24": {
+    "tool_ms": 97,
+    "drawn_on": "GPU",
+    "quality": "Draft, not final",
+    "width": 480
+   },
+   "55": {
+    "tool_ms": 108,
+    "drawn_on": "GPU",
+    "quality": "Draft, not final",
+    "width": 480
+   },
+   "47": {
+    "tool_ms": 106,
+    "drawn_on": "GPU",
+    "quality": "Draft, not final",
+    "width": 480
+   },
+   "54": {
+    "tool_ms": 108,
+    "drawn_on": "CPU, not GPU",
+    "quality": "Draft, not final",
+    "width": 480
+   },
+   "49": {
+    "tool_ms": 115,
+    "drawn_on": "CPU, not GPU",
+    "quality": "Draft, not final",
+    "width": 480
+   }
+  },
+  "card_log": {
+   "costliest": "layer mask",
+   "costliest_ms": 41.6478,
+   "dropped": 0,
+   "frames": 30,
+   "let_go": 0,
+   "median_ms": 0.7716999999999999,
+   "on": true,
+   "slowest": [
+    {
+     "dropped": 0,
+     "exporting": false,
+     "frame": 119,
+     "ms": 39.8855,
+     "playing": false,
+     "quality": "Draft",
+     "read_ahead": false,
+     "stages": [
+      [
+       "GPU: draw, encode and bring the picture back",
+       11.9251
+      ],
+      [
+       "GPU: send drawings to the card",
+       9.1269
+      ],
+      [
+       "layer mask",
+       4.3992
+      ]
+     ],
+     "warnings": []
+    },
+    {
+     "dropped": 0,
+     "exporting": false,
+     "frame": 90,
+     "ms": 29.178800000000003,
+     "playing": false,
+     "quality": "Draft",
+     "read_ahead": false,
+     "stages": [
+      [
+       "GPU: draw, encode and bring the picture back",
+       5.6138
+      ],
+      [
+       "layer mask",
+       4.3896
+      ],
+      [
+       "GPU: send drawings to the card",
+       3.6677
+      ]
+     ],
+     "warnings": []
+    },
+    {
+     "dropped": 0,
+     "exporting": false,
+     "frame": 55,
+     "ms": 27.9296,
+     "playing": false,
+     "quality": "Draft",
+     "read_ahead": false,
+     "stages": [
+      [
+       "GPU: draw, encode and bring the picture back",
+       5.6514
+      ],
+      [
+       "layer mask",
+       4.7166
+      ],
+      [
+       "GPU: send drawings to the card",
+       4.59
+      ]
+     ],
+     "warnings": []
+    },
+    {
+     "dropped": 0,
+     "exporting": false,
+     "frame": 49,
+     "ms": 26.1327,
+     "playing": false,
+     "quality": "Draft",
+     "read_ahead": false,
+     "stages": [
+      [
+       "layer mask",
+       5.2841
+      ],
+      [
+       "tile loop: sample and blend",
+       2.4687
+      ],
+      [
+       "effect: gaussian blur",
+       1.8181
+      ]
+     ],
+     "warnings": [
+      "GPU_PREVIEW_ON_CPU: The CPU drew this frame: its adjustment layer has a blend mode other than normal."
+     ]
+    },
+    {
+     "dropped": 0,
+     "exporting": false,
+     "frame": 48,
+     "ms": 25.1106,
+     "playing": false,
+     "quality": "Draft",
+     "read_ahead": false,
+     "stages": [
+      [
+       "layer mask",
+       4.7357
+      ],
+      [
+       "tile loop: sample and blend",
+       2.1373
+      ],
+      [
+       "effect: gaussian blur",
+       2.0031
+      ]
+     ],
+     "warnings": [
+      "GPU_PREVIEW_ON_CPU: The CPU drew this frame: its adjustment layer has a blend mode other than normal."
+     ]
+    },
+    {
+     "dropped": 0,
+     "exporting": false,
+     "frame": 54,
+     "ms": 24.976200000000002,
+     "playing": false,
+     "quality": "Draft",
+     "read_ahead": false,
+     "stages": [
+      [
+       "layer mask",
+       4.778
+      ],
+      [
+       "effect: gaussian blur",
+       2.245
+      ],
+      [
+       "tile loop: sample and blend",
+       2.2284
+      ]
+     ],
+     "warnings": [
+      "GPU_PREVIEW_ON_CPU: The CPU drew this frame: its adjustment layer has a blend mode other than normal."
+     ]
+    },
+    {
+     "dropped": 0,
+     "exporting": false,
+     "frame": 50,
+     "ms": 24.1097,
+     "playing": false,
+     "quality": "Draft",
+     "read_ahead": false,
+     "stages": [
+      [
+       "layer mask",
+       4.1166
+      ],
+      [
+       "effect: gaussian blur",
+       2.5307
+      ],
+      [
+       "tile loop: sample and blend",
+       2.2615
+      ]
+     ],
+     "warnings": [
+      "GPU_PREVIEW_ON_CPU: The CPU drew this frame: its adjustment layer has a blend mode other than normal."
+     ]
+    },
+    {
+     "dropped": 0,
+     "exporting": false,
+     "frame": 24,
+     "ms": 17.5703,
+     "playing": false,
+     "quality": "Draft",
+     "read_ahead": false,
+     "stages": [
+      [
+       "GPU: draw, encode and bring the picture back",
+       5.2692
+      ],
+      [
+       "GPU: send drawings to the card",
+       4.7035
+      ],
+      [
+       "layer mask",
+       4.5095
+      ]
+     ],
+     "warnings": []
+    },
+    {
+     "dropped": 0,
+     "exporting": false,
+     "frame": 47,
+     "ms": 15.4952,
+     "playing": false,
+     "quality": "Draft",
+     "read_ahead": false,
+     "stages": [
+      [
+       "layer mask",
+       4.7185
+      ],
+      [
+       "GPU: send drawings to the card",
+       3.6853
+      ],
+      [
+       "GPU: draw, encode and bring the picture back",
+       3.3106
+      ]
+     ],
+     "warnings": []
+    },
+    {
+     "dropped": 0,
+     "exporting": false,
+     "frame": 24,
+     "ms": 1.1307,
+     "playing": false,
+     "quality": "Draft",
+     "read_ahead": false,
+     "stages": [
+      [
+       "GPU: paint the picture into the window",
+       0.4683
+      ],
+      [
+       "wait for the viewer lock",
+       0.0001
+      ]
+     ],
+     "warnings": []
+    },
+    {
+     "dropped": 0,
+     "exporting": false,
+     "frame": 54,
+     "ms": 0.8413,
+     "playing": false,
+     "quality": "Draft",
+     "read_ahead": false,
+     "stages": [
+      [
+       "wait for the viewer lock",
+       0.0002
+      ]
+     ],
+     "warnings": [
+      "GPU_PREVIEW_ON_CPU: The CPU drew this frame: its adjustment layer has a blend mode other than normal."
+     ]
+    },
+    {
+     "dropped": 0,
+     "exporting": false,
+     "frame": 48,
+     "ms": 0.8244,
+     "playing": false,
+     "quality": "Draft",
+     "read_ahead": false,
+     "stages": [
+      [
+       "GPU: paint the picture into the window",
+       0.2879
+      ],
+      [
+       "wait for the viewer lock",
+       0.0002
+      ]
+     ],
+     "warnings": [
+      "GPU_PREVIEW_ON_CPU: The CPU drew this frame: its adjustment layer has a blend mode other than normal."
+     ]
+    },
+    {
+     "dropped": 0,
+     "exporting": false,
+     "frame": 119,
+     "ms": 0.8233999999999999,
+     "playing": false,
+     "quality": "Draft",
+     "read_ahead": false,
+     "stages": [
+      [
+       "GPU: paint the picture into the window",
+       0.377
+      ]
+     ],
+     "warnings": []
+    },
+    {
+     "dropped": 0,
+     "exporting": false,
+     "frame": 90,
+     "ms": 0.8005,
+     "playing": false,
+     "quality": "Draft",
+     "read_ahead": false,
+     "stages": [
+      [
+       "GPU: paint the picture into the window",
+       0.3516
+      ],
+      [
+       "wait for the viewer lock",
+       0.0002
+      ]
+     ],
+     "warnings": []
+    },
+    {
+     "dropped": 0,
+     "exporting": false,
+     "frame": 55,
+     "ms": 0.7972,
+     "playing": false,
+     "quality": "Draft",
+     "read_ahead": false,
+     "stages": [
+      [
+       "GPU: paint the picture into the window",
+       0.2708
+      ],
+      [
+       "wait for the viewer lock",
+       0.0001
+      ]
+     ],
+     "warnings": []
+    },
+    {
+     "dropped": 0,
+     "exporting": false,
+     "frame": 50,
+     "ms": 0.7716999999999999,
+     "playing": false,
+     "quality": "Draft",
+     "read_ahead": false,
+     "stages": [
+      [
+       "GPU: paint the picture into the window",
+       0.2561
+      ],
+      [
+       "wait for the viewer lock",
+       0.0003
+      ]
+     ],
+     "warnings": [
+      "GPU_PREVIEW_ON_CPU: The CPU drew this frame: its adjustment layer has a blend mode other than normal."
+     ]
+    },
+    {
+     "dropped": 0,
+     "exporting": false,
+     "frame": 55,
+     "ms": 0.7423,
+     "playing": false,
+     "quality": "Draft",
+     "read_ahead": false,
+     "stages": [
+      [
+       "wait for the viewer lock",
+       0.0001
+      ]
+     ],
+     "warnings": []
+    },
+    {
+     "dropped": 0,
+     "exporting": false,
+     "frame": 47,
+     "ms": 0.7417,
+     "playing": false,
+     "quality": "Draft",
+     "read_ahead": false,
+     "stages": [
+      [
+       "GPU: paint the picture into the window",
+       0.2408
+      ],
+      [
+       "wait for the viewer lock",
+       0.0001
+      ]
+     ],
+     "warnings": []
+    },
+    {
+     "dropped": 0,
+     "exporting": false,
+     "frame": 49,
+     "ms": 0.7374,
+     "playing": false,
+     "quality": "Draft",
+     "read_ahead": false,
+     "stages": [
+      [
+       "GPU: paint the picture into the window",
+       0.2684
+      ]
+     ],
+     "warnings": [
+      "GPU_PREVIEW_ON_CPU: The CPU drew this frame: its adjustment layer has a blend mode other than normal."
+     ]
+    },
+    {
+     "dropped": 0,
+     "exporting": false,
+     "frame": 0,
+     "ms": 0.7224,
+     "playing": false,
+     "quality": "Draft",
+     "read_ahead": false,
+     "stages": [
+      [
+       "GPU: paint the picture into the window",
+       0.2443
+      ]
+     ],
+     "warnings": []
+    }
+   ],
+   "slowest_5_percent_ms": 29.178800000000003
+  }
+ },
+ "play_cpu": {
+  "filled_s": 11.55,
+  "ready_frames": 120,
+  "held_bytes": 996364800,
+  "ceiling": 16521373696,
+  "fill_log": {
+   "frames": 113,
+   "median_ms": 2.1519999999999997,
+   "slowest_5_percent_ms": 157.0655,
+   "dropped": 162
+  },
+  "loops_s": 15.04,
+  "loops_log": {
+   "frames": 274,
+   "median_ms": 1.7083000000000002,
+   "slowest_5_percent_ms": 2.3253000000000004,
+   "dropped": 87
+  },
+  "loops_expected_frames": 360
+ },
+ "play_card": {
+  "filled_s": 6.73,
+  "ready_frames": 120,
+  "held_bytes": 995846400,
+  "ceiling": 16521373696,
+  "fill_log": {
+   "frames": 108,
+   "median_ms": 33.1607,
+   "slowest_5_percent_ms": 144.2839,
+   "dropped": 86
+  },
+  "loops_s": 15.01,
+  "loops_log": {
+   "frames": 2156,
+   "median_ms": 0.9858,
+   "slowest_5_percent_ms": 1.2857999999999998,
+   "dropped": 0
+  },
+  "loops_expected_frames": 360
+ },
+ "exports": [
+  {
+   "query": "format=png&wav=on",
+   "said": "",
+   "dialog": "box: Search Box id=SearchEditBox\nchosen",
+   "ran": false,
+   "seconds": 20.1,
+   "status": "The preview is drawn on the graphics card whenever it can be: NVIDIA GeForce RTX 4070 Ti SUPER (DiscreteGpu), driver NVIDIA 610.88, Vulkan, 16.8 GB of its own memory. Exports are still drawn on the CPU. A frame the card cannot draw is drawn on the CPU, and the picture's label says so. | ",
+   "files": []
+  },
+  {
+   "query": "format=mp4&quality=high",
+   "said": "",
+   "dialog": "box: Search Box id=SearchEditBox\nchosen",
+   "ran": false,
+   "seconds": 20.1,
+   "status": "The preview is drawn on the graphics card whenever it can be: NVIDIA GeForce RTX 4070 Ti SUPER (DiscreteGpu), driver NVIDIA 610.88, Vulkan, 16.8 GB of its own memory. Exports are still drawn on the CPU. A frame the card cannot draw is drawn on the CPU, and the picture's label says so. | ",
+   "files": []
+  }
+ ]
+}

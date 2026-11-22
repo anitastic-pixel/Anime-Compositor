@@ -1,0 +1,1934 @@
+{
+  "schema_version": 0,
+  "project_id": "proj-p28-shot",
+  "color_settings": {
+    "working_space": "linear-srgb",
+    "alpha_mode": "premultiplied"
+  },
+  "assets": [
+    {
+      "id": "asset-bg",
+      "kind": "image_sequence",
+      "name": "bg_plate",
+      "pattern": "bg_plate_####.png",
+      "frames": {
+        "1": "bg_plate/bg_plate_0000.png",
+        "2": "bg_plate/bg_plate_0001.png",
+        "3": "bg_plate/bg_plate_0002.png",
+        "4": "bg_plate/bg_plate_0003.png",
+        "5": "bg_plate/bg_plate_0004.png",
+        "6": "bg_plate/bg_plate_0005.png",
+        "7": "bg_plate/bg_plate_0006.png",
+        "8": "bg_plate/bg_plate_0007.png",
+        "9": "bg_plate/bg_plate_0008.png",
+        "10": "bg_plate/bg_plate_0009.png",
+        "11": "bg_plate/bg_plate_0010.png",
+        "12": "bg_plate/bg_plate_0011.png",
+        "13": "bg_plate/bg_plate_0012.png",
+        "14": "bg_plate/bg_plate_0013.png",
+        "15": "bg_plate/bg_plate_0014.png",
+        "16": "bg_plate/bg_plate_0015.png",
+        "17": "bg_plate/bg_plate_0016.png",
+        "18": "bg_plate/bg_plate_0017.png",
+        "19": "bg_plate/bg_plate_0018.png",
+        "20": "bg_plate/bg_plate_0019.png",
+        "21": "bg_plate/bg_plate_0020.png",
+        "22": "bg_plate/bg_plate_0021.png",
+        "23": "bg_plate/bg_plate_0022.png",
+        "24": "bg_plate/bg_plate_0023.png",
+        "25": "bg_plate/bg_plate_0024.png",
+        "26": "bg_plate/bg_plate_0025.png",
+        "27": "bg_plate/bg_plate_0026.png",
+        "28": "bg_plate/bg_plate_0027.png",
+        "29": "bg_plate/bg_plate_0028.png",
+        "30": "bg_plate/bg_plate_0029.png",
+        "31": "bg_plate/bg_plate_0030.png",
+        "32": "bg_plate/bg_plate_0031.png",
+        "33": "bg_plate/bg_plate_0032.png",
+        "34": "bg_plate/bg_plate_0033.png",
+        "35": "bg_plate/bg_plate_0034.png",
+        "36": "bg_plate/bg_plate_0035.png",
+        "37": "bg_plate/bg_plate_0036.png",
+        "38": "bg_plate/bg_plate_0037.png",
+        "39": "bg_plate/bg_plate_0038.png",
+        "40": "bg_plate/bg_plate_0039.png",
+        "41": "bg_plate/bg_plate_0040.png",
+        "42": "bg_plate/bg_plate_0041.png",
+        "43": "bg_plate/bg_plate_0042.png",
+        "44": "bg_plate/bg_plate_0043.png",
+        "45": "bg_plate/bg_plate_0044.png",
+        "46": "bg_plate/bg_plate_0045.png",
+        "47": "bg_plate/bg_plate_0046.png",
+        "48": "bg_plate/bg_plate_0047.png",
+        "49": "bg_plate/bg_plate_0048.png",
+        "50": "bg_plate/bg_plate_0049.png",
+        "51": "bg_plate/bg_plate_0050.png",
+        "52": "bg_plate/bg_plate_0051.png",
+        "53": "bg_plate/bg_plate_0052.png",
+        "54": "bg_plate/bg_plate_0053.png",
+        "55": "bg_plate/bg_plate_0054.png",
+        "56": "bg_plate/bg_plate_0055.png",
+        "57": "bg_plate/bg_plate_0056.png",
+        "58": "bg_plate/bg_plate_0057.png",
+        "59": "bg_plate/bg_plate_0058.png",
+        "60": "bg_plate/bg_plate_0059.png",
+        "61": "bg_plate/bg_plate_0060.png",
+        "62": "bg_plate/bg_plate_0061.png",
+        "63": "bg_plate/bg_plate_0062.png",
+        "64": "bg_plate/bg_plate_0063.png",
+        "65": "bg_plate/bg_plate_0064.png",
+        "66": "bg_plate/bg_plate_0065.png",
+        "67": "bg_plate/bg_plate_0066.png",
+        "68": "bg_plate/bg_plate_0067.png",
+        "69": "bg_plate/bg_plate_0068.png",
+        "70": "bg_plate/bg_plate_0069.png",
+        "71": "bg_plate/bg_plate_0070.png",
+        "72": "bg_plate/bg_plate_0071.png",
+        "73": "bg_plate/bg_plate_0072.png",
+        "74": "bg_plate/bg_plate_0073.png",
+        "75": "bg_plate/bg_plate_0074.png",
+        "76": "bg_plate/bg_plate_0075.png",
+        "77": "bg_plate/bg_plate_0076.png",
+        "78": "bg_plate/bg_plate_0077.png",
+        "79": "bg_plate/bg_plate_0078.png",
+        "80": "bg_plate/bg_plate_0079.png",
+        "81": "bg_plate/bg_plate_0080.png",
+        "82": "bg_plate/bg_plate_0081.png",
+        "83": "bg_plate/bg_plate_0082.png",
+        "84": "bg_plate/bg_plate_0083.png",
+        "85": "bg_plate/bg_plate_0084.png",
+        "86": "bg_plate/bg_plate_0085.png",
+        "87": "bg_plate/bg_plate_0086.png",
+        "88": "bg_plate/bg_plate_0087.png",
+        "89": "bg_plate/bg_plate_0088.png",
+        "90": "bg_plate/bg_plate_0089.png",
+        "91": "bg_plate/bg_plate_0090.png",
+        "92": "bg_plate/bg_plate_0091.png",
+        "93": "bg_plate/bg_plate_0092.png",
+        "94": "bg_plate/bg_plate_0093.png",
+        "95": "bg_plate/bg_plate_0094.png",
+        "96": "bg_plate/bg_plate_0095.png",
+        "97": "bg_plate/bg_plate_0096.png",
+        "98": "bg_plate/bg_plate_0097.png",
+        "99": "bg_plate/bg_plate_0098.png",
+        "100": "bg_plate/bg_plate_0099.png",
+        "101": "bg_plate/bg_plate_0100.png",
+        "102": "bg_plate/bg_plate_0101.png",
+        "103": "bg_plate/bg_plate_0102.png",
+        "104": "bg_plate/bg_plate_0103.png",
+        "105": "bg_plate/bg_plate_0104.png",
+        "106": "bg_plate/bg_plate_0105.png",
+        "107": "bg_plate/bg_plate_0106.png",
+        "108": "bg_plate/bg_plate_0107.png",
+        "109": "bg_plate/bg_plate_0108.png",
+        "110": "bg_plate/bg_plate_0109.png",
+        "111": "bg_plate/bg_plate_0110.png",
+        "112": "bg_plate/bg_plate_0111.png",
+        "113": "bg_plate/bg_plate_0112.png",
+        "114": "bg_plate/bg_plate_0113.png",
+        "115": "bg_plate/bg_plate_0114.png",
+        "116": "bg_plate/bg_plate_0115.png",
+        "117": "bg_plate/bg_plate_0116.png",
+        "118": "bg_plate/bg_plate_0117.png",
+        "119": "bg_plate/bg_plate_0118.png",
+        "120": "bg_plate/bg_plate_0119.png"
+      },
+      "interpretation": {
+        "color_space": "srgb",
+        "alpha": "straight"
+      }
+    },
+    {
+      "id": "asset-subject",
+      "kind": "still",
+      "name": "fg_subject",
+      "path": "fg/fg_subject.png",
+      "interpretation": {
+        "color_space": "srgb",
+        "alpha": "straight"
+      }
+    },
+    {
+      "id": "asset-cels",
+      "kind": "image_sequence",
+      "name": "layer2",
+      "pattern": "layer2_###.png",
+      "frames": {
+        "1": "layer2/layer2_000.png",
+        "2": "layer2/layer2_001.png",
+        "3": "layer2/layer2_002.png",
+        "4": "layer2/layer2_003.png",
+        "5": "layer2/layer2_004.png",
+        "6": "layer2/layer2_005.png",
+        "7": "layer2/layer2_006.png",
+        "8": "layer2/layer2_007.png",
+        "9": "layer2/layer2_008.png",
+        "10": "layer2/layer2_009.png",
+        "11": "layer2/layer2_010.png",
+        "12": "layer2/layer2_011.png",
+        "13": "layer2/layer2_012.png",
+        "14": "layer2/layer2_014.png",
+        "15": "layer2/layer2_015.png",
+        "16": "layer2/layer2_016.png",
+        "17": "layer2/layer2_017.png",
+        "18": "layer2/layer2_018.png",
+        "19": "layer2/layer2_019.png",
+        "20": "layer2/layer2_020.png",
+        "21": "layer2/layer2_021.png",
+        "22": "layer2/layer2_022.png",
+        "23": "layer2/layer2_023.png",
+        "24": "layer2/layer2_桜_013.png"
+      },
+      "interpretation": {
+        "color_space": "srgb",
+        "alpha": "straight"
+      }
+    },
+    {
+      "id": "asset-sfx",
+      "kind": "audio",
+      "name": "sfx_impact",
+      "path": "sfx/sfx_impact.wav"
+    }
+  ],
+  "compositions": [
+    {
+      "id": "comp-shot",
+      "name": "P-28 shot",
+      "width": 1920,
+      "height": 1080,
+      "pixel_aspect_ratio": 1,
+      "frame_rate": {
+        "numerator": 24,
+        "denominator": 1
+      },
+      "start_frame": 0,
+      "duration_frames": 120,
+      "work_area": {
+        "start_frame": 0,
+        "end_frame_exclusive": 120
+      },
+      "motion_blur": {
+        "enabled": true,
+        "shutter_angle": 180,
+        "shutter_phase": -90,
+        "samples": 16
+      },
+      "layer_order": [
+        "rig",
+        "bg",
+        "cels",
+        "subject",
+        "glow",
+        "title",
+        "flash",
+        "split",
+        "sparks",
+        "sound"
+      ],
+      "layers": [
+        {
+          "id": "rig",
+          "kind": "null",
+          "name": "rig",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 120,
+          "transform": {
+            "anchor": {
+              "base": [
+                960,
+                540
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                960,
+                540
+              ],
+              "keyframes": [],
+              "expression": {
+                "text": "// P-28: 15 px impact shake from frame 48, dying away over 12 frames\nvar k = (Math.max(time, 49 / 24) - 2) * 24;\nvar g = Math.min(1, Math.max(0, (time - 2) * 24 + 1));\nvar a = 15 * g * Math.max(0, 1 - k / 12);\nvalue + [a * Math.cos(k * 2.3), a * Math.sin(k * 2.3 + 1)]",
+                "enabled": true
+              }
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "masks": [],
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": []
+        },
+        {
+          "id": "bg",
+          "kind": "raster",
+          "name": "bg",
+          "enabled": false,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 120,
+          "transform": {
+            "anchor": {
+              "base": [
+                960,
+                540
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                960,
+                540
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": [
+                {
+                  "frame": 0,
+                  "value": [
+                    100,
+                    100
+                  ],
+                  "interp": "linear"
+                },
+                {
+                  "frame": 47,
+                  "value": [
+                    108,
+                    108
+                  ],
+                  "interp": "linear"
+                }
+              ]
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "masks": [],
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [
+            {
+              "instance_id": "fx-bg-blur",
+              "type_id": "core.gaussian_blur",
+              "enabled": true,
+              "parameters": {
+                "sigma_px": 2.0
+              }
+            }
+          ],
+          "asset_id": "asset-bg",
+          "source_offset_frames": 0,
+          "exposure_spans": [
+            {
+              "start_frame": 0,
+              "end_frame_exclusive": 1,
+              "drawing_number": 1
+            },
+            {
+              "start_frame": 1,
+              "end_frame_exclusive": 2,
+              "drawing_number": 2
+            },
+            {
+              "start_frame": 2,
+              "end_frame_exclusive": 3,
+              "drawing_number": 3
+            },
+            {
+              "start_frame": 3,
+              "end_frame_exclusive": 4,
+              "drawing_number": 4
+            },
+            {
+              "start_frame": 4,
+              "end_frame_exclusive": 5,
+              "drawing_number": 5
+            },
+            {
+              "start_frame": 5,
+              "end_frame_exclusive": 6,
+              "drawing_number": 6
+            },
+            {
+              "start_frame": 6,
+              "end_frame_exclusive": 7,
+              "drawing_number": 7
+            },
+            {
+              "start_frame": 7,
+              "end_frame_exclusive": 8,
+              "drawing_number": 8
+            },
+            {
+              "start_frame": 8,
+              "end_frame_exclusive": 9,
+              "drawing_number": 9
+            },
+            {
+              "start_frame": 9,
+              "end_frame_exclusive": 10,
+              "drawing_number": 10
+            },
+            {
+              "start_frame": 10,
+              "end_frame_exclusive": 11,
+              "drawing_number": 11
+            },
+            {
+              "start_frame": 11,
+              "end_frame_exclusive": 12,
+              "drawing_number": 12
+            },
+            {
+              "start_frame": 12,
+              "end_frame_exclusive": 13,
+              "drawing_number": 13
+            },
+            {
+              "start_frame": 13,
+              "end_frame_exclusive": 14,
+              "drawing_number": 14
+            },
+            {
+              "start_frame": 14,
+              "end_frame_exclusive": 15,
+              "drawing_number": 15
+            },
+            {
+              "start_frame": 15,
+              "end_frame_exclusive": 16,
+              "drawing_number": 16
+            },
+            {
+              "start_frame": 16,
+              "end_frame_exclusive": 17,
+              "drawing_number": 17
+            },
+            {
+              "start_frame": 17,
+              "end_frame_exclusive": 18,
+              "drawing_number": 18
+            },
+            {
+              "start_frame": 18,
+              "end_frame_exclusive": 19,
+              "drawing_number": 19
+            },
+            {
+              "start_frame": 19,
+              "end_frame_exclusive": 20,
+              "drawing_number": 20
+            },
+            {
+              "start_frame": 20,
+              "end_frame_exclusive": 21,
+              "drawing_number": 21
+            },
+            {
+              "start_frame": 21,
+              "end_frame_exclusive": 22,
+              "drawing_number": 22
+            },
+            {
+              "start_frame": 22,
+              "end_frame_exclusive": 23,
+              "drawing_number": 23
+            },
+            {
+              "start_frame": 23,
+              "end_frame_exclusive": 24,
+              "drawing_number": 24
+            },
+            {
+              "start_frame": 24,
+              "end_frame_exclusive": 25,
+              "drawing_number": 25
+            },
+            {
+              "start_frame": 25,
+              "end_frame_exclusive": 26,
+              "drawing_number": 26
+            },
+            {
+              "start_frame": 26,
+              "end_frame_exclusive": 27,
+              "drawing_number": 27
+            },
+            {
+              "start_frame": 27,
+              "end_frame_exclusive": 28,
+              "drawing_number": 28
+            },
+            {
+              "start_frame": 28,
+              "end_frame_exclusive": 29,
+              "drawing_number": 29
+            },
+            {
+              "start_frame": 29,
+              "end_frame_exclusive": 30,
+              "drawing_number": 30
+            },
+            {
+              "start_frame": 30,
+              "end_frame_exclusive": 31,
+              "drawing_number": 31
+            },
+            {
+              "start_frame": 31,
+              "end_frame_exclusive": 32,
+              "drawing_number": 32
+            },
+            {
+              "start_frame": 32,
+              "end_frame_exclusive": 33,
+              "drawing_number": 33
+            },
+            {
+              "start_frame": 33,
+              "end_frame_exclusive": 34,
+              "drawing_number": 34
+            },
+            {
+              "start_frame": 34,
+              "end_frame_exclusive": 35,
+              "drawing_number": 35
+            },
+            {
+              "start_frame": 35,
+              "end_frame_exclusive": 36,
+              "drawing_number": 36
+            },
+            {
+              "start_frame": 36,
+              "end_frame_exclusive": 37,
+              "drawing_number": 37
+            },
+            {
+              "start_frame": 37,
+              "end_frame_exclusive": 38,
+              "drawing_number": 38
+            },
+            {
+              "start_frame": 38,
+              "end_frame_exclusive": 39,
+              "drawing_number": 39
+            },
+            {
+              "start_frame": 39,
+              "end_frame_exclusive": 40,
+              "drawing_number": 40
+            },
+            {
+              "start_frame": 40,
+              "end_frame_exclusive": 41,
+              "drawing_number": 41
+            },
+            {
+              "start_frame": 41,
+              "end_frame_exclusive": 42,
+              "drawing_number": 42
+            },
+            {
+              "start_frame": 42,
+              "end_frame_exclusive": 43,
+              "drawing_number": 43
+            },
+            {
+              "start_frame": 43,
+              "end_frame_exclusive": 44,
+              "drawing_number": 44
+            },
+            {
+              "start_frame": 44,
+              "end_frame_exclusive": 45,
+              "drawing_number": 45
+            },
+            {
+              "start_frame": 45,
+              "end_frame_exclusive": 46,
+              "drawing_number": 46
+            },
+            {
+              "start_frame": 46,
+              "end_frame_exclusive": 47,
+              "drawing_number": 47
+            },
+            {
+              "start_frame": 47,
+              "end_frame_exclusive": 48,
+              "drawing_number": 48
+            },
+            {
+              "start_frame": 48,
+              "end_frame_exclusive": 50,
+              "drawing_number": 49
+            },
+            {
+              "start_frame": 50,
+              "end_frame_exclusive": 51,
+              "drawing_number": 51
+            },
+            {
+              "start_frame": 51,
+              "end_frame_exclusive": 52,
+              "drawing_number": 52
+            },
+            {
+              "start_frame": 52,
+              "end_frame_exclusive": 53,
+              "drawing_number": 53
+            },
+            {
+              "start_frame": 53,
+              "end_frame_exclusive": 54,
+              "drawing_number": 54
+            },
+            {
+              "start_frame": 54,
+              "end_frame_exclusive": 55,
+              "drawing_number": 55
+            },
+            {
+              "start_frame": 55,
+              "end_frame_exclusive": 56,
+              "drawing_number": 56
+            },
+            {
+              "start_frame": 56,
+              "end_frame_exclusive": 57,
+              "drawing_number": 57
+            },
+            {
+              "start_frame": 57,
+              "end_frame_exclusive": 58,
+              "drawing_number": 58
+            },
+            {
+              "start_frame": 58,
+              "end_frame_exclusive": 59,
+              "drawing_number": 59
+            },
+            {
+              "start_frame": 59,
+              "end_frame_exclusive": 60,
+              "drawing_number": 60
+            },
+            {
+              "start_frame": 60,
+              "end_frame_exclusive": 61,
+              "drawing_number": 61
+            },
+            {
+              "start_frame": 61,
+              "end_frame_exclusive": 62,
+              "drawing_number": 62
+            },
+            {
+              "start_frame": 62,
+              "end_frame_exclusive": 63,
+              "drawing_number": 63
+            },
+            {
+              "start_frame": 63,
+              "end_frame_exclusive": 64,
+              "drawing_number": 64
+            },
+            {
+              "start_frame": 64,
+              "end_frame_exclusive": 65,
+              "drawing_number": 65
+            },
+            {
+              "start_frame": 65,
+              "end_frame_exclusive": 66,
+              "drawing_number": 66
+            },
+            {
+              "start_frame": 66,
+              "end_frame_exclusive": 67,
+              "drawing_number": 67
+            },
+            {
+              "start_frame": 67,
+              "end_frame_exclusive": 68,
+              "drawing_number": 68
+            },
+            {
+              "start_frame": 68,
+              "end_frame_exclusive": 69,
+              "drawing_number": 69
+            },
+            {
+              "start_frame": 69,
+              "end_frame_exclusive": 70,
+              "drawing_number": 70
+            },
+            {
+              "start_frame": 70,
+              "end_frame_exclusive": 71,
+              "drawing_number": 71
+            },
+            {
+              "start_frame": 71,
+              "end_frame_exclusive": 72,
+              "drawing_number": 72
+            },
+            {
+              "start_frame": 72,
+              "end_frame_exclusive": 73,
+              "drawing_number": 73
+            },
+            {
+              "start_frame": 73,
+              "end_frame_exclusive": 74,
+              "drawing_number": 74
+            },
+            {
+              "start_frame": 74,
+              "end_frame_exclusive": 75,
+              "drawing_number": 75
+            },
+            {
+              "start_frame": 75,
+              "end_frame_exclusive": 76,
+              "drawing_number": 76
+            },
+            {
+              "start_frame": 76,
+              "end_frame_exclusive": 77,
+              "drawing_number": 77
+            },
+            {
+              "start_frame": 77,
+              "end_frame_exclusive": 78,
+              "drawing_number": 78
+            },
+            {
+              "start_frame": 78,
+              "end_frame_exclusive": 79,
+              "drawing_number": 79
+            },
+            {
+              "start_frame": 79,
+              "end_frame_exclusive": 80,
+              "drawing_number": 80
+            },
+            {
+              "start_frame": 80,
+              "end_frame_exclusive": 81,
+              "drawing_number": 81
+            },
+            {
+              "start_frame": 81,
+              "end_frame_exclusive": 82,
+              "drawing_number": 82
+            },
+            {
+              "start_frame": 82,
+              "end_frame_exclusive": 83,
+              "drawing_number": 83
+            },
+            {
+              "start_frame": 83,
+              "end_frame_exclusive": 84,
+              "drawing_number": 84
+            },
+            {
+              "start_frame": 84,
+              "end_frame_exclusive": 85,
+              "drawing_number": 85
+            },
+            {
+              "start_frame": 85,
+              "end_frame_exclusive": 86,
+              "drawing_number": 86
+            },
+            {
+              "start_frame": 86,
+              "end_frame_exclusive": 87,
+              "drawing_number": 87
+            },
+            {
+              "start_frame": 87,
+              "end_frame_exclusive": 88,
+              "drawing_number": 88
+            },
+            {
+              "start_frame": 88,
+              "end_frame_exclusive": 89,
+              "drawing_number": 89
+            },
+            {
+              "start_frame": 89,
+              "end_frame_exclusive": 90,
+              "drawing_number": 90
+            },
+            {
+              "start_frame": 90,
+              "end_frame_exclusive": 91,
+              "drawing_number": 91
+            },
+            {
+              "start_frame": 91,
+              "end_frame_exclusive": 92,
+              "drawing_number": 92
+            },
+            {
+              "start_frame": 92,
+              "end_frame_exclusive": 93,
+              "drawing_number": 93
+            },
+            {
+              "start_frame": 93,
+              "end_frame_exclusive": 94,
+              "drawing_number": 94
+            },
+            {
+              "start_frame": 94,
+              "end_frame_exclusive": 95,
+              "drawing_number": 95
+            },
+            {
+              "start_frame": 95,
+              "end_frame_exclusive": 96,
+              "drawing_number": 96
+            },
+            {
+              "start_frame": 96,
+              "end_frame_exclusive": 97,
+              "drawing_number": 97
+            },
+            {
+              "start_frame": 97,
+              "end_frame_exclusive": 98,
+              "drawing_number": 98
+            },
+            {
+              "start_frame": 98,
+              "end_frame_exclusive": 99,
+              "drawing_number": 99
+            },
+            {
+              "start_frame": 99,
+              "end_frame_exclusive": 100,
+              "drawing_number": 100
+            },
+            {
+              "start_frame": 100,
+              "end_frame_exclusive": 101,
+              "drawing_number": 101
+            },
+            {
+              "start_frame": 101,
+              "end_frame_exclusive": 102,
+              "drawing_number": 102
+            },
+            {
+              "start_frame": 102,
+              "end_frame_exclusive": 103,
+              "drawing_number": 103
+            },
+            {
+              "start_frame": 103,
+              "end_frame_exclusive": 104,
+              "drawing_number": 104
+            },
+            {
+              "start_frame": 104,
+              "end_frame_exclusive": 105,
+              "drawing_number": 105
+            },
+            {
+              "start_frame": 105,
+              "end_frame_exclusive": 106,
+              "drawing_number": 106
+            },
+            {
+              "start_frame": 106,
+              "end_frame_exclusive": 107,
+              "drawing_number": 107
+            },
+            {
+              "start_frame": 107,
+              "end_frame_exclusive": 108,
+              "drawing_number": 108
+            },
+            {
+              "start_frame": 108,
+              "end_frame_exclusive": 109,
+              "drawing_number": 109
+            },
+            {
+              "start_frame": 109,
+              "end_frame_exclusive": 110,
+              "drawing_number": 110
+            },
+            {
+              "start_frame": 110,
+              "end_frame_exclusive": 111,
+              "drawing_number": 111
+            },
+            {
+              "start_frame": 111,
+              "end_frame_exclusive": 112,
+              "drawing_number": 112
+            },
+            {
+              "start_frame": 112,
+              "end_frame_exclusive": 113,
+              "drawing_number": 113
+            },
+            {
+              "start_frame": 113,
+              "end_frame_exclusive": 114,
+              "drawing_number": 114
+            },
+            {
+              "start_frame": 114,
+              "end_frame_exclusive": 115,
+              "drawing_number": 115
+            },
+            {
+              "start_frame": 115,
+              "end_frame_exclusive": 116,
+              "drawing_number": 116
+            },
+            {
+              "start_frame": 116,
+              "end_frame_exclusive": 117,
+              "drawing_number": 117
+            },
+            {
+              "start_frame": 117,
+              "end_frame_exclusive": 118,
+              "drawing_number": 118
+            },
+            {
+              "start_frame": 118,
+              "end_frame_exclusive": 119,
+              "drawing_number": 119
+            },
+            {
+              "start_frame": 119,
+              "end_frame_exclusive": 120,
+              "drawing_number": 120
+            }
+          ],
+          "parent": "rig"
+        },
+        {
+          "id": "cels",
+          "kind": "raster",
+          "name": "cels",
+          "enabled": false,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 48,
+          "transform": {
+            "anchor": {
+              "base": [
+                960,
+                540
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                960,
+                540
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "masks": [],
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [],
+          "asset_id": "asset-cels",
+          "source_offset_frames": 0,
+          "parent": "rig",
+          "exposure_spans": [
+            {
+              "start_frame": 0,
+              "end_frame_exclusive": 2,
+              "drawing_number": 1
+            },
+            {
+              "start_frame": 2,
+              "end_frame_exclusive": 4,
+              "drawing_number": 2
+            },
+            {
+              "start_frame": 4,
+              "end_frame_exclusive": 6,
+              "drawing_number": 3
+            },
+            {
+              "start_frame": 6,
+              "end_frame_exclusive": 8,
+              "drawing_number": 4
+            },
+            {
+              "start_frame": 8,
+              "end_frame_exclusive": 10,
+              "drawing_number": 5
+            },
+            {
+              "start_frame": 10,
+              "end_frame_exclusive": 12,
+              "drawing_number": 6
+            },
+            {
+              "start_frame": 12,
+              "end_frame_exclusive": 14,
+              "drawing_number": 7
+            },
+            {
+              "start_frame": 14,
+              "end_frame_exclusive": 16,
+              "drawing_number": 8
+            },
+            {
+              "start_frame": 16,
+              "end_frame_exclusive": 18,
+              "drawing_number": 9
+            },
+            {
+              "start_frame": 18,
+              "end_frame_exclusive": 20,
+              "drawing_number": 10
+            },
+            {
+              "start_frame": 20,
+              "end_frame_exclusive": 22,
+              "drawing_number": 11
+            },
+            {
+              "start_frame": 22,
+              "end_frame_exclusive": 24,
+              "drawing_number": 12
+            },
+            {
+              "start_frame": 24,
+              "end_frame_exclusive": 26,
+              "drawing_number": 13
+            },
+            {
+              "start_frame": 26,
+              "end_frame_exclusive": 28,
+              "drawing_number": 14
+            },
+            {
+              "start_frame": 28,
+              "end_frame_exclusive": 30,
+              "drawing_number": 15
+            },
+            {
+              "start_frame": 30,
+              "end_frame_exclusive": 32,
+              "drawing_number": 16
+            },
+            {
+              "start_frame": 32,
+              "end_frame_exclusive": 34,
+              "drawing_number": 17
+            },
+            {
+              "start_frame": 34,
+              "end_frame_exclusive": 36,
+              "drawing_number": 18
+            },
+            {
+              "start_frame": 36,
+              "end_frame_exclusive": 38,
+              "drawing_number": 19
+            },
+            {
+              "start_frame": 38,
+              "end_frame_exclusive": 40,
+              "drawing_number": 20
+            },
+            {
+              "start_frame": 40,
+              "end_frame_exclusive": 42,
+              "drawing_number": 21
+            },
+            {
+              "start_frame": 42,
+              "end_frame_exclusive": 44,
+              "drawing_number": 22
+            },
+            {
+              "start_frame": 44,
+              "end_frame_exclusive": 46,
+              "drawing_number": 23
+            },
+            {
+              "start_frame": 46,
+              "end_frame_exclusive": 48,
+              "drawing_number": 24
+            }
+          ]
+        },
+        {
+          "id": "subject",
+          "kind": "raster",
+          "name": "subject",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 120,
+          "transform": {
+            "anchor": {
+              "base": [
+                540,
+                540
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                2500,
+                560
+              ],
+              "keyframes": [
+                {
+                  "frame": 0,
+                  "value": [
+                    2500,
+                    560
+                  ],
+                  "interp": "ease",
+                  "ease": [
+                    0.05,
+                    0.8,
+                    0.2,
+                    1
+                  ]
+                },
+                {
+                  "frame": 40,
+                  "value": [
+                    1240,
+                    540
+                  ],
+                  "interp": "hold"
+                },
+                {
+                  "frame": 48,
+                  "value": [
+                    1200,
+                    540
+                  ],
+                  "interp": "hold"
+                },
+                {
+                  "frame": 50,
+                  "value": [
+                    1300,
+                    540
+                  ],
+                  "interp": "ease",
+                  "ease": [
+                    0.05,
+                    0.8,
+                    0.2,
+                    1
+                  ]
+                },
+                {
+                  "frame": 70,
+                  "value": [
+                    1240,
+                    540
+                  ],
+                  "interp": "linear"
+                }
+              ]
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "masks": [],
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [],
+          "asset_id": "asset-subject",
+          "source_offset_frames": 0,
+          "exposure_spans": [],
+          "parent": "rig"
+        },
+        {
+          "id": "glow",
+          "kind": "raster",
+          "name": "glow",
+          "enabled": false,
+          "locked": false,
+          "in_frame": 55,
+          "out_frame": 120,
+          "transform": {
+            "anchor": {
+              "base": [
+                540,
+                540
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                2500,
+                560
+              ],
+              "keyframes": [
+                {
+                  "frame": 0,
+                  "value": [
+                    2500,
+                    560
+                  ],
+                  "interp": "ease",
+                  "ease": [
+                    0.05,
+                    0.8,
+                    0.2,
+                    1
+                  ]
+                },
+                {
+                  "frame": 40,
+                  "value": [
+                    1240,
+                    540
+                  ],
+                  "interp": "hold"
+                },
+                {
+                  "frame": 48,
+                  "value": [
+                    1200,
+                    540
+                  ],
+                  "interp": "hold"
+                },
+                {
+                  "frame": 50,
+                  "value": [
+                    1300,
+                    540
+                  ],
+                  "interp": "ease",
+                  "ease": [
+                    0.05,
+                    0.8,
+                    0.2,
+                    1
+                  ]
+                },
+                {
+                  "frame": 70,
+                  "value": [
+                    1240,
+                    540
+                  ],
+                  "interp": "linear"
+                }
+              ]
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 0.8,
+              "keyframes": []
+            }
+          },
+          "masks": [],
+          "matte": null,
+          "blend_mode": "screen",
+          "effects": [
+            {
+              "instance_id": "fx-glow-tint",
+              "type_id": "core.tint",
+              "enabled": true,
+              "parameters": {
+                "color": [
+                  1.0,
+                  0.45,
+                  0.1
+                ],
+                "amount": 1.0
+              }
+            },
+            {
+              "instance_id": "fx-glow-blur",
+              "type_id": "core.gaussian_blur",
+              "enabled": true,
+              "parameters": {
+                "sigma_px": 40.0
+              }
+            }
+          ],
+          "asset_id": "asset-subject",
+          "source_offset_frames": 0,
+          "exposure_spans": [],
+          "parent": "rig"
+        },
+        {
+          "id": "title",
+          "kind": "text",
+          "name": "title",
+          "enabled": false,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 120,
+          "transform": {
+            "anchor": {
+              "base": [
+                560,
+                860
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                560,
+                860
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": [
+                {
+                  "frame": 12,
+                  "value": [
+                    70,
+                    70
+                  ],
+                  "interp": "ease",
+                  "ease": [
+                    0.3,
+                    0,
+                    0.4,
+                    1.45
+                  ]
+                },
+                {
+                  "frame": 32,
+                  "value": [
+                    100,
+                    100
+                  ],
+                  "interp": "linear"
+                }
+              ]
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "masks": [
+            {
+              "name": "Wipe",
+              "enabled": true,
+              "inverted": false,
+              "mode": "add",
+              "opacity": 1.0,
+              "feather_px": 24.0,
+              "expansion_px": 0.0,
+              "path": {
+                "base": {
+                  "points": [
+                    {
+                      "point": [
+                        240,
+                        700
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        241,
+                        700
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        241,
+                        960
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    },
+                    {
+                      "point": [
+                        240,
+                        960
+                      ],
+                      "in": [
+                        0,
+                        0
+                      ],
+                      "out": [
+                        0,
+                        0
+                      ]
+                    }
+                  ]
+                },
+                "keyframes": [
+                  {
+                    "frame": 6,
+                    "value": {
+                      "points": [
+                        {
+                          "point": [
+                            240,
+                            700
+                          ],
+                          "in": [
+                            0,
+                            0
+                          ],
+                          "out": [
+                            0,
+                            0
+                          ]
+                        },
+                        {
+                          "point": [
+                            241,
+                            700
+                          ],
+                          "in": [
+                            0,
+                            0
+                          ],
+                          "out": [
+                            0,
+                            0
+                          ]
+                        },
+                        {
+                          "point": [
+                            241,
+                            960
+                          ],
+                          "in": [
+                            0,
+                            0
+                          ],
+                          "out": [
+                            0,
+                            0
+                          ]
+                        },
+                        {
+                          "point": [
+                            240,
+                            960
+                          ],
+                          "in": [
+                            0,
+                            0
+                          ],
+                          "out": [
+                            0,
+                            0
+                          ]
+                        }
+                      ]
+                    },
+                    "interp": "ease",
+                    "ease": [
+                      0.4,
+                      0,
+                      0.2,
+                      1
+                    ]
+                  },
+                  {
+                    "frame": 30,
+                    "value": {
+                      "points": [
+                        {
+                          "point": [
+                            240,
+                            700
+                          ],
+                          "in": [
+                            0,
+                            0
+                          ],
+                          "out": [
+                            0,
+                            0
+                          ]
+                        },
+                        {
+                          "point": [
+                            880,
+                            700
+                          ],
+                          "in": [
+                            0,
+                            0
+                          ],
+                          "out": [
+                            0,
+                            0
+                          ]
+                        },
+                        {
+                          "point": [
+                            880,
+                            960
+                          ],
+                          "in": [
+                            0,
+                            0
+                          ],
+                          "out": [
+                            0,
+                            0
+                          ]
+                        },
+                        {
+                          "point": [
+                            240,
+                            960
+                          ],
+                          "in": [
+                            0,
+                            0
+                          ],
+                          "out": [
+                            0,
+                            0
+                          ]
+                        }
+                      ]
+                    },
+                    "interp": "linear"
+                  }
+                ]
+              }
+            }
+          ],
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [],
+          "parent": "rig",
+          "source_text": {
+            "text": "IMPACT",
+            "font": "MPLUSRounded1c-Regular.ttf",
+            "size": 180,
+            "color": [
+              1.0,
+              0.85,
+              0.3
+            ],
+            "at": [
+              560,
+              920
+            ],
+            "align": "center"
+          }
+        },
+        {
+          "id": "flash",
+          "kind": "adjustment",
+          "name": "flash",
+          "enabled": false,
+          "locked": false,
+          "in_frame": 48,
+          "out_frame": 55,
+          "transform": {
+            "anchor": {
+              "base": [
+                960,
+                540
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                960,
+                540
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 0.8,
+              "keyframes": [
+                {
+                  "frame": 48,
+                  "value": 0.8,
+                  "interp": "hold"
+                },
+                {
+                  "frame": 50,
+                  "value": 0.8,
+                  "interp": "linear"
+                },
+                {
+                  "frame": 54,
+                  "value": 0.0,
+                  "interp": "linear"
+                }
+              ]
+            }
+          },
+          "masks": [],
+          "matte": null,
+          "blend_mode": "add",
+          "effects": [
+            {
+              "instance_id": "fx-flash-fill",
+              "type_id": "core.fill",
+              "enabled": true,
+              "parameters": {
+                "mask": 0,
+                "all_masks": "off",
+                "color": "#ffffff",
+                "invert": "off",
+                "horizontal_feather": 0,
+                "vertical_feather": 0,
+                "opacity": 100
+              }
+            }
+          ]
+        },
+        {
+          "id": "split",
+          "kind": "adjustment",
+          "name": "split",
+          "enabled": false,
+          "locked": false,
+          "in_frame": 48,
+          "out_frame": 55,
+          "transform": {
+            "anchor": {
+              "base": [
+                960,
+                540
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                960,
+                540
+              ],
+              "keyframes": []
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": []
+            }
+          },
+          "masks": [],
+          "matte": null,
+          "blend_mode": "normal",
+          "effects": [
+            {
+              "instance_id": "fx-split-ca",
+              "type_id": "core.chromatic_aberration",
+              "enabled": true,
+              "parameters": {
+                "amount": 12,
+                "center": [
+                  50,
+                  50
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "sparks",
+          "kind": "solid",
+          "name": "sparks",
+          "enabled": false,
+          "locked": false,
+          "in_frame": 55,
+          "out_frame": 120,
+          "transform": {
+            "anchor": {
+              "base": [
+                960,
+                540
+              ],
+              "keyframes": []
+            },
+            "position": {
+              "base": [
+                960,
+                540
+              ],
+              "keyframes": [
+                {
+                  "frame": 55,
+                  "value": [
+                    900,
+                    560
+                  ],
+                  "interp": "linear"
+                },
+                {
+                  "frame": 119,
+                  "value": [
+                    1260,
+                    500
+                  ],
+                  "interp": "linear"
+                }
+              ]
+            },
+            "scale": {
+              "base": [
+                100,
+                100
+              ],
+              "keyframes": []
+            },
+            "rotation": {
+              "base": 0,
+              "keyframes": []
+            },
+            "opacity": {
+              "base": 1,
+              "keyframes": [
+                {
+                  "frame": 95,
+                  "value": 1,
+                  "interp": "ease",
+                  "ease": [
+                    0.333,
+                    0,
+                    0.667,
+                    1
+                  ]
+                },
+                {
+                  "frame": 115,
+                  "value": 0,
+                  "interp": "linear"
+                }
+              ]
+            }
+          },
+          "masks": [],
+          "matte": null,
+          "blend_mode": "add",
+          "effects": [
+            {
+              "instance_id": "fx-sparks-ps",
+              "type_id": "core.particle_space",
+              "enabled": true,
+              "parameters": {
+                "birth_rate": 1.5,
+                "longevity": 3,
+                "producer_x": 0,
+                "producer_y": 0,
+                "producer_z": 0,
+                "radius_x": 0.4,
+                "radius_y": 0.25,
+                "radius_z": 0.1,
+                "velocity": 0.15,
+                "inherit_velocity": 0,
+                "gravity": 0,
+                "resistance": 0,
+                "axis_x": 0,
+                "axis_y": -1,
+                "axis_z": 0,
+                "extra": 0.5,
+                "extra_angle": 360,
+                "gravity_x": 0,
+                "gravity_y": 1,
+                "gravity_z": 0,
+                "floor_position": 0.5,
+                "bounciness": 50,
+                "random_bounciness": 0,
+                "bounce_spread": 0,
+                "wind_x": 0.1,
+                "wind_y": 0,
+                "wind_z": 0,
+                "turbulence": 0,
+                "turbulence_scale": 0.25,
+                "turbulence_evolution": 0,
+                "birth_size": 0.06,
+                "death_size": 0.02,
+                "size_variation": 0,
+                "max_opacity": 75,
+                "volume_shade": 0,
+                "camera_distance": 2,
+                "camera_rotation_x": 0,
+                "camera_rotation_y": 0,
+                "camera_rotation_z": 0,
+                "camera_fov": 50,
+                "depth_cue_distance": 4,
+                "light_direction": 45,
+                "light_height": 45,
+                "random_seed": 28,
+                "animation": "explosive",
+                "floor_action": "none",
+                "particle_type": "faded_sphere",
+                "color_map": "birth_to_death",
+                "transfer_mode": "composite",
+                "depth_cue": "none",
+                "composite_on_original": "off",
+                "birth_color": "#fff2b3",
+                "death_color": "#ff8833",
+                "custom_color_1": "#ffd933",
+                "custom_color_2": "#f2a926",
+                "custom_color_3": "#e67a1a",
+                "custom_color_4": "#d94a0d",
+                "custom_color_5": "#cc1a00",
+                "depth_cue_color": "#000000"
+              }
+            }
+          ],
+          "solid": {
+            "color": [
+              0,
+              0,
+              0
+            ],
+            "width": 1920,
+            "height": 1080
+          },
+          "motion_blur": true
+        },
+        {
+          "id": "sound",
+          "kind": "audio",
+          "name": "sound",
+          "enabled": true,
+          "locked": false,
+          "in_frame": 0,
+          "out_frame": 120,
+          "asset_id": "asset-sfx",
+          "source_offset_frames": 0,
+          "gain_db": 0
+        }
+      ]
+    }
+  ]
+}
