@@ -2134,6 +2134,9 @@
         <label for="prefcard">Graphics card, in GB</label>
         <input id="prefcard" type="number" min="1" step="0.5">
         <p id="memoryuse"></p>
+        <label for="prefundo">Undo, in MB</label>
+        <input id="prefundo" type="number" min="1" step="1">
+        <p id="undouse"></p>
         <h3>Drawings and compositions on disk</h3>
         <p>The first time the preview unpacks a drawing it keeps a copy on disk, so playing the shot again, even after closing the program, starts sooner. It does the same for a composition shown inside another when the composition is slow to draw, so the outer shot plays without drawing it again until something inside it changes. The copies are the same pixels to the bit, are only for the preview (export always reads the drawings themselves), and are safe to delete at any time. 0 GB turns this off.</p>
         <label for="prefdisk">Most on disk, in GB</label>
@@ -18790,7 +18793,10 @@ function drawPanels() {
   const redoable = doc ? doc.redo : [];
   $('undo').disabled = undoable.length === 0;
   $('undo').textContent = undoable.length ? 'Undo ' + brief(undoable[undoable.length - 1]) : 'Undo';
-  $('undo').title = undoable.length ? 'Undo ' + undoable[undoable.length - 1] : '';
+  $('undo').title = (undoable.length ? 'Undo ' + undoable[undoable.length - 1] : '')
+    // D-1137: the oldest steps the undo memory ceiling let go, said where Undo is.
+    + (doc && doc.undo_dropped ? (undoable.length ? '. ' : '') + doc.undo_dropped
+      + ' older steps were let go to keep undo under its memory limit (Preferences).' : '');
   $('redo').disabled = redoable.length === 0;
   $('redo').textContent = redoable.length ? 'Redo ' + brief(redoable[0]) : 'Redo';
   $('redo').title = redoable.length ? 'Redo ' + redoable[0] : '';
@@ -21110,7 +21116,9 @@ async function memory() {
   const asked = (custom && prefs.ramGB ? '?ram=' + prefs.ramGB + '&card=' + (prefs.cardGB || 'auto') : '?ram=auto&card=auto')
     // B-161: the disk copies. Nothing typed is the default; the folder is the program's own.
     + '&disk=' + (prefs.diskGB === undefined || prefs.diskGB === '' ? 'auto' : prefs.diskGB)
-    + '&diskfolder=' + encodeURIComponent(prefs.diskFolder || '');
+    + '&diskfolder=' + encodeURIComponent(prefs.diskFolder || '')
+    // D-1137: the undo memory ceiling, megabytes; nothing typed is the 512 MB default.
+    + '&undo=' + (prefs.undoMB ? prefs.undoMB : 'auto');
   let m;
   try { m = await (await fetch(PROJECT + '/memory' + asked)).json(); } catch (e) { return; }
   $('prefmemory').value = prefs.memory;
@@ -21128,6 +21136,12 @@ async function memory() {
         + (m.card.memory ? 'It has ' + GB(m.card.memory) + ' GB; Automatic gives ' + GB(m.card.automatic)
           + ' and Custom at most ' + GB(m.card.most) + '.' : '')
       : 'Graphics card: not in use, the preview is drawn on the CPU.');
+  if (m.undo) {
+    $('prefundo').value = Math.round(m.undo.now / 1e6);
+    $('undouse').textContent = 'Undo: ' + m.undo.steps + ' steps holding about ' + (m.undo.held / 1e6).toFixed(1)
+      + ' of ' + Math.round(m.undo.now / 1e6) + ' MB now. Past it the oldest steps are let go'
+      + (m.undo.dropped ? '; ' + m.undo.dropped + ' have been since the project was opened.' : '.');
+  }
   $('prefdisk').value = m.disk ? GB(m.disk.now) : 0;
   $('prefdiskfolder').value = prefs.diskFolder || '';
   $('prefdiskfolder').placeholder = m.disk ? m.disk.folder : '';
@@ -21144,6 +21158,7 @@ $('prefmemory').onchange = () => {
 };
 $('prefram').onchange = () => { prefs.ramGB = $('prefram').value; savePrefs(); memory(); };
 $('prefcard').onchange = () => { prefs.cardGB = $('prefcard').value; savePrefs(); memory(); };
+$('prefundo').onchange = () => { prefs.undoMB = $('prefundo').value; savePrefs(); memory(); };
 $('prefdisk').onchange = () => { prefs.diskGB = $('prefdisk').value; savePrefs(); memory(); };
 $('prefdiskfolder').onchange = () => { prefs.diskFolder = $('prefdiskfolder').value.trim(); savePrefs(); memory(); };
 

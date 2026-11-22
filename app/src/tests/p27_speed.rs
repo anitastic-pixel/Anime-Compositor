@@ -65,6 +65,8 @@ fn state_before_d1115(viewer: &Mutex<Viewer>) -> String {
         "solo": viewer.solo.iter().map(|id| id.as_str()).collect::<Vec<_>>(),
         "undo": viewer.document.undo_labels(),
         "redo": viewer.document.redo_labels(),
+        // D-1137: a field added to /state after D-1115, so the old answer is given it too.
+        "undo_dropped": viewer.document.undo_dropped(),
     })
     .to_string()
 }
