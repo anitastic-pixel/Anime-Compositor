@@ -57,6 +57,12 @@ const BUILT: &[(DiagnosticId, &str, &str)] = &[
         "B-08a_compose_table.md",
     ),
     (
+        // D-268: a media path on a network share or a device is not read.
+        DiagnosticId::InvalidPath,
+        "INVALID_PATH",
+        "B-1001_network_paths_table.md",
+    ),
+    (
         DiagnosticId::EffectUnsupported,
         "EFFECT_UNSUPPORTED",
         "B-07_effects_table.md",
@@ -435,11 +441,6 @@ const NOT_BUILT: &[(&str, &str)] = &[
         "GPU_OUT_OF_MEMORY",
         "The only GPU path is B-44's viewer picture, and a card out of memory there refuses \
             nothing: the CPU draws the frame and GPU_PREVIEW_ON_CPU says so (D-101, accepted).",
-    ),
-    (
-        "INVALID_PATH",
-        "Paths reach this build through Windows file dialogs and are read, not normalised; \
-         a path that cannot be read is reported by the identifier for what failed to read it.",
     ),
     (
         "DEPENDENCY_LICENSE_UNRESOLVED",

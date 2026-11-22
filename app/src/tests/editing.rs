@@ -6316,6 +6316,46 @@ fn a_shot_is_collected_and_checked_from_the_window() {
     );
 }
 
+/// D-268: Collect Files from the window names each file it left out, and why, by the path the
+/// project gives it. Written by hand from the decision.
+#[test]
+fn collecting_names_the_files_it_left_out() {
+    let scratch = repo("target/b1001-app-scratch");
+    let _ = std::fs::remove_dir_all(&scratch);
+    std::fs::create_dir_all(&scratch).expect("make the scratch folder");
+    std::fs::write(scratch.join("notes.txt"), "Private notes.\n").unwrap();
+    let mut project: serde_json::Value = serde_json::from_slice(
+        &std::fs::read(repo("Fixtures/packaging/source/shot.json")).unwrap(),
+    )
+    .unwrap();
+    let still = |id: &str, path: &str| {
+        serde_json::json!({ "id": id, "kind": "still", "name": id, "path": path,
+            "interpretation": { "color_space": "srgb", "alpha": "straight" } })
+    };
+    project["assets"] = serde_json::json!([
+        still("asset-notes", "notes.txt"),
+        still("asset-unc", r"\\nas.invalid\share\cel.png"),
+    ]);
+    let mut layer = project["compositions"][0]["layers"][0].clone();
+    layer["asset_id"] = serde_json::json!("asset-unc");
+    let id = layer["id"].clone();
+    project["compositions"][0]["layers"] = serde_json::json!([layer]);
+    project["compositions"][0]["layer_order"] = serde_json::json!([id]);
+    project["compositions"] = serde_json::json!([project["compositions"][0].clone()]);
+    let source = scratch.join("shot.json");
+    std::fs::write(&source, project.to_string()).unwrap();
+    let viewer = Mutex::new(
+        open(&source).unwrap_or_else(|d| panic!("open {}: {} {}", source.display(), d.message, d.detail)),
+    );
+    let package = scratch.join("package");
+    assert_eq!(
+        collect_into(&viewer, &package).replace(&package.display().to_string(), "(the chosen folder)"),
+        "Collected into (the chosen folder): 0 drawings copied. Not copied, because the program \
+         does not import that kind of file: notes.txt. Not read, because it is on a network \
+         share: \\\\nas.invalid\\share\\cel.png. The open project is unchanged."
+    );
+}
+
 const PACKAGE_PANEL_INTRO: &[&str] = &[
     "D-61 decided what a package is and B-15b built it, checked against the fixtures in \
      `verification/B-15b_package_table.md`. This is the window's half: a \"Can be passed \
