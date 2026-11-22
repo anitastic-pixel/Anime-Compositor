@@ -2845,6 +2845,22 @@ let drawnPart = null;
 // frame asks with it and is sent only the rectangle that changed when it is still the core's.
 const SEND_CHANGED = true;
 let heldSent = null;
+// D-1142 (a): a playing frame comes through the shared buffer the window posts to this page, not
+// as the answer's body. `buf=` names the buffer held (0 for none, which asks the window for one);
+// an answer without `x-shared` brought its frame in the body, as before (D-36). Read at once,
+// before the next playing frame is asked for, which is when the window writes the next one.
+const SHARED_FRAMES = true;
+let sharedFrames = null;
+let sharedId = 0;
+const sharedRoad = () => SHARED_FRAMES && !!(window.chrome && chrome.webview && chrome.webview.releaseBuffer);
+if (sharedRoad()) {
+  chrome.webview.addEventListener('sharedbufferreceived', (e) => {
+    const was = sharedFrames;
+    sharedFrames = e.getBuffer();
+    sharedId = +((e.additionalData || {}).id || 0);
+    if (was) chrome.webview.releaseBuffer(was);
+  });
+}
 function seenPart() {
   if (needPixels()) return null; // W-41b: a turned view asks for all of it
   const f = showing();
@@ -2911,7 +2927,8 @@ async function show(url, keep = true) {
     const had = heldSent;
     const extra = [part && 'v=' + part.join(','), BOXES_WITH_FRAME && doc && !playing && url.includes('/frame/') && 'b=1',
       SEND_CHANGED && !part && url.includes('/frame/') && 'have=' + (had || 0),
-      profiling && url.includes('/frame/') && 'prof=' + profiling].filter(Boolean);
+      profiling && url.includes('/frame/') && 'prof=' + profiling,
+      sharedRoad() && /\/(at|play)\//.test(url) && 'buf=' + sharedId].filter(Boolean);
     const response = await fetch(extra.length ? url + (url.includes('?') ? '&' : '?') + extra.join('&') : url);
     if (mine !== generation) return;
     // D-893: stopped part way, so there is nothing to draw; the newest request goes out next, or
@@ -2939,8 +2956,11 @@ async function show(url, keep = true) {
     // B-45: already in the window, under the page, and the answer carries no pixels.
     const onScreen = h.get('x-on-screen') === '1';
     const nBoxes = +(h.get('x-boxes') || 0);
-    const body = onScreen && !nBoxes ? null : await response.arrayBuffer();
-    const pixels = onScreen ? null : new Uint8ClampedArray(body, 0, body.byteLength - nBoxes);
+    // D-1142 (a): the pixels are in the shared buffer; one the page no longer holds is not drawn.
+    const shared = +(h.get('x-shared') || 0);
+    if (shared && (+h.get('x-shared-id') !== sharedId || !sharedFrames)) return;
+    const body = shared ? sharedFrames : onScreen && !nBoxes ? null : await response.arrayBuffer();
+    const pixels = onScreen ? null : new Uint8ClampedArray(body, 0, shared || body.byteLength - nBoxes);
     const said = nBoxes ? JSON.parse(new TextDecoder().decode(new Uint8Array(body, body.byteLength - nBoxes))) : null;
     const arrived = performance.now();
     // D-886: only what changed since `had`, and a newer picture was drawn since: this answer is
@@ -21196,6 +21216,7 @@ async function sessionLog(what) {
       + '. Median ' + ms(log.median_ms) + ', slowest 5% ' + ms(log.slowest_5_percent_ms)
       + ' or more. Frames the clock dropped: ' + log.dropped + '. Most time in all: '
       + (log.costliest ? log.costliest + ', ' + ms(log.costliest_ms) : 'nothing measurable') + '.'
+      + (log.road ? ' Playing frames reach the page by ' + log.road + '.' : '') // D-1142
       + (log.on ? '' : ' Recording is off.');
   $('sessionlogslowest').tBodies[0].replaceChildren(...log.slowest.map((r) => {
     const also = [];

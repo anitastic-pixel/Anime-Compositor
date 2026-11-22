@@ -54,6 +54,9 @@ WATCH = r"""(() => {
       e.frame = +r.headers.get('x-frame');
       e.skipped = +(r.headers.get('x-skipped') || 0);
       e.onscreen = r.headers.get('x-on-screen') === '1';
+      // D-1142 (a): a frame that came through the shared buffer has no body to wait for.
+      e.shared = +(r.headers.get('x-shared') || 0);
+      if (e.shared) { e.t2 = e.t1; e.bytes = e.shared; }
       const ab = r.arrayBuffer.bind(r);
       r.arrayBuffer = () => ab().then((b) => { e.t2 = performance.now(); e.bytes = b.byteLength; return b; });
       return r;
@@ -109,6 +112,32 @@ PROBE = r"""(async () => {
 })()"""
 
 
+# D-1142 (a): the same frames asked both ways, stopped, every frame from memory: through the shared
+# buffer (`buf=`, copied out of it at once) and as the frame request's body (no `buf=`); the page
+# compares them byte for byte.
+SAME = r"""(async () => {
+  if (!(window.chrome && chrome.webview) || typeof sharedFrames === 'undefined') return JSON.stringify({ error: 'this build has no shared buffer road' });
+  const hex = async (u) => {
+    if (!u || !(window.crypto && crypto.subtle)) return null;
+    return [...new Uint8Array(await crypto.subtle.digest('SHA-256', u))].slice(0, 8).map((x) => x.toString(16).padStart(2, '0')).join('');
+  };
+  const out = [];
+  for (const n of FRAMES_TO_COMPARE) {
+    const a = await fetch(FRAMES + '/play/' + n + '?q=full&buf=' + sharedId);
+    await a.arrayBuffer();
+    const len = +(a.headers.get('x-shared') || 0);
+    const viaShared = len && +a.headers.get('x-shared-id') === sharedId ? new Uint8Array(sharedFrames.slice(0, len)) : null;
+    const b = await fetch(FRAMES + '/play/' + n + '?q=full');
+    const viaBody = new Uint8Array(await b.arrayBuffer());
+    let same = !!viaShared && viaShared.length === viaBody.length;
+    for (let i = 0; same && i < viaBody.length; i++) if (viaShared[i] !== viaBody[i]) same = false;
+    out.push({ frame: +b.headers.get('x-frame'), shared_bytes: len, body_bytes: viaBody.length, same,
+               sha_shared: await hex(viaShared), sha_body: await hex(viaBody) });
+  }
+  return JSON.stringify(out);
+})()"""
+
+
 def median(xs):
     xs = sorted(xs)
     return xs[len(xs) // 2] if xs else None
@@ -144,6 +173,7 @@ def play(frames, fps, side):
         app.eval("if (playing) document.getElementById('play').click(); true")
         time.sleep(0.5)
         probe = json.loads(app.eval(PROBE)) if side == "cpu" else None
+        same = json.loads(app.eval(SAME.replace("FRAMES_TO_COMPARE", str([0, frames // 3, frames - 1])))) if side == "cpu" else None
         asks = m["asks"]
         rows = []
         for a, b in zip(asks, asks[1:]):
@@ -156,11 +186,11 @@ def play(frames, fps, side):
                          "round": b["t0"] - a["t0"]})
         raf = m["raf"]
         gaps = [b - a for a, b in zip(raf, raf[1:])]
-        keys = ("frames", "median_ms", "slowest_5_percent_ms", "dropped")
+        keys = ("frames", "median_ms", "slowest_5_percent_ms", "dropped", "road")
         return {"filled_s": filled, "held": len(ready["frames"]) if ready else None,
                 "held_bytes": ready and ready.get("held"), "loops_s": looped, "expected": 3 * frames,
                 "log": {k: log.get(k) for k in keys + ("shown",) if k in log},
-                "asks": len(asks),
+                "asks": len(asks), "shared": sum(1 for a in asks if a.get("shared")), "same": same,
                 "page_skipped": sum(r["skipped"] for r in rows), "rows": rows, "probe": probe,
                 "raf_median": median(gaps), "raf_95": pct(gaps, 0.95), "raf_max": max(gaps) if gaps else None}
     return job
@@ -187,6 +217,11 @@ def measure(exe, tag):
     FACTS.write_text(json.dumps(facts, indent=1) + "\n", encoding="utf-8", newline="\n")
 
 
+def roads(run):
+    """Whether this run's session log said which road playing frames took (D-1142 on)."""
+    return any("road" in s["log"] for s in run["shots"].values())
+
+
 def report():
     facts = json.loads(FACTS.read_text(encoding="utf-8"))
     md = ["# B-1004: playback on the processor from memory (D-1141)", "",
@@ -198,14 +233,15 @@ def report():
     for tag, run in facts.items():
         md += [f"## {tag}", "",
                f"Machine: {run['machine']}. Build: `{run['exe']}` release, written {run['exe_written']}, checkout {run['commit']}, measured {run['measured']}.", "",
-               "| shot | memory filled | frames held | three loops | frames asked for (page) | frames passed over (session log) | frames shown (session log) | page's rounds: median ms | slowest 5% ms |",
-               "|---|---|---|---|---|---|---|---|---|"]
+               "| shot | memory filled | frames held | three loops | frames asked for (page) | frames passed over (session log) | frames shown (session log) | page's rounds: median ms | slowest 5% ms |"
+               + (" road (session log) | frames through the shared buffer |" if roads(run) else ""),
+               "|---|---|---|---|---|---|---|---|---|" + ("---|---|" if roads(run) else "")]
         for name, s in run["shots"].items():
             rounds = [r["round"] for r in s["rows"]]
             timed = f"| {median(rounds):.1f} | {pct(rounds, 0.95):.1f} |" if rounds else "| not timed (the card paints the window itself) | |"
             md.append(f"| {name} | {s['filled_s']} s | {s['held']} ({(s['held_bytes'] or 0) / 1e6:.0f} MB) | {s['loops_s']} s ({s['expected']} frames played) "
                       f"| {s['asks']} | **{s['log'].get('dropped')}** | {s['log'].get('shown', 'not counted')} "
-                      + timed)
+                      + timed + (f" {s['log'].get('road', '')} | {s.get('shared', 0)} of {s['asks']} |" if roads(run) else ""))
         md += ["", "Where one round goes, median and slowest 5% in ms (a round is the time between two frames asked for):", "",
                "| shot | ask | window | bytes | put | rest | wait | round | bytes a frame | page timer: median / slowest 5% / longest gap ms |",
                "|---|---|---|---|---|---|---|---|---|---|"]
@@ -227,6 +263,17 @@ def report():
             t = lambda xs: f"{median([x['headers'] + x['body'] - x['ms'] for x in xs]):.1f} ({median([x['bytes'] for x in xs]) / 1e6:.2f} MB)"
             par = " / ".join(f"{median(P['parallel'][k]):.1f}" for k in ("1", "2", "3", "4"))
             md.append(f"| {name} | {t(P['sizes']['full'])} | {t(P['sizes']['half'])} | {t(P['sizes']['third'])} | {t(P['sizes']['draft'])} | {t(P['empty'])} | {par} |")
+        if any(s.get("same") for s in run["shots"].values()):
+            md += ["", "The same frames asked both ways, stopped, from memory: through the shared buffer and as the frame request's body,",
+                   "compared byte for byte in the page (SHA-256, first 8 bytes in hex):", "",
+                   "| shot | frame | bytes through the shared buffer | bytes in the body | byte-identical | SHA-256 shared buffer | SHA-256 body |",
+                   "|---|---|---|---|---|---|---|"]
+            for name, s in run["shots"].items():
+                same = s.get("same")
+                if isinstance(same, dict):
+                    md.append(f"| {name} | | | | **{same.get('error')}** | | |")
+                for c in same if isinstance(same, list) else []:
+                    md.append(f"| {name} | {c['frame']} | {c['shared_bytes']} | {c['body_bytes']} | **{'yes' if c['same'] else 'NO'}** | {c['sha_shared']} | {c['sha_body']} |")
         md.append("")
     md += ["ask: the request's start to the answer's headers, less the window's own time; window: the window's own time (x-ms);",
            "bytes: the headers to the last byte in the page; put: putImageData onto the canvas; rest: the rest of the page's work",

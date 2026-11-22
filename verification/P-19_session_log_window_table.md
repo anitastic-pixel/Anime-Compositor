@@ -21,6 +21,7 @@ The panel as a person sees it, the Save dialog, and closing and reopening the wi
 | switched off, a frame adds no row and the stopwatch stops | 11 rows, stopwatch off | 11 rows, stopwatch off | pass |
 | a saved copy is headed with the date, operating system, cores and build | 4 of 4, each in the copy | 4 of 4, each in the copy | pass |
 | and has one table line per row | 11 | 11 | pass |
+| the copy and the panel's answer name the road playing frames take to the page | Playing frames reach the page by: no frame played yet; no frame played yet | Playing frames reach the page by: no frame played yet; no frame played yet | pass |
 | a Session log button in the menu bar | present | present | pass |
 | a panel that is not modal, so the viewer can play under it | present | present | pass |
 | the panel asks the window's log | present | present | pass |
@@ -30,5 +31,6 @@ The panel as a person sees it, the Save dialog, and closing and reopening the wi
 | its known limits, on the panel | present | present | pass |
 | and that it is not a benchmark | present | present | pass |
 | the command palette finds it | present | present | pass |
+| D-1142: the panel names the road playing frames take | present | present | pass |
 
-**20 of 20 checks pass.**
+**22 of 22 checks pass.**

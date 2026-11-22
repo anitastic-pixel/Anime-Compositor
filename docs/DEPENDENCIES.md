@@ -328,7 +328,7 @@ stays visible. Several other crates now do the same for the same reason.
 | `vswhom-sys` | 0.1.3 | MIT | transitive | build-time only | https://github.com/nabijaczleweli/vswhom-sys.rs | `fb067e4cbd1ff067…` |
 | `walkdir` | 2.5.0 | Unlicense/MIT | transitive | linked | https://github.com/BurntSushi/walkdir | `29790946404f91d9…` |
 | `web_atoms` | 0.2.6 | MIT OR Apache-2.0 | transitive | linked | https://github.com/servo/html5ever | `ba8b815c1b593dc0…` |
-| `webview2-com` | 0.38.2 | MIT | transitive | linked | https://github.com/wravery/webview2-rs | `7130243a7a5b33c5…` |
+| `webview2-com` | 0.38.2 | MIT | direct | linked | https://github.com/wravery/webview2-rs | `7130243a7a5b33c5…` |
 | `webview2-com-macros` | 0.8.1 | MIT | transitive | linked | https://github.com/wravery/webview2-rs | `67a921c1b6914c36…` |
 | `webview2-com-sys` | 0.38.2 | MIT | transitive | linked | https://github.com/wravery/webview2-rs | `381336cfffd77237…` |
 | `weezl` | 0.1.12 | MIT OR Apache-2.0 | transitive | linked | https://github.com/image-rs/weezl | `a28ac98ddc8b9274…` |
@@ -342,8 +342,8 @@ stays visible. Several other crates now do the same for the same reason.
 | `windows` | 0.58.0 | MIT OR Apache-2.0 | direct | linked | https://github.com/microsoft/windows-rs | `dd04d41d93c4992d…` |
 | `windows` | 0.61.3 | MIT OR Apache-2.0 | direct | linked | https://github.com/microsoft/windows-rs | `9babd3a767a4c1ae…` |
 | `windows-collections` | 0.2.0 | MIT OR Apache-2.0 | transitive | linked | https://github.com/microsoft/windows-rs | `3beeceb5e5cfd9eb…` |
-| `windows-core` | 0.58.0 | MIT OR Apache-2.0 | transitive | linked | https://github.com/microsoft/windows-rs | `6ba6d44ec8c2591c…` |
-| `windows-core` | 0.61.2 | MIT OR Apache-2.0 | transitive | linked | https://github.com/microsoft/windows-rs | `c0fdd3ddb90610c7…` |
+| `windows-core` | 0.58.0 | MIT OR Apache-2.0 | direct | linked | https://github.com/microsoft/windows-rs | `6ba6d44ec8c2591c…` |
+| `windows-core` | 0.61.2 | MIT OR Apache-2.0 | direct | linked | https://github.com/microsoft/windows-rs | `c0fdd3ddb90610c7…` |
 | `windows-future` | 0.2.1 | MIT OR Apache-2.0 | transitive | linked | https://github.com/microsoft/windows-rs | `fc6a41e98427b19f…` |
 | `windows-implement` | 0.58.0 | MIT OR Apache-2.0 | transitive | linked | https://github.com/microsoft/windows-rs | `2bbd5b46c938e506…` |
 | `windows-implement` | 0.60.2 | MIT OR Apache-2.0 | transitive | linked | https://github.com/microsoft/windows-rs | `053e2e040ab57b9d…` |
