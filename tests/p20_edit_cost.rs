@@ -18,6 +18,9 @@
 //! and 200 layers, each copy with 25 position keys, so the largest has 5,000 keys: the size the
 //! audit brief names. A counting allocator measures the memory one undo step keeps.
 //!
+//! D-1137 adds a fact: how many undo steps a 1 MB ceiling keeps, and the Document's own count of
+//! what they hold beside the allocator's.
+//!
 //! The last row is a fact, not a time: frames the frame memory holds for the shot, and how many
 //! it still holds after a layer is renamed, which changes no pixel.
 
@@ -184,6 +187,26 @@ fn p20_edit_cost() {
             "{layers} layers: memory kept per undo step {per_step} bytes ({:.2} MB); undo depth {} after 20 edits, no limit in Document",
             per_step as f64 / 1e6,
             doc.undo_depth()
+        ));
+
+        // D-1137: the steps kept against the ceiling. The ceiling is set to 1 MB here so a short
+        // run reaches it; the Document's own count beside what the allocator counted.
+        let mut doc = Document::new(project.clone());
+        doc.set_undo_ceiling(1_000_000);
+        let before = HELD.load(Ordering::Relaxed);
+        for n in 0..400 {
+            let c = rotate(&first, n as f64 + 0.5);
+            doc.apply(c).unwrap();
+        }
+        let counted = HELD.load(Ordering::Relaxed) - before;
+        let step = doc.undo_held_bytes() / doc.undo_depth().max(1);
+        facts.push(format!(
+            "{layers} layers: undo ceiling 1 MB, 400 edits: {} steps kept, {} let go; the Document counts {} bytes held, the allocator {} bytes; at the 512 MB default about {} steps would be kept",
+            doc.undo_depth(),
+            doc.undo_dropped(),
+            doc.undo_held_bytes(),
+            counted,
+            anime_compositor::command::DEFAULT_UNDO_CEILING / step.max(1)
         ));
 
         // The frame memory: 240 frames held for the shot as it is, then a layer renamed.
