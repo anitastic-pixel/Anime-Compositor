@@ -1947,7 +1947,7 @@ fn grade(@builtin(global_invocation_id) id: vec3<u32>) {
     textureStore(output, id.xy, out);
 }
 
-// layer_fx::chromatic_aberration. k: the centre, 1 - k and 1 + k. With `flag` 1 (radial) or
+// layer_fx::chromatic_aberration, D-1139's edge held. k: the centre, 1 - k and 1 + k. With `flag` 1 (radial) or
 // 2 (offset), layer_fx::lens_chromatic_aberration (D-409). k: the centre, the half diagonal,
 // amount over it, the falloff's power, the angle's step across and down, the amount, the fringe
 // blur, the three scales and the three sample counts.
@@ -1994,8 +1994,11 @@ fn aberr(@builtin(global_invocation_id) id: vec3<u32>) {
     }
     let dx = f64(id.x) + 0.5lf - k[0];
     let dy = f64(id.y) + 0.5lf - k[1];
-    let red = bilinear(input, k[0] + dx * k[2], k[1] + dy * k[2]);
-    let blue = bilinear(input, k[0] + dx * k[3], k[1] + dy * k[3]);
+    // D-1139: held inside the outer pixel centres, a point past the edge reads the edge pixel.
+    let hx = f64(size.x) - 0.5lf;
+    let hy = f64(size.y) - 0.5lf;
+    let red = bilinear(input, clamp(k[0] + dx * k[2], 0.5lf, hx), clamp(k[1] + dy * k[2], 0.5lf, hy));
+    let blue = bilinear(input, clamp(k[0] + dx * k[3], 0.5lf, hx), clamp(k[1] + dy * k[3], 0.5lf, hy));
     let p = textureLoad(input, id.xy, 0);
     textureStore(output, id.xy, vec4(red.x, p.y, blue.z, max(max(p.w, red.w), blue.w)));
 }

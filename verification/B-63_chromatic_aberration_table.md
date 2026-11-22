@@ -6,13 +6,13 @@ D-120, accepted by the owner on 2026-09-26 in the batch of ten. Every expected p
 
 | Check | The build's answer | Matches |
 | --- | --- | --- |
-| FX-CHROMA-001 frame 0: The settings as they start, amount 3 about the middle: red fringes outward past the blocks' outer edges, where the red sample alone covers and the pixel takes its covering, and blue fringes inward; the white block's left column, on the layer's edge, loses its blue, whose sample falls outside the layer, and turns yellow, and nothing is drawn beyond the layer. | largest difference 2.5e-7 | yes |
+| FX-CHROMA-001 frame 0: The settings as they start, amount 3 about the middle: red fringes outward past the blocks' outer edges, where the red sample alone covers and the pixel takes its covering, and blue fringes inward; the white block's left column, on the layer's edge, keeps its blue, whose sample falls past the layer's edge and reads the edge pixel (D-1139), and nothing is drawn beyond the layer. | largest difference 2.5e-7 | yes |
 | FX-CHROMA-001: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-CHROMA-002 frame 0: Amount 0: the drawing, untouched. | largest difference 1.9e-7 | yes |
 | FX-CHROMA-002: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-CHROMA-003 frame 0: Amount 6: wider fringes than FX-CHROMA-001; the half-covering edge keeps at least its own covering. | largest difference 2.5e-7 | yes |
 | FX-CHROMA-003: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-CHROMA-004 frame 0: Centre 0, 50, the middle of the left edge: the split runs away from there, so red spreads right past both blocks' right sides, and the white block's left column, beside the centre, keeps its blue, whose sample now lands inside the layer. | largest difference 2.5e-7 | yes |
+| FX-CHROMA-004 frame 0: Centre 0, 50, the middle of the left edge: the split runs away from there, so red spreads right past both blocks' right sides, and the white block's left column, beside the centre, keeps its blue, whose sample lands inside the layer, and its full red, whose sample falls past the left edge and reads the edge pixel; above and below the block that column takes red from the edge too. | largest difference 2.5e-7 | yes |
 | FX-CHROMA-004: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-CHROMA-005 frame 0: Amount keyed from 0 at frame 0 to 12 at frame 4, linear: frame 0 untouched, frame 2 is FX-CHROMA-003, frame 4 splits at 12, past the drawing's half diagonal, 9.43, so its red is turned over as FX-CHROMA-008's is. | largest difference 1.9e-7 | yes |
 | FX-CHROMA-005 frame 2: Amount keyed from 0 at frame 0 to 12 at frame 4, linear: frame 0 untouched, frame 2 is FX-CHROMA-003, frame 4 splits at 12, past the drawing's half diagonal, 9.43, so its red is turned over as FX-CHROMA-008's is. | largest difference 2.5e-7 | yes |
@@ -25,13 +25,13 @@ D-120, accepted by the owner on 2026-09-26 in the batch of ten. Every expected p
 | FX-CHROMA-007 frame 0: FX-CHROMA-001 moved three pixels right: the same, moved; the three columns left of the drawing stay empty, as the layer does not grow. | largest difference 2.5e-7 | yes |
 | FX-CHROMA-007 frame 3: FX-CHROMA-001 moved three pixels right: the same, moved; the three columns left of the drawing stay empty, as the layer does not grow. | largest difference 2.5e-7 | yes |
 | FX-CHROMA-007: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-CHROMA-008 frame 0: Amount 100, the most: k is past 10, so the red picture is turned over through the centre and shrunk nearly tenfold and the blue one grown nearly twelvefold, and on a drawing this small both samples fall off it for every pixel: each keeps only its own green, at its own covering, as in FX-CHROMA-009. | largest difference 5.5e-8 | yes |
+| FX-CHROMA-008 frame 0: Amount 100, the most: k is past 10, so the red picture is turned over through the centre and shrunk nearly tenfold and the blue one grown nearly twelvefold, and on a drawing this small both samples fall past its edge for every pixel and read edge pixels that are empty: each keeps only its own green, at its own covering, as in FX-CHROMA-009. | largest difference 5.5e-8 | yes |
 | FX-CHROMA-008: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-CHROMA-009 frame 0: Centre -1000, -1000, far off the top left: both samples fall off the layer for every pixel, so each pixel keeps only its own green, at its own covering. | largest difference 5.5e-8 | yes |
+| FX-CHROMA-009 frame 0: Centre -1000, -1000, far off the top left: both samples fall past the layer's edge for every pixel and read its empty corners, so each pixel keeps only its own green, at its own covering. | largest difference 5.5e-8 | yes |
 | FX-CHROMA-009: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-CHROMA-010 frame 0: Amount 1: fringes a pixel or less wide at the blocks' edges; the insides of both blocks, whose samples all land inside them, keep their colour. | largest difference 2.5e-7 | yes |
 | FX-CHROMA-010: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
-| FX-CHROMA-011 frame 0: Centre 100, 100, the bottom right corner: the red picture is drawn larger away from that corner, up and left, so red reaches rows 0 and 1 above the blocks; the blue picture is drawn smaller toward it, so blue reaches row 8 below the white block; and the white block's left column loses its blue. | largest difference 2.5e-7 | yes |
+| FX-CHROMA-011 frame 0: Centre 100, 100, the bottom right corner: the red picture is drawn larger away from that corner, up and left, so red reaches rows 0 and 1 above the blocks; the blue picture is drawn smaller toward it, so blue reaches row 8 below the white block; and the white block's left column keeps its blue, whose sample falls past the left edge and reads the edge pixel. | largest difference 2.5e-7 | yes |
 | FX-CHROMA-011: what opening it warns of, and what frame 4 warns of | [] and [] | yes |
 | FX-CHROMA-012 frame 0: Amount 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |
 | FX-CHROMA-012 frame 4: Amount 101, above 100. The file is read, the effect is kept as written and left out of every frame, with a warning. | largest difference 1.9e-7 | yes |

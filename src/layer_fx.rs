@@ -1040,8 +1040,9 @@ pub(crate) fn outline(
 /// D-120: red drawn a little larger and blue a little smaller about `center`, per cent of the
 /// drawing's own size (its corner at `origin` in `source` after the effects above grew it), so
 /// that each moves `amount` pixels at the drawing's corner. Green is each pixel's own and the
-/// covering the largest of the three. The layer does not grow; amount 0 changes nothing. The
-/// settings are already valid.
+/// covering the largest of the three. A point past the input's edge reads the nearest edge
+/// pixel (D-1139). The layer does not grow; amount 0 changes nothing. The settings are already
+/// valid.
 pub(crate) fn chromatic_aberration(
     source: &mut WorkingBuffer,
     amount: f64,
@@ -1057,14 +1058,20 @@ pub(crate) fn chromatic_aberration(
     let k = amount / ((w0 * w0 + h0 * h0).sqrt() / 2.0);
     let drawing = source.clone();
     let w = source.width();
+    // D-1139: a point past the input's edge reads the nearest edge pixel. Holding the point
+    // inside the outer pixel centres is holding each bilinear tap inside the input.
+    let (sw, sh) = (w as f64, source.height() as f64);
+    let held = |x: f64, y: f64| {
+        sample_bilinear(&drawing, x.max(0.5).min(sw - 0.5), y.max(0.5).min(sh - 0.5))
+    };
     source
         .data_mut()
         .par_chunks_exact_mut(4)
         .enumerate()
         .for_each(|(i, px)| {
             let (dx, dy) = ((i % w) as f64 + 0.5 - cx, (i / w) as f64 + 0.5 - cy);
-            let red = sample_bilinear(&drawing, cx + dx * (1.0 - k), cy + dy * (1.0 - k));
-            let blue = sample_bilinear(&drawing, cx + dx * (1.0 + k), cy + dy * (1.0 + k));
+            let red = held(cx + dx * (1.0 - k), cy + dy * (1.0 - k));
+            let blue = held(cx + dx * (1.0 + k), cy + dy * (1.0 + k));
             px[0] = red[0];
             px[2] = blue[2];
             px[3] = px[3].max(red[3]).max(blue[3]);
