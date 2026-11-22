@@ -33,9 +33,11 @@ import p28_media as p28  # noqa: E402
 
 OUT = ROOT / "verification"
 FACTS = OUT / "B-1004_playback_measured.json"
-SHOTS = {  # name: (project, media folder, frames in the work area, fps)
-    "P-28 shot": (OUT / "P-28" / "p28_shot.json", ROOT / "target" / "p28", 120, 24),
-    "reference shot": (OUT / "B-08a_project.json", ROOT / "Fixtures" / "reference_shot", 240, 24),
+SHOTS = {  # name: (project, media folder, frames in the work area, fps, processor or card)
+    "P-28 shot": (OUT / "P-28" / "p28_shot.json", ROOT / "target" / "p28", 120, 24, "cpu"),
+    "reference shot": (OUT / "B-08a_project.json", ROOT / "Fixtures" / "reference_shot", 240, 24, "cpu"),
+    # Only to show the session log's two counts side by side where the card repaints every tick.
+    "P-28 shot, on the card": (OUT / "P-28" / "p28_shot.json", ROOT / "target" / "p28", 120, 24, "gpu"),
 }
 
 WATCH = r"""(() => {
@@ -117,9 +119,9 @@ def pct(xs, q):
     return xs[min(len(xs) - 1, int(q * len(xs)))] if xs else None
 
 
-def play(frames, fps):
+def play(frames, fps, side):
     def job(app):
-        app.switch("cpu")
+        app.switch(side)
         app.eval(WATCH)
         app.get("PROJECT + '/session-log?do=on'")
         app.get("PROJECT + '/session-log?do=clear'")
@@ -141,7 +143,7 @@ def play(frames, fps):
         m = json.loads(app.eval("JSON.stringify(window.__m)"))
         app.eval("if (playing) document.getElementById('play').click(); true")
         time.sleep(0.5)
-        probe = json.loads(app.eval(PROBE))
+        probe = json.loads(app.eval(PROBE)) if side == "cpu" else None
         asks = m["asks"]
         rows = []
         for a, b in zip(asks, asks[1:]):
@@ -176,9 +178,9 @@ def measure(exe, tag):
                                     capture_output=True, text=True).stdout.strip(),
            "machine": subprocess.run(["powershell", "-NoProfile", "-Command", ps], capture_output=True, text=True).stdout.strip(),
            "measured": time.strftime("%Y-%m-%dT%H:%M:%S"), "shots": {}}
-    for name, (project, media, frames, fps) in SHOTS.items():
+    for name, (project, media, frames, fps, side) in SHOTS.items():
         p28.MEDIA = media  # App copies the media folders from here
-        run["shots"][name] = p28.session(exe, project, play(frames, fps))  # an absolute path survives p28.OUT / it
+        run["shots"][name] = p28.session(exe, project, play(frames, fps, side))  # an absolute path survives p28.OUT / it
         r = run["shots"][name]
         print(tag, name, "held", r["held"], "asked", r["asks"], "dropped", r["log"].get("dropped"), flush=True)
     facts[tag] = run
@@ -200,14 +202,17 @@ def report():
                "|---|---|---|---|---|---|---|---|---|"]
         for name, s in run["shots"].items():
             rounds = [r["round"] for r in s["rows"]]
+            timed = f"| {median(rounds):.1f} | {pct(rounds, 0.95):.1f} |" if rounds else "| not timed (the card paints the window itself) | |"
             md.append(f"| {name} | {s['filled_s']} s | {s['held']} ({(s['held_bytes'] or 0) / 1e6:.0f} MB) | {s['loops_s']} s ({s['expected']} frames played) "
                       f"| {s['asks']} | **{s['log'].get('dropped')}** | {s['log'].get('shown', 'not counted')} "
-                      f"| {median(rounds):.1f} | {pct(rounds, 0.95):.1f} |")
+                      + timed)
         md += ["", "Where one round goes, median and slowest 5% in ms (a round is the time between two frames asked for):", "",
                "| shot | ask | window | bytes | put | rest | wait | round | bytes a frame | page timer: median / slowest 5% / longest gap ms |",
                "|---|---|---|---|---|---|---|---|---|---|"]
         for name, s in run["shots"].items():
             R = s["rows"]
+            if not R:
+                continue
             cell = lambda k: f"{median([r[k] for r in R]):.1f} / {pct([r[k] for r in R], 0.95):.1f}"
             md.append(f"| {name} | {cell('ask')} | {cell('window')} | {cell('bytes_ms')} | {cell('put')} | {cell('rest')} | {cell('wait')} "
                       f"| {cell('round')} | {median([r['bytes'] for r in R])} | {s['raf_median']:.1f} / {s['raf_95']:.1f} / {s['raf_max']:.1f} |")
@@ -216,7 +221,7 @@ def report():
                "| shot | Full 1920x1080 | Half | Third | Quarter (Draft) | no pixels (D-886, the frame the page holds) | 1 / 2 / 3 / 4 whole frames asked at once: ms for all |",
                "|---|---|---|---|---|---|---|"]
         for name, s in run["shots"].items():
-            if "probe" not in s:
+            if not s.get("probe"):
                 continue
             P = s["probe"]
             t = lambda xs: f"{median([x['headers'] + x['body'] - x['ms'] for x in xs]):.1f} ({median([x['bytes'] for x in xs]) / 1e6:.2f} MB)"

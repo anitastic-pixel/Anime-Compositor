@@ -30,6 +30,31 @@ last byte in the page, less the window's own time):
 | P-28 shot | 40.9 (8.29 MB) | 11.0 (2.07 MB) | 4.7 (0.92 MB) | 3.2 (0.52 MB) | 1.2 (0.00 MB) | 42.3 / 72.8 / 100.7 / 137.8 |
 | reference shot | 39.6 (8.29 MB) | 10.8 (2.07 MB) | 4.8 (0.92 MB) | 2.9 (0.52 MB) | 1.0 (0.00 MB) | 41.9 / 63.7 / 87.0 / 110.7 |
 
+## After: the session log counts frames shown (b1a24bd3 plus the change; transport unchanged)
+
+Machine: AMD Ryzen 9 9900X 12-Core Processor | 12 cores 24 threads | 61.5 GB | Microsoft Windows 11 Education 10.0.26300. Build: `anime_compositor_app.exe` release, written 2026-11-21T23:32:31, checkout b1a24bd3, measured 2026-11-21T23:34:01.
+
+| shot | memory filled | frames held | three loops | frames asked for (page) | frames passed over (session log) | frames shown (session log) | page's rounds: median ms | slowest 5% ms |
+|---|---|---|---|---|---|---|---|---|
+| P-28 shot | 11.1 s | 120 (996 MB) | 15.03 s (360 frames played) | 274 | **88** | 273 | 50.2 | 66.9 |
+| reference shot | 5.44 s | 240 (1992 MB) | 30.02 s (720 frames played) | 621 | **99** | 621 | 48.6 | 50.0 |
+| P-28 shot, on the card | 6.36 s | 120 (996 MB) | 15.0 s (360 frames played) | 900 | **0** | 360 | not timed (the card paints the window itself) | |
+
+Where one round goes, median and slowest 5% in ms (a round is the time between two frames asked for):
+
+| shot | ask | window | bytes | put | rest | wait | round | bytes a frame | page timer: median / slowest 5% / longest gap ms |
+|---|---|---|---|---|---|---|---|---|---|
+| P-28 shot | 37.3 / 45.1 | 1.5 / 1.9 | 5.9 / 6.6 | 0.4 / 0.5 | 1.8 / 2.1 | 5.9 / 13.9 | 50.2 / 66.9 | 8294400 | 16.7 / 16.8 / 17.0 |
+| reference shot | 35.4 / 39.1 | 1.4 / 1.7 | 5.8 / 6.2 | 0.3 / 0.4 | 1.7 / 1.9 | 3.7 / 4.9 | 48.6 / 50.0 | 8294400 | 6.9 / 7.1 / 13.9 |
+
+The same transport timed alone, played and stopped, every frame from memory (median of six; ms from asking to the
+last byte in the page, less the window's own time):
+
+| shot | Full 1920x1080 | Half | Third | Quarter (Draft) | no pixels (D-886, the frame the page holds) | 1 / 2 / 3 / 4 whole frames asked at once: ms for all |
+|---|---|---|---|---|---|---|
+| P-28 shot | 39.6 (8.29 MB) | 11.0 (2.07 MB) | 4.6 (0.92 MB) | 2.9 (0.52 MB) | 1.2 (0.00 MB) | 42.3 / 65.3 / 86.4 / 110.9 |
+| reference shot | 40.1 (8.29 MB) | 11.0 (2.07 MB) | 4.6 (0.92 MB) | 3.2 (0.52 MB) | 1.2 (0.00 MB) | 153.5 / 128.2 / 111.2 / 131.3 |
+
 ask: the request's start to the answer's headers, less the window's own time; window: the window's own time (x-ms);
 bytes: the headers to the last byte in the page; put: putImageData onto the canvas; rest: the rest of the page's work
 on the answer; wait: from that to the next frame asked for (the page's timer). At 24 frames a second a round must

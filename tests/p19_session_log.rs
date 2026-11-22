@@ -376,6 +376,22 @@ fn p19_session_log() {
         ),
     );
 
+    // 11. D-1141: frames shown counts a row only when its frame differs from the row before, so a
+    // repaint of the frame already up (the card answers every tick) is not counted as a frame.
+    log.clear();
+    log.switch(true);
+    for f in [5, 5, 5, 6, 6, 7, 5] {
+        log.push(row(f));
+    }
+    log.switch(false);
+    let summary = log.summary();
+    assert_eq!((summary.frames, summary.shown), (7, 4));
+    check(
+        &mut s,
+        "Rows for frames 5, 5, 5, 6, 6, 7, 5 are 7 frames logged and 4 new frames shown.",
+        format!("{} logged, {} shown", summary.frames, summary.shown),
+    );
+
     fs::write(repo("verification/P-19_session_log_table.md"), s).expect("write the artifact");
 }
 

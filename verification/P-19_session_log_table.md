@@ -14,3 +14,4 @@ Written by `tests/p19_session_log.rs` under `cargo test --test p19_session_log`.
 | 8 | Clear empties the log. | 0 rows |
 | 9 | 5,003 rows pushed keep the newest 5,000 and count the 3 let go. | 5000 kept, 3 let go, oldest kept is row 3 |
 | 10 | On those rows, taking 3 ms to 5,002 ms, the median is 2,502 ms, the slowest 5% take 4,752 ms or more, and the slowest listed first is the 5,002 ms one. | 2502 / 4752 / 5002 |
+| 11 | Rows for frames 5, 5, 5, 6, 6, 7, 5 are 7 frames logged and 4 new frames shown. | 7 logged, 4 shown |

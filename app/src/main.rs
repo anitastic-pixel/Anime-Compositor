@@ -18959,6 +18959,7 @@ fn session_log_json(log: &SessionLog) -> String {
     serde_json::json!({
         "on": log.is_on(),
         "frames": s.frames,
+        "shown": s.shown,
         "let_go": s.let_go,
         "median_ms": s.median_ms,
         "slowest_5_percent_ms": s.slowest_5_percent_ms,
