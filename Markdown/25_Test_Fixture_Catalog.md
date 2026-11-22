@@ -47274,6 +47274,109 @@ Frame 0: every pixel is the drawing's, unchanged.
 Frame 4: every pixel is the drawing's, unchanged.
 
 
+## Chromatic Aberration edge fixtures
+
+D-1139, accepted on 2026-11-21 (P-28 bug 1). Every case is a project of one composition 16 by 10 at 24 fps, five frames long, in `Fixtures/chromatic_edge/`, drawn at frame 0, with one Chromatic Aberration (`core.chromatic_aberration`) about the middle. The drawings are `Fixtures/chromatic_edge/media/flat.png`, the whole frame #f6d6be, and `square.png`, a 6 by 6 opaque square whose pixel (x, y) is `(30 + 40x, 230 - 35y, 60 + 20x + 15y)` in 8 bits, placed with its top left at (5, 2). Values are linear premultiplied working values, and only the pixels that change are listed: every other pixel is the frame without the effect, exactly.
+
+**The edge rule.** D-120's rule unchanged, except that each of its two bilinear samples holds every tap's column between 0 and the input's width - 1 and its row between 0 and its height - 1, so a point past the edge of the effect's input reads the nearest edge pixel instead of transparent (After Effects' blurs call this Repeat Edge Pixels, D-109). The layer still does not grow. After Effects has no effect of this name (Chromatic Aberration is this program's own, D-120), so no After Effects edge behaviour was there to follow; this is D-1139's proposal.
+
+**Every number below is produced by `tools/chromatic_edge_reference.py`**, which works the rule in double precision at every pixel, holding each tap's index where `tools/radial_blur_reference.py` holds the point. The same numbers are in `Fixtures/chromatic_edge/expected_chromatic_edge.json`. Tolerance 2e-5. Checked by `tests/d1139_chromatic_edge.rs`, which also cuts the frame into tiles and compares the card with the processor.
+
+**Checked by what they claim.** The tool checks each case's claim on its numbers: the flat frame is unchanged, where the rule as first built leaves 128 of its 160 pixels with no blue (001); the square keeps its own green and full covering, a blue from its own colours at every pixel, and nothing is drawn outside it, where the rule as first built leaves 20 (002) and 32 (003) of its pixels with no blue; and holding the taps gives the same sample as holding the point inside the pixel centres.
+
+**Existing Chromatic Aberration cases.** FX-CHROMA-001 to 016 are not changed here. Under this rule twelve of their frames differ (001, 003, 004, 005 frames 2 and 4, 006 frames 0, 2 and 4, 007 frames 0 and 3, 010, 011), because the figure's white block touches the drawing's left edge, which FX-CHROMA-001 says turns yellow; rewriting them is the owner's decision.
+
+FX-CHROMAEDGE-001: A flat #f6d6be filling the frame, under an adjustment layer holding Chromatic Aberration amount 12 about the middle: every sample past the frame's edge reads the edge's own colour, so every pixel is unchanged and no band round the frame loses its blue.
+
+Frame 0: every pixel is unchanged.
+
+FX-CHROMAEDGE-002: A 6 by 6 opaque square of different colours in the middle of the frame, the effect on it at amount 3: blue sampled past the square's edge reads the nearest edge pixel, so the square keeps blue to its edge, keeps its full covering, and nothing is drawn outside it.
+
+Frame 0, the 36 pixels that change:
+
+| x | y | without the effect | with it |
+| --- | --- | --- | --- |
+| 5 | 2 | 0.01298303 0.7912979 0.0451862 1 | 0.1339385 0.7912979 0.0451862 1 |
+| 6 | 2 | 0.06124605 0.7912979 0.08021982 1 | 0.1649685 0.7912979 0.0451862 1 |
+| 7 | 2 | 0.1559265 0.7912979 0.1274377 1 | 0.2086274 0.7912979 0.1107436 1 |
+| 8 | 2 | 0.3049873 0.7912979 0.1878208 1 | 0.2522863 0.7912979 0.2141357 1 |
+| 9 | 2 | 0.5149177 0.7912979 0.2622507 1 | 0.2959453 0.7912979 0.3515326 1 |
+| 10 | 2 | 0.7912979 0.7912979 0.3515326 1 | 0.3537401 0.7912979 0.3515326 1 |
+| 5 | 3 | 0.01298303 0.5457245 0.0703601 1 | 0.1339385 0.5457245 0.0451862 1 |
+| 6 | 3 | 0.06124605 0.5457245 0.1144354 1 | 0.1649685 0.5457245 0.0451862 1 |
+| 7 | 3 | 0.1559265 0.5457245 0.1714411 1 | 0.2086274 0.5457245 0.1107436 1 |
+| 8 | 3 | 0.3049873 0.5457245 0.2422811 1 | 0.2522863 0.5457245 0.2141357 1 |
+| 9 | 3 | 0.5149177 0.5457245 0.3277781 1 | 0.2959453 0.5457245 0.3515326 1 |
+| 10 | 3 | 0.7912979 0.5457245 0.4286905 1 | 0.3537401 0.5457245 0.3515326 1 |
+| 5 | 4 | 0.01298303 0.3515326 0.1022417 1 | 0.1339385 0.3515326 0.09096987 1 |
+| 6 | 4 | 0.06124605 0.3515326 0.1559265 1 | 0.1649685 0.3515326 0.09096987 1 |
+| 7 | 4 | 0.1559265 0.3515326 0.223228 1 | 0.2086274 0.3515326 0.1824108 1 |
+| 8 | 4 | 0.3049873 0.3515326 0.3049873 1 | 0.2522863 0.3515326 0.3156719 1 |
+| 9 | 4 | 0.5149177 0.3515326 0.4019778 1 | 0.2959453 0.3515326 0.4844318 1 |
+| 10 | 4 | 0.7912979 0.3515326 0.5149177 1 | 0.3537401 0.3515326 0.4844318 1 |
+| 5 | 5 | 0.01298303 0.2050787 0.1412633 1 | 0.1339385 0.2050787 0.1577238 1 |
+| 6 | 5 | 0.06124605 0.2050787 0.2050787 1 | 0.1649685 0.2050787 0.1577238 1 |
+| 7 | 5 | 0.1559265 0.2050787 0.2831487 1 | 0.2086274 0.2050787 0.2783227 1 |
+| 8 | 5 | 0.3049873 0.2050787 0.3762621 1 | 0.2522863 0.2050787 0.4446319 1 |
+| 9 | 5 | 0.5149177 0.2050787 0.4851499 1 | 0.2959453 0.2050787 0.6476887 1 |
+| 10 | 5 | 0.7912979 0.2050787 0.6104956 1 | 0.3537401 0.2050787 0.6476887 1 |
+| 5 | 6 | 0.01298303 0.1022417 0.1878208 1 | 0.1339385 0.1022417 0.2422811 1 |
+| 6 | 6 | 0.06124605 0.1022417 0.2622507 1 | 0.1649685 0.1022417 0.2422811 1 |
+| 7 | 6 | 0.1559265 0.1022417 0.3515326 1 | 0.2086274 0.1022417 0.3930126 1 |
+| 8 | 6 | 0.3049873 0.1022417 0.456411 1 | 0.2522863 0.1022417 0.5930363 1 |
+| 9 | 6 | 0.5149177 0.1022417 0.5775804 1 | 0.2959453 0.1022417 0.8307699 1 |
+| 10 | 6 | 0.7912979 0.1022417 0.7156935 1 | 0.3537401 0.1022417 0.8307699 1 |
+| 5 | 7 | 0.01298303 0.03820437 0.2422811 1 | 0.1339385 0.03820437 0.2422811 1 |
+| 6 | 7 | 0.06124605 0.03820437 0.3277781 1 | 0.1649685 0.03820437 0.2422811 1 |
+| 7 | 7 | 0.1559265 0.03820437 0.4286905 1 | 0.2086274 0.03820437 0.3930126 1 |
+| 8 | 7 | 0.3049873 0.03820437 0.5457245 1 | 0.2522863 0.03820437 0.5930363 1 |
+| 9 | 7 | 0.5149177 0.03820437 0.6795425 1 | 0.2959453 0.03820437 0.8307699 1 |
+| 10 | 7 | 0.7912979 0.03820437 0.8307699 1 | 0.3537401 0.03820437 0.8307699 1 |
+
+FX-CHROMAEDGE-003: FX-CHROMAEDGE-002 at amount 12, past the square's half diagonal 4.24: the red picture is turned over through the centre and both samples fall mostly past the edge, each reading the nearest edge pixel.
+
+Frame 0, the 36 pixels that change:
+
+| x | y | without the effect | with it |
+| --- | --- | --- | --- |
+| 5 | 2 | 0.01298303 0.7912979 0.0451862 1 | 0.7912979 0.7912979 0.0451862 1 |
+| 6 | 2 | 0.06124605 0.7912979 0.08021982 1 | 0.7912979 0.7912979 0.0451862 1 |
+| 7 | 2 | 0.1559265 0.7912979 0.1274377 1 | 0.3919433 0.7912979 0.06570842 1 |
+| 8 | 2 | 0.3049873 0.7912979 0.1878208 1 | 0.1167086 0.7912979 0.2992324 1 |
+| 9 | 2 | 0.5149177 0.7912979 0.2622507 1 | 0.01298303 0.7912979 0.3515326 1 |
+| 10 | 2 | 0.7912979 0.7912979 0.3515326 1 | 0.01298303 0.7912979 0.3515326 1 |
+| 5 | 3 | 0.01298303 0.5457245 0.0703601 1 | 0.7912979 0.5457245 0.0451862 1 |
+| 6 | 3 | 0.06124605 0.5457245 0.1144354 1 | 0.7912979 0.5457245 0.0451862 1 |
+| 7 | 3 | 0.1559265 0.5457245 0.1714411 1 | 0.3919433 0.5457245 0.06570842 1 |
+| 8 | 3 | 0.3049873 0.5457245 0.2422811 1 | 0.1167086 0.5457245 0.2992324 1 |
+| 9 | 3 | 0.5149177 0.5457245 0.3277781 1 | 0.01298303 0.5457245 0.3515326 1 |
+| 10 | 3 | 0.7912979 0.5457245 0.4286905 1 | 0.01298303 0.5457245 0.3515326 1 |
+| 5 | 4 | 0.01298303 0.3515326 0.1022417 1 | 0.7912979 0.3515326 0.05993273 1 |
+| 6 | 4 | 0.06124605 0.3515326 0.1559265 1 | 0.7912979 0.3515326 0.05993273 1 |
+| 7 | 4 | 0.1559265 0.3515326 0.223228 1 | 0.3919433 0.3515326 0.08355755 1 |
+| 8 | 4 | 0.3049873 0.3515326 0.3049873 1 | 0.1167086 0.3515326 0.3404396 1 |
+| 9 | 4 | 0.5149177 0.3515326 0.4019778 1 | 0.01298303 0.3515326 0.3967306 1 |
+| 10 | 4 | 0.7912979 0.3515326 0.5149177 1 | 0.01298303 0.3515326 0.3967306 1 |
+| 5 | 5 | 0.01298303 0.2050787 0.1412633 1 | 0.7912979 0.2050787 0.210379 1 |
+| 6 | 5 | 0.06124605 0.2050787 0.2050787 1 | 0.7912979 0.2050787 0.210379 1 |
+| 7 | 5 | 0.1559265 0.2050787 0.2831487 1 | 0.3919433 0.2050787 0.2566643 1 |
+| 8 | 5 | 0.3049873 0.2050787 0.3762621 1 | 0.1167086 0.2050787 0.6792729 1 |
+| 9 | 5 | 0.5149177 0.2050787 0.4851499 1 | 0.01298303 0.2050787 0.7633597 1 |
+| 10 | 5 | 0.7912979 0.2050787 0.6104956 1 | 0.01298303 0.2050787 0.7633597 1 |
+| 5 | 6 | 0.01298303 0.1022417 0.1878208 1 | 0.7912979 0.1022417 0.2422811 1 |
+| 6 | 6 | 0.06124605 0.1022417 0.2622507 1 | 0.7912979 0.1022417 0.2422811 1 |
+| 7 | 6 | 0.1559265 0.1022417 0.3515326 1 | 0.3919433 0.1022417 0.2923641 1 |
+| 8 | 6 | 0.3049873 0.1022417 0.456411 1 | 0.1167086 0.1022417 0.7421829 1 |
+| 9 | 6 | 0.5149177 0.1022417 0.5775804 1 | 0.01298303 0.1022417 0.8307699 1 |
+| 10 | 6 | 0.7912979 0.1022417 0.7156935 1 | 0.01298303 0.1022417 0.8307699 1 |
+| 5 | 7 | 0.01298303 0.03820437 0.2422811 1 | 0.7912979 0.03820437 0.2422811 1 |
+| 6 | 7 | 0.06124605 0.03820437 0.3277781 1 | 0.7912979 0.03820437 0.2422811 1 |
+| 7 | 7 | 0.1559265 0.03820437 0.4286905 1 | 0.3919433 0.03820437 0.2923641 1 |
+| 8 | 7 | 0.3049873 0.03820437 0.5457245 1 | 0.1167086 0.03820437 0.7421829 1 |
+| 9 | 7 | 0.5149177 0.03820437 0.6795425 1 | 0.01298303 0.03820437 0.8307699 1 |
+| 10 | 7 | 0.7912979 0.03820437 0.8307699 1 | 0.01298303 0.03820437 0.8307699 1 |
+
+
 ## Distance Gradation fixtures
 
 D-123, accepted on 2026-09-26. Every case is a project of one composition 16 by 10 at 24 fps, five frames long, in `Fixtures/distance_gradation/`, holding one drawing the same size with one Distance Gradation (`core.distance_gradation`) on it, unmoved unless the case says. The drawing is `Fixtures/distance_gradation/media/block.png`: a block in rows 1 to 8, against the drawing's left edge, skin #f6d6be in columns 0 to 6 and shadow #dca08c in columns 7 to 9, with a hole, an empty pixel, at (4, 4); its soft right edge is the skin at half covering (128) down column 10, which counts as in, and at a quarter covering (64) down column 11, which counts as out but shows; and a red dot #c82828 alone at (14, 4). Rows 0 and 9 and the rest are empty. The furthest pixel from any out pixel is (7, 5), sqrt 10 from the hole. Values are linear premultiplied working values, and only the pixels that change are listed: every other pixel is the drawing's own, exactly.
